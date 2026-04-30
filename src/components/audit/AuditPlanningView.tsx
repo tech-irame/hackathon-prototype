@@ -388,16 +388,27 @@ function getRacmComputed(racm: RacmEntry): ComputedRacmState {
 
 const MOCK_RACMS = RACM_SEED_DATA;
 
-type RacmGovStatus = 'Draft' | 'Active' | 'Locked';
-function getGovStatus(racm: RacmEntry): RacmGovStatus {
-  if (racm.linkedToEngagement) return 'Locked';
-  if (racm.isValidated) return 'Active';
-  return 'Draft';
+type MappingStatus = 'Not Started' | 'In Progress' | 'Complete';
+function getMappingStatus(racm: RacmEntry): MappingStatus {
+  if (racm.mappedRisks === 0) return 'Not Started';
+  if (racm.mappedRisks < racm.risks) return 'In Progress';
+  return 'Complete';
 }
-const GOV_STATUS_STYLES: Record<RacmGovStatus, string> = {
-  Draft: 'bg-gray-100 text-gray-600',
-  Active: 'bg-emerald-50 text-emerald-700',
-  Locked: 'bg-purple-50 text-purple-700',
+const MAPPING_STYLES: Record<MappingStatus, string> = {
+  'Not Started': 'bg-gray-100 text-gray-500',
+  'In Progress': 'bg-amber-50 text-amber-600',
+  'Complete': 'bg-emerald-50 text-emerald-600',
+};
+type Readiness = 'Needs Mapping' | 'Needs Workflow Setup' | 'Ready';
+function getReadiness(racm: RacmEntry): Readiness {
+  if (racm.unmappedRisks > 0 || racm.mappedRisks < racm.risks) return 'Needs Mapping';
+  if (racm.workflowCoverage < 100) return 'Needs Workflow Setup';
+  return 'Ready';
+}
+const READINESS_STYLES: Record<Readiness, string> = {
+  'Needs Mapping': 'bg-amber-50 text-amber-700',
+  'Needs Workflow Setup': 'bg-amber-50/60 text-amber-600',
+  'Ready': 'bg-emerald-50 text-emerald-700',
 };
 
 const BP_DOT_COLORS: Record<string, string> = { P2P: '#6a12cd', O2C: '#0284c7', R2R: '#d97706', S2C: '#059669', ITGC: '#16a34a' };
@@ -758,34 +769,36 @@ function RacmDashboard({ engagements, onGoToExecution }: { engagements: { source
           <table className="w-full text-[12px]">
             <thead>
               <tr className="border-b border-border bg-surface-2/50">
-                {['RACM', 'Process', 'Framework', 'Risks', 'Controls', 'Key Controls', 'Unmapped', 'Status', ''].map(h => (
+                {['RACM', 'Process', 'Framework', 'Risks', 'Controls', 'Key Controls', 'Mapping Status', 'Readiness', ''].map(h => (
                   <th key={h || 'action'} className="px-3 py-2.5 text-left text-[10px] font-semibold text-text-muted uppercase tracking-wide whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {racmList.map((racm, i) => {
-                const status = getGovStatus(racm);
+                const mapping = getMappingStatus(racm);
+                const readiness = getReadiness(racm);
                 return (
                   <motion.tr key={racm.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }}
                     className="border-b border-border/50 hover:bg-gray-50/60 transition-colors">
                     <td className="px-3 py-3">
-                      <div className="text-[12px] font-medium text-text">{racm.name}</div>
+                      <div className="flex items-center gap-1.5">
+                        {racm.linkedToEngagement && <Lock size={10} className="text-gray-400 shrink-0" />}
+                        <span className="text-[12px] font-medium text-text">{racm.name}</span>
+                      </div>
                     </td>
                     <td className="px-3 py-3">
                       <span className="inline-flex items-center px-2 h-5 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-600 border border-gray-200/60">{racm.process}</span>
                     </td>
-                    <td className="px-3 py-3"><span className="text-[11px] text-text-secondary">{racm.framework}</span></td>
-                    <td className="px-3 py-3"><span className="text-[12px] font-semibold text-text tabular-nums">{racm.risks}</span></td>
-                    <td className="px-3 py-3"><span className="text-[12px] font-semibold text-text tabular-nums">{racm.controls}</span></td>
-                    <td className="px-3 py-3"><span className="text-[12px] font-medium text-gray-600 tabular-nums">{racm.keyControls}</span></td>
+                    <td className="px-3 py-3"><span className="text-[11px] text-gray-500">{racm.framework}</span></td>
+                    <td className="px-3 py-3"><span className="text-[12px] text-text tabular-nums">{racm.risks}</span></td>
+                    <td className="px-3 py-3"><span className="text-[12px] text-text tabular-nums">{racm.controls}</span></td>
+                    <td className="px-3 py-3"><span className="text-[12px] text-gray-500 tabular-nums">{racm.keyControls}</span></td>
                     <td className="px-3 py-3">
-                      {racm.unmappedRisks > 0
-                        ? <span className="text-[12px] font-bold text-red-600 tabular-nums">{racm.unmappedRisks}</span>
-                        : <span className="text-[11px] text-gray-400 font-medium">0</span>}
+                      <span className={`px-2 h-5 rounded-full text-[9px] font-semibold inline-flex items-center ${MAPPING_STYLES[mapping]}`}>{mapping}</span>
                     </td>
                     <td className="px-3 py-3">
-                      <span className={`px-2 h-5 rounded-full text-[9px] font-semibold inline-flex items-center ${GOV_STATUS_STYLES[status]}`}>{status}</span>
+                      <span className={`px-2 h-5 rounded-full text-[9px] font-semibold inline-flex items-center ${READINESS_STYLES[readiness]}`}>{readiness}</span>
                     </td>
                     <td className="px-3 py-3 text-right">
                       <button onClick={() => { setMappingRacm(racm); setShowMappingWorkspace(true); }}

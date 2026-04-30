@@ -2500,10 +2500,12 @@ function ConclusionStep({ ctrl, reviewApproved, onGoToStep }: { ctrl: ControlDet
 interface Props {
   controlId: string;
   onClose: () => void;
+  /** When provided, use this control data instead of looking up from static CONTROLS */
+  controlData?: ControlDetail;
 }
 
-export default function ControlDetailDrawer({ controlId, onClose }: Props) {
-  const ctrl = getControlById(controlId) || getControlById('ec-001')!;
+export default function ControlDetailDrawer({ controlId, onClose, controlData }: Props) {
+  const ctrl = controlData || getControlById(controlId) || getControlById('ec-001')!;
   const [activeStep, setActiveStep] = useState<TestingStep>('overview');
   const [reviewApproved, setReviewApproved] = useState(false);
   const [reviewSubmitted, setReviewSubmitted] = useState(false);

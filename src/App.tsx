@@ -110,6 +110,7 @@ export default function App() {
   const mainScrollRef = useRef<HTMLDivElement>(null);
   const [viewLoading, setViewLoading] = useState(false);
   const [controlDrawerId, setControlDrawerId] = useState<string | null>(null);
+  const [controlDrawerData, setControlDrawerData] = useState<any>(null);
   const [engagementBackView, setEngagementBackView] = useState<'programs' | 'audit-planning' | 'business-processes'>('programs');
   type CustomTemplate = typeof CUSTOM_TEMPLATES[number];
   const CUSTOM_TEMPLATES_KEY = 'irame.reports.customTemplates.v1';
@@ -377,7 +378,7 @@ export default function App() {
           <EngagementDetailView
             engagementId={state.selectedEngagementId ?? undefined}
             onBack={() => setView(engagementBackView)}
-            onOpenControl={(controlId) => setControlDrawerId(controlId)}
+            onOpenControl={(controlId, controlData) => { setControlDrawerId(controlId); setControlDrawerData(controlData || null); }}
           />
         );
 
@@ -638,7 +639,8 @@ export default function App() {
           {controlDrawerId && (
             <ControlDetailDrawer
               controlId={controlDrawerId}
-              onClose={() => setControlDrawerId(null)}
+              controlData={controlDrawerData}
+              onClose={() => { setControlDrawerId(null); setControlDrawerData(null); }}
             />
           )}
         </AnimatePresence>
