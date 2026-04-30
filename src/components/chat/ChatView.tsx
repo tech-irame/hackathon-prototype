@@ -1460,8 +1460,19 @@ export default function ChatView({ showChatHistory, toggleChatHistory, setShowAr
   // Picker → composer: source picks become labelled chips; fresh uploads
   // become a stub File so the existing `files` chip rendering picks them up.
   const handleDataPickerConfirm = (selections: AttachmentSelection[]) => {
-    const sources = selections.filter(s => s.kind === 'source');
-    const uploads = selections.filter(s => s.kind === 'upload');
+    // Exhaustive over AttachmentSelection.kind. 'connect-db' is a Knowledge Hub-
+    // only variant and unreachable here (chat opens the picker without `mode`,
+    // so the Connect tab isn't rendered) — narrowing it explicitly keeps the
+    // type contract honest if the picker is ever embedded differently.
+    const sources:  Extract<AttachmentSelection, { kind: 'source' }>[] = [];
+    const uploads:  Extract<AttachmentSelection, { kind: 'upload' }>[] = [];
+    for (const s of selections) {
+      switch (s.kind) {
+        case 'source':     sources.push(s);  break;
+        case 'upload':     uploads.push(s);  break;
+        case 'connect-db': /* not reachable in chat mode; intentionally ignored */ break;
+      }
+    }
     if (sources.length > 0) setAttachedSources(prev => [...prev, ...sources]);
     if (uploads.length > 0) {
       const stubFiles = uploads.map(u => new File([''], u.name, { type: 'application/octet-stream' }));

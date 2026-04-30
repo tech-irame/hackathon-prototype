@@ -1,10 +1,12 @@
 import { motion, AnimatePresence } from 'motion/react';
 import { AlertTriangle, Loader2 } from 'lucide-react';
 
-// Reusable platform confirmation modal. Mirrors the inline pattern used in
-// ControlDetailDrawer / DashboardListPage / Sidebar / FindingsView, but with
-// design-system tokens (paper-0 surface, ink-900/40 backdrop, risk vs brand
-// for destructive vs neutral confirms).
+// Reusable destructive/primary confirmation modal. Uses the design-system
+// tokens (paper-0 surface, ink-900/40 backdrop, risk vs brand). Currently
+// adopted by Knowledge Hub's source-card Remove/Disconnect flow only —
+// existing inline confirms in ControlDetailDrawer / DashboardListPage /
+// Sidebar / FindingsView are NOT migrated. Future PRs can move them over;
+// this component is the target.
 
 interface Props {
   open: boolean;

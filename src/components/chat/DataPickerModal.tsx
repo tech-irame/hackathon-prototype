@@ -131,7 +131,7 @@ export default function DataPickerModal({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
-            className="absolute inset-0 bg-ink-900/40 backdrop-blur-[4px]"
+            className="absolute inset-0 bg-text/30 backdrop-blur-[3px]"
             onClick={onClose}
           />
           <motion.div
@@ -139,7 +139,7 @@ export default function DataPickerModal({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 12, scale: 0.98 }}
             transition={{ duration: 0.18, ease: [0.2, 0, 0, 1] }}
-            className={`relative w-[820px] max-w-[94vw] max-h-[88vh] bg-paper-0 rounded-2xl shadow-xl border border-paper-200 flex flex-col overflow-hidden ${
+            className={`relative w-[820px] max-w-[94vw] max-h-[88vh] bg-white rounded-2xl shadow-2xl border border-border-light flex flex-col overflow-hidden ${
               mode === 'kh-add' ? 'h-[680px]' : 'h-[600px]'
             }`}
           >
@@ -155,7 +155,7 @@ export default function DataPickerModal({
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     disabled={tab === 'upload'}
-                    className="w-full pl-9 pr-3 h-9 rounded-md border border-paper-200 bg-paper-0 text-[13px] text-ink-900 placeholder:text-ink-400 focus:outline-none focus:border-brand-600 focus:ring-[3px] focus:ring-brand-600/20 disabled:bg-paper-100 disabled:text-ink-400 transition-colors"
+                    className="w-full pl-9 pr-3 h-9 rounded-md border border-border-light bg-white text-[13px] text-text placeholder:text-text-muted/60 focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 disabled:bg-paper-50 disabled:text-text-muted transition-colors"
                   />
                 </div>
               )}
@@ -215,6 +215,7 @@ export default function DataPickerModal({
                 <UploadPanel
                   pendingUploads={pendingUploads}
                   setPendingUploads={setPendingUploads}
+                  mode={mode}
                 />
               ) : (
                 <SourceList
@@ -388,12 +389,16 @@ type PendingUpload = { localId: string; name: string; sizeBytes: number; progres
 interface UploadPanelProps {
   pendingUploads: PendingUpload[];
   setPendingUploads: React.Dispatch<React.SetStateAction<PendingUpload[]>>;
+  // Knowledge Hub restricts to data-source types; chat composer accepts anything
+  // the user wants to attach to a message (preserving the original chat UX).
+  mode: 'chat' | 'kh-add';
 }
 
-const ALLOWED_EXTS = ['.pdf', '.csv', '.xlsx', '.doc', '.docx'];
-function isAllowed(name: string): boolean {
+const KH_ALLOWED_EXTS = ['.pdf', '.csv', '.xlsx', '.doc', '.docx'];
+function isAllowedForMode(name: string, mode: 'chat' | 'kh-add'): boolean {
+  if (mode === 'chat') return true;
   const lower = name.toLowerCase();
-  return ALLOWED_EXTS.some(ext => lower.endsWith(ext));
+  return KH_ALLOWED_EXTS.some(ext => lower.endsWith(ext));
 }
 
 // Walk a DataTransferItemList recursively. webkitGetAsEntry is supported in
@@ -406,7 +411,7 @@ type Entry = {
   createReader?: () => { readEntries: (cb: (entries: Entry[]) => void, err?: () => void) => void };
 };
 
-async function walkItems(items: DataTransferItemList): Promise<Array<{ file: File; path: string }>> {
+async function walkItems(items: DataTransferItemList, mode: 'chat' | 'kh-add'): Promise<Array<{ file: File; path: string }>> {
   const out: Array<{ file: File; path: string }> = [];
   const walks: Promise<void>[] = [];
   for (let i = 0; i < items.length; i++) {
@@ -414,22 +419,22 @@ async function walkItems(items: DataTransferItemList): Promise<Array<{ file: Fil
     // webkitGetAsEntry isn't on the standard typings.
     const entry = (item as DataTransferItem & { webkitGetAsEntry?: () => Entry | null }).webkitGetAsEntry?.();
     if (entry) {
-      walks.push(walkEntry(entry, '', out));
+      walks.push(walkEntry(entry, '', out, mode));
     } else {
       const f = item.getAsFile();
-      if (f && isAllowed(f.name)) out.push({ file: f, path: f.name });
+      if (f && isAllowedForMode(f.name, mode)) out.push({ file: f, path: f.name });
     }
   }
   await Promise.all(walks);
   return out;
 }
 
-function walkEntry(entry: Entry, prefix: string, out: Array<{ file: File; path: string }>): Promise<void> {
+function walkEntry(entry: Entry, prefix: string, out: Array<{ file: File; path: string }>, mode: 'chat' | 'kh-add'): Promise<void> {
   if (entry.isFile && entry.file) {
     return new Promise<void>(resolve => {
       entry.file!(
         f => {
-          if (isAllowed(f.name)) out.push({ file: f, path: prefix ? `${prefix}/${f.name}` : f.name });
+          if (isAllowedForMode(f.name, mode)) out.push({ file: f, path: prefix ? `${prefix}/${f.name}` : f.name });
           resolve();
         },
         () => resolve(),
@@ -444,7 +449,7 @@ function walkEntry(entry: Entry, prefix: string, out: Array<{ file: File; path: 
         reader.readEntries(
           async entries => {
             if (entries.length === 0) return resolve();
-            await Promise.all(entries.map(e => walkEntry(e, newPrefix, out)));
+            await Promise.all(entries.map(e => walkEntry(e, newPrefix, out, mode)));
             readBatch(); // readEntries returns batches; keep reading until empty
           },
           () => resolve(),
@@ -456,7 +461,7 @@ function walkEntry(entry: Entry, prefix: string, out: Array<{ file: File; path: 
   return Promise.resolve();
 }
 
-function UploadPanel({ pendingUploads, setPendingUploads }: UploadPanelProps) {
+function UploadPanel({ pendingUploads, setPendingUploads, mode }: UploadPanelProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -493,7 +498,7 @@ function UploadPanel({ pendingUploads, setPendingUploads }: UploadPanelProps) {
   const handleFileInput = (fileList: FileList | null) => {
     if (!fileList || fileList.length === 0) return;
     const batch = Array.from(fileList)
-      .filter(f => isAllowed(f.name))
+      .filter(f => isAllowedForMode(f.name, mode))
       .map(f => ({ file: f, path: f.name }));
     addFiles(batch);
   };
@@ -502,7 +507,7 @@ function UploadPanel({ pendingUploads, setPendingUploads }: UploadPanelProps) {
   const handleFolderInput = (fileList: FileList | null) => {
     if (!fileList || fileList.length === 0) return;
     const batch = Array.from(fileList)
-      .filter(f => isAllowed(f.name))
+      .filter(f => isAllowedForMode(f.name, mode))
       .map(f => {
         const rel = (f as File & { webkitRelativePath?: string }).webkitRelativePath;
         return { file: f, path: rel || f.name };
@@ -515,7 +520,7 @@ function UploadPanel({ pendingUploads, setPendingUploads }: UploadPanelProps) {
     e.preventDefault();
     setIsDragging(false);
     if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
-      const batch = await walkItems(e.dataTransfer.items);
+      const batch = await walkItems(e.dataTransfer.items, mode);
       addFiles(batch);
     } else if (e.dataTransfer.files) {
       handleFileInput(e.dataTransfer.files);
@@ -544,7 +549,7 @@ function UploadPanel({ pendingUploads, setPendingUploads }: UploadPanelProps) {
           ref={fileInputRef}
           type="file"
           multiple
-          accept=".pdf,.csv,.xlsx,.doc,.docx"
+          {...(mode === 'kh-add' ? { accept: '.pdf,.csv,.xlsx,.doc,.docx' } : {})}
           className="hidden"
           onChange={(e) => { handleFileInput(e.target.files); e.target.value = ''; }}
         />
@@ -572,7 +577,9 @@ function UploadPanel({ pendingUploads, setPendingUploads }: UploadPanelProps) {
             Choose folder
           </button>
         </div>
-        <p className="text-[11px] text-ink-400 mt-3">PDF · CSV · XLSX · DOC</p>
+        {mode === 'kh-add' && (
+          <p className="text-[11px] text-ink-400 mt-3">PDF · CSV · XLSX · DOC</p>
+        )}
       </div>
 
       {/* Pending uploads list — progress bar per file, "Ready" pill when done */}

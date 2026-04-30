@@ -23,6 +23,12 @@ import { DATASET_FILES, type FileFormat } from './datasetFiles';
 // Mutable copy — supports inline rename without forcing a parent-level state lift.
 let SOURCES_STATE: DataSource[] | null = null;
 
+// First-render seed for the Knowledge Hub grid. Set to `[]` so the empty-state
+// welcome is visible on a fresh load. Flip to `SEED` (imported from ./sources)
+// to restore the 24 demo sources for screenshots / sales demos. Single-line
+// toggle on purpose — no env var, no flag, just edit this one constant.
+const INITIAL_SOURCES: DataSource[] = [];
+
 // ─── Upload helpers ──────────────────────────────────────────────────────────
 
 const KB = 1024;
@@ -297,11 +303,9 @@ export default function DataSourcesView() {
   // When the menu's Rename is clicked, we set this so the detail view enters
   // rename mode immediately on mount. Cleared after the detail view consumes it.
   const [pendingRename, setPendingRename] = useState(false);
-  // Local sources state — starts empty on local so the empty state is visible.
-  // SOURCES_STATE still wins if the user has already added/removed sources in
-  // this session; SEED is no longer loaded by default. To restore demo data,
-  // change `?? []` back to `?? SEED`.
-  const [sources, setSources] = useState<DataSource[]>(() => SOURCES_STATE ?? []);
+  // Local sources state. SOURCES_STATE wins across remounts within a session;
+  // first-time load uses INITIAL_SOURCES (the toggle near the top of the file).
+  const [sources, setSources] = useState<DataSource[]>(() => SOURCES_STATE ?? INITIAL_SOURCES);
   // Single unified picker — same multi-tab UX as the chat composer's Add data.
   const [pickerOpen, setPickerOpen] = useState(false);
 
