@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  X, Search, Layers, FileText, Database, Upload, Check, Mail, Plus, Loader2,
+  X, Search, Layers, FileText, Database, Upload, Check, Mail, Plus, Loader2, Folder,
 } from 'lucide-react';
 import { useToast } from '../shared/Toast';
 import {
@@ -10,52 +10,80 @@ import {
 } from '../data-sources/sources';
 
 // ─── Selected attachment shape ───────────────────────────────────────────────
-// Two flavours of selection that the chat composer can show as chips:
-//  - source: a registered data source (file / DB / API / cloud / session)
-//  - upload: a fresh file the user just dropped in via the Upload tab
+// Three flavours of selection:
+//  - source:     a registered data source (file / DB / API / cloud / session)
+//  - upload:     a fresh file the user just dropped in via the Upload tab.
+//                `path` is the file's relative path (e.g. "Reports/Q1/sales.csv")
+//                when it came from a folder; absent for loose files.
+//  - connect-db: a fresh database connection from the kh-add Connect tab
 export type AttachmentSelection =
   | { kind: 'source'; sourceId: string; name: string; subtype: string; type: DataSource['type'] }
-  | { kind: 'upload'; localId: string; name: string; sizeBytes: number };
+  | { kind: 'upload'; localId: string; name: string; sizeBytes: number; path?: string }
+  | { kind: 'connect-db'; dbType: string; name: string; database: string; host: string };
 
 interface Props {
   open: boolean;
   onClose: () => void;
   onConfirm: (selections: AttachmentSelection[]) => void;
+  // Optional overrides — let callers reuse the picker outside chat with a
+  // different starting tab and verb. Defaults preserve the chat-attach UX.
+  defaultTab?: TabId;
+  title?: string;
+  confirmLabel?: string;
+  // 'chat'    — 4 tabs (Upload · All Data · Files · DB), with search.
+  // 'kh-add'  — 2 tabs (Upload · Connect database), no search; the Connect
+  //             tab renders the engine picker + credentials form.
+  mode?: 'chat' | 'kh-add';
 }
 
-type TabId = 'all' | 'file' | 'integrated' | 'upload';
+type TabId = 'all' | 'file' | 'integrated' | 'upload' | 'connect';
 
-const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
+const CHAT_TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: 'upload',     label: 'Upload',   icon: Upload },
   { id: 'all',        label: 'All Data', icon: Layers },
   { id: 'file',       label: 'Files',    icon: FileText },
   { id: 'integrated', label: 'DB',       icon: Database },
 ];
 
-export default function DataPickerModal({ open, onClose, onConfirm }: Props) {
+const KH_ADD_TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
+  { id: 'upload',  label: 'Upload',            icon: Upload },
+  { id: 'connect', label: 'Connect database',  icon: Database },
+];
+
+export default function DataPickerModal({
+  open,
+  onClose,
+  onConfirm,
+  defaultTab = 'upload',
+  title = 'Add data',
+  confirmLabel = 'Attach',
+  mode = 'chat',
+}: Props) {
   const { addToast } = useToast();
-  const [tab, setTab] = useState<TabId>('upload');
+  const TABS = mode === 'kh-add' ? KH_ADD_TABS : CHAT_TABS;
+  const [tab, setTab] = useState<TabId>(defaultTab);
   const [search, setSearch] = useState('');
   // Multi-select state — keyed by source id (for source rows) or local upload id.
   const [selectedSourceIds, setSelectedSourceIds] = useState<Set<string>>(new Set());
-  const [pendingUploads, setPendingUploads] = useState<Array<{ localId: string; name: string; sizeBytes: number; progress: number }>>([]);
+  const [pendingUploads, setPendingUploads] = useState<Array<{ localId: string; name: string; sizeBytes: number; progress: number; path?: string }>>([]);
 
-  // Reset transient state when the modal opens fresh — Upload tab is the
-  // primary action, so it's the default landing.
+  // Reset transient state when the modal opens fresh. The starting tab is
+  // caller-controlled (defaults to Upload, which is the chat default).
   useEffect(() => {
     if (open) {
-      setTab('upload');
+      setTab(defaultTab);
       setSearch('');
       setSelectedSourceIds(new Set());
       setPendingUploads([]);
     }
-  }, [open]);
+  }, [open, defaultTab]);
 
   const tabCounts = useMemo<Record<TabId, number>>(() => ({
     all:        SEED.length,
     file:       SEED.filter(d => d.type === 'file').length,
     integrated: SEED.filter(d => INTEGRATED_TYPES.includes(d.type)).length,
     upload:     pendingUploads.length,
+    connect:    0, // no count — connect tab is an action, not a list
   }), [pendingUploads.length]);
 
   const visibleSources = useMemo(() => {
@@ -89,7 +117,7 @@ export default function DataPickerModal({ open, onClose, onConfirm }: Props) {
       .filter(s => selectedSourceIds.has(s.id))
       .map(s => ({ kind: 'source' as const, sourceId: s.id, name: s.name, subtype: s.subtype, type: s.type }));
     const uploadSelections: AttachmentSelection[] = readyUploads
-      .map(u => ({ kind: 'upload' as const, localId: u.localId, name: u.name, sizeBytes: u.sizeBytes }));
+      .map(u => ({ kind: 'upload' as const, localId: u.localId, name: u.name, sizeBytes: u.sizeBytes, path: u.path }));
     onConfirm([...sourceSelections, ...uploadSelections]);
   };
 
@@ -103,7 +131,7 @@ export default function DataPickerModal({ open, onClose, onConfirm }: Props) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
-            className="absolute inset-0 bg-text/30 backdrop-blur-[3px]"
+            className="absolute inset-0 bg-ink-900/40 backdrop-blur-[4px]"
             onClick={onClose}
           />
           <motion.div
@@ -111,26 +139,30 @@ export default function DataPickerModal({ open, onClose, onConfirm }: Props) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 12, scale: 0.98 }}
             transition={{ duration: 0.18, ease: [0.2, 0, 0, 1] }}
-            className="relative w-[820px] max-w-[94vw] h-[600px] max-h-[88vh] bg-white rounded-2xl shadow-2xl border border-border-light flex flex-col overflow-hidden"
+            className={`relative w-[820px] max-w-[94vw] max-h-[88vh] bg-paper-0 rounded-2xl shadow-xl border border-paper-200 flex flex-col overflow-hidden ${
+              mode === 'kh-add' ? 'h-[680px]' : 'h-[600px]'
+            }`}
           >
-            {/* Header — title + search + close, mimics Google Drive's "Open a file" pattern */}
-            <div className="flex items-center gap-3 px-5 py-3 border-b border-border-light">
-              <h2 id="dpicker-title" className="text-[15px] font-semibold text-text shrink-0">Add data</h2>
-              <div className="relative flex-1 max-w-md ml-2">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted/60" />
-                <input
-                  type="text"
-                  placeholder={tab === 'upload' ? 'Drop files below to upload…' : 'Search sources…'}
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  disabled={tab === 'upload'}
-                  className="w-full pl-9 pr-3 h-9 rounded-md border border-border-light bg-white text-[13px] text-text placeholder:text-text-muted/60 focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 disabled:bg-paper-50 disabled:text-text-muted transition-colors"
-                />
-              </div>
+            {/* Header — title + (search) + close. Search is suppressed in kh-add mode. */}
+            <div className="flex items-center gap-3 px-5 py-3 border-b border-paper-200">
+              <h2 id="dpicker-title" className="text-[15px] font-semibold text-ink-800 shrink-0">{title}</h2>
+              {mode === 'chat' && (
+                <div className="relative flex-1 max-w-md ml-2">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400" />
+                  <input
+                    type="text"
+                    placeholder={tab === 'upload' ? 'Drop files below to upload…' : 'Search sources…'}
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    disabled={tab === 'upload'}
+                    className="w-full pl-9 pr-3 h-9 rounded-md border border-paper-200 bg-paper-0 text-[13px] text-ink-900 placeholder:text-ink-400 focus:outline-none focus:border-brand-600 focus:ring-[3px] focus:ring-brand-600/20 disabled:bg-paper-100 disabled:text-ink-400 transition-colors"
+                  />
+                </div>
+              )}
               <div className="ml-auto flex items-center gap-1">
                 <button
                   onClick={onClose}
-                  className="p-1.5 text-text-muted hover:text-text rounded-md hover:bg-surface-2 transition-colors cursor-pointer"
+                  className="p-1.5 text-ink-500 hover:text-ink-800 rounded-md hover:bg-paper-50 transition-colors cursor-pointer"
                   aria-label="Close picker"
                 >
                   <X size={16} />
@@ -139,7 +171,7 @@ export default function DataPickerModal({ open, onClose, onConfirm }: Props) {
             </div>
 
             {/* Tabs row */}
-            <div className="flex items-center gap-0 px-5 border-b border-border-light">
+            <div className="flex items-center gap-0 px-5 border-b border-paper-200">
               {TABS.map(t => {
                 const Icon = t.icon;
                 const isActive = tab === t.id;
@@ -153,7 +185,7 @@ export default function DataPickerModal({ open, onClose, onConfirm }: Props) {
                   >
                     <Icon size={13} />
                     {t.label}
-                    {t.id !== 'upload' && (
+                    {t.id !== 'upload' && t.id !== 'connect' && (
                       <span className={`tabular-nums text-[11px] ${isActive ? 'text-primary' : 'text-text-muted/60'}`}>
                         {tabCounts[t.id]}
                       </span>
@@ -170,7 +202,14 @@ export default function DataPickerModal({ open, onClose, onConfirm }: Props) {
               })}
             </div>
 
-            {/* Body — tab-aware */}
+            {/* Body — tab-aware. The Connect tab renders its own panel + footer. */}
+            {tab === 'connect' ? (
+              <ConnectDbPanel
+                onCancel={onClose}
+                onConnect={(sel) => onConfirm([sel])}
+              />
+            ) : (
+            <>
             <div className="flex-1 overflow-y-auto">
               {tab === 'upload' ? (
                 <UploadPanel
@@ -218,10 +257,12 @@ export default function DataPickerModal({ open, onClose, onConfirm }: Props) {
                   className="flex items-center gap-1.5 px-4 h-9 rounded-md bg-primary hover:bg-primary-hover active:bg-primary-hover disabled:bg-surface-2 disabled:text-text-muted disabled:cursor-not-allowed text-white text-[12.5px] font-semibold transition-colors cursor-pointer"
                 >
                   <Check size={13} />
-                  {totalSelected > 0 ? `Attach ${totalSelected}` : 'Attach'}
+                  {totalSelected > 0 ? `${confirmLabel} ${totalSelected}` : confirmLabel}
                 </button>
               </div>
             </div>
+            </>
+            )}
           </motion.div>
         </div>
       )}
@@ -342,42 +383,143 @@ function SourceRow({ source, selected, onToggle }: { source: DataSource; selecte
 
 // ─── Upload panel — drag/drop + native file picker ──────────────────────────
 
+type PendingUpload = { localId: string; name: string; sizeBytes: number; progress: number; path?: string };
+
 interface UploadPanelProps {
-  pendingUploads: Array<{ localId: string; name: string; sizeBytes: number; progress: number }>;
-  setPendingUploads: React.Dispatch<React.SetStateAction<Array<{ localId: string; name: string; sizeBytes: number; progress: number }>>>;
+  pendingUploads: PendingUpload[];
+  setPendingUploads: React.Dispatch<React.SetStateAction<PendingUpload[]>>;
+}
+
+const ALLOWED_EXTS = ['.pdf', '.csv', '.xlsx', '.doc', '.docx'];
+function isAllowed(name: string): boolean {
+  const lower = name.toLowerCase();
+  return ALLOWED_EXTS.some(ext => lower.endsWith(ext));
+}
+
+// Walk a DataTransferItemList recursively. webkitGetAsEntry is supported in
+// Chrome/Edge/Safari/Firefox; the entry API gives us folder traversal.
+type Entry = {
+  isFile: boolean;
+  isDirectory: boolean;
+  name: string;
+  file?: (cb: (f: File) => void, err?: () => void) => void;
+  createReader?: () => { readEntries: (cb: (entries: Entry[]) => void, err?: () => void) => void };
+};
+
+async function walkItems(items: DataTransferItemList): Promise<Array<{ file: File; path: string }>> {
+  const out: Array<{ file: File; path: string }> = [];
+  const walks: Promise<void>[] = [];
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    // webkitGetAsEntry isn't on the standard typings.
+    const entry = (item as DataTransferItem & { webkitGetAsEntry?: () => Entry | null }).webkitGetAsEntry?.();
+    if (entry) {
+      walks.push(walkEntry(entry, '', out));
+    } else {
+      const f = item.getAsFile();
+      if (f && isAllowed(f.name)) out.push({ file: f, path: f.name });
+    }
+  }
+  await Promise.all(walks);
+  return out;
+}
+
+function walkEntry(entry: Entry, prefix: string, out: Array<{ file: File; path: string }>): Promise<void> {
+  if (entry.isFile && entry.file) {
+    return new Promise<void>(resolve => {
+      entry.file!(
+        f => {
+          if (isAllowed(f.name)) out.push({ file: f, path: prefix ? `${prefix}/${f.name}` : f.name });
+          resolve();
+        },
+        () => resolve(),
+      );
+    });
+  }
+  if (entry.isDirectory && entry.createReader) {
+    const reader = entry.createReader();
+    const newPrefix = prefix ? `${prefix}/${entry.name}` : entry.name;
+    return new Promise<void>(resolve => {
+      const readBatch = () => {
+        reader.readEntries(
+          async entries => {
+            if (entries.length === 0) return resolve();
+            await Promise.all(entries.map(e => walkEntry(e, newPrefix, out)));
+            readBatch(); // readEntries returns batches; keep reading until empty
+          },
+          () => resolve(),
+        );
+      };
+      readBatch();
+    });
+  }
+  return Promise.resolve();
 }
 
 function UploadPanel({ pendingUploads, setPendingUploads }: UploadPanelProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
 
-  const handleFiles = (fileList: FileList | null) => {
-    if (!fileList || fileList.length === 0) return;
-    const incoming = Array.from(fileList).map((f, i) => ({
-      localId: `up-${Date.now()}-${i}`,
-      name: f.name,
-      sizeBytes: f.size,
+  // Add a batch of {file, path} to pending list and start progress simulators.
+  const addFiles = (batch: Array<{ file: File; path: string }>) => {
+    if (batch.length === 0) return;
+    const ts = Date.now();
+    const incoming: PendingUpload[] = batch.map((b, i) => ({
+      localId: `up-${ts}-${i}-${Math.random().toString(36).slice(2, 6)}`,
+      name: b.file.name,
+      sizeBytes: b.file.size,
       progress: 0,
+      path: b.path !== b.file.name ? b.path : undefined,
     }));
-    setPendingUploads(prev => [...incoming, ...prev]);
 
-    // Drive progress per file independently. Mirrors the loader pattern from
-    // DataSourceDetailView so the chat-side upload feels the same.
+    setPendingUploads(prev => [...incoming, ...prev]);
     incoming.forEach(uf => {
-      const tickMs = 100;
-      const step = 5 + Math.round(Math.random() * 7); // 5–12% per tick → ~1.5s total
+      const step = 5 + Math.round(Math.random() * 7); // ~1.5s total
       const t = setInterval(() => {
         setPendingUploads(prev => {
           const next = prev.map(p => p.localId === uf.localId
             ? { ...p, progress: Math.min(100, p.progress + step) }
-            : p
-          );
+            : p);
           const updated = next.find(p => p.localId === uf.localId);
           if (updated && updated.progress >= 100) clearInterval(t);
           return next;
         });
-      }, tickMs);
+      }, 100);
     });
+  };
+
+  // File-input handler — flat list of files, no folder structure.
+  const handleFileInput = (fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0) return;
+    const batch = Array.from(fileList)
+      .filter(f => isAllowed(f.name))
+      .map(f => ({ file: f, path: f.name }));
+    addFiles(batch);
+  };
+
+  // Folder-input handler — files have webkitRelativePath set to "Folder/sub/file.ext".
+  const handleFolderInput = (fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0) return;
+    const batch = Array.from(fileList)
+      .filter(f => isAllowed(f.name))
+      .map(f => {
+        const rel = (f as File & { webkitRelativePath?: string }).webkitRelativePath;
+        return { file: f, path: rel || f.name };
+      });
+    addFiles(batch);
+  };
+
+  // Drop handler — uses entry walker so dropped folders work.
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      const batch = await walkItems(e.dataTransfer.items);
+      addFiles(batch);
+    } else if (e.dataTransfer.files) {
+      handleFileInput(e.dataTransfer.files);
+    }
   };
 
   const removeUpload = (id: string) => {
@@ -390,33 +532,47 @@ function UploadPanel({ pendingUploads, setPendingUploads }: UploadPanelProps) {
       <div
         onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
         onDragLeave={() => setIsDragging(false)}
-        onDrop={(e) => {
-          e.preventDefault();
-          setIsDragging(false);
-          handleFiles(e.dataTransfer.files);
-        }}
+        onDrop={handleDrop}
         className={`rounded-xl border-2 border-dashed text-center px-6 py-12 transition-colors ${
           isDragging ? 'border-primary bg-primary-xlight' : 'border-border-light bg-surface-2/60'
         }`}
       >
         <Upload size={28} className={`mx-auto mb-3 ${isDragging ? 'text-primary' : 'text-text-muted/60'}`} />
-        <p className="text-[14px] text-text-secondary font-medium">Drop files here</p>
+        <p className="text-[14px] text-text-secondary font-medium">Drop files or a folder here</p>
         <p className="text-[12px] text-text-muted mt-1">or pick from your computer</p>
         <input
           ref={fileInputRef}
           type="file"
           multiple
+          accept=".pdf,.csv,.xlsx,.doc,.docx"
           className="hidden"
-          onChange={(e) => { handleFiles(e.target.files); e.target.value = ''; }}
+          onChange={(e) => { handleFileInput(e.target.files); e.target.value = ''; }}
         />
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          className="inline-flex items-center gap-2 mt-4 px-3 h-9 rounded-md bg-primary hover:bg-primary-hover active:bg-primary-hover text-white text-[12.5px] font-semibold transition-colors cursor-pointer"
-        >
-          <Upload size={13} />
-          Choose files
-        </button>
-        <p className="text-[11px] text-text-muted/60 mt-3">CSV · Excel · PDF · ≤ 50 MB each</p>
+        <input
+          ref={folderInputRef}
+          type="file"
+          multiple
+          {...({ webkitdirectory: '', directory: '' } as Record<string, string>)}
+          className="hidden"
+          onChange={(e) => { handleFolderInput(e.target.files); e.target.value = ''; }}
+        />
+        <div className="inline-flex items-center gap-2 mt-4">
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="inline-flex items-center gap-2 px-3 h-9 rounded-md bg-primary hover:bg-primary-hover active:bg-primary-hover text-white text-[12.5px] font-semibold transition-colors cursor-pointer"
+          >
+            <Upload size={13} />
+            Choose files
+          </button>
+          <button
+            onClick={() => folderInputRef.current?.click()}
+            className="inline-flex items-center gap-2 px-3 h-9 rounded-md border border-paper-200 bg-paper-0 text-ink-800 hover:border-paper-300 hover:bg-paper-50 text-[12.5px] font-semibold transition-colors cursor-pointer"
+          >
+            <Folder size={13} />
+            Choose folder
+          </button>
+        </div>
+        <p className="text-[11px] text-ink-400 mt-3">PDF · CSV · XLSX · DOC</p>
       </div>
 
       {/* Pending uploads list — progress bar per file, "Ready" pill when done */}
@@ -438,10 +594,21 @@ function UploadPanel({ pendingUploads, setPendingUploads }: UploadPanelProps) {
               const isDone = u.progress >= 100;
               return (
                 <li key={u.localId} className="flex items-center gap-3 px-4 py-3">
-                  <FileText size={14} className={`shrink-0 ${isDone ? 'text-primary' : 'text-text-muted/60'}`} />
+                  {u.path ? (
+                    <Folder size={14} className={`shrink-0 ${isDone ? 'text-primary' : 'text-text-muted/60'}`} />
+                  ) : (
+                    <FileText size={14} className={`shrink-0 ${isDone ? 'text-primary' : 'text-text-muted/60'}`} />
+                  )}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <div className="text-[13px] text-text truncate flex-1 min-w-0">{u.name}</div>
+                      <div className="text-[13px] text-text truncate flex-1 min-w-0">
+                        {u.name}
+                        {u.path && (
+                          <span className="ml-1.5 text-[11px] text-ink-400 font-normal" title={u.path}>
+                            · {u.path.replace(`/${u.name}`, '') || u.path}
+                          </span>
+                        )}
+                      </div>
                       {isDone ? (
                         <span className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10.5px] font-semibold text-compliant bg-compliant-50">
                           <Check size={10} />
@@ -493,3 +660,198 @@ function formatBytesShort(bytes: number): string {
   if (bytes < MB) return `${(bytes / KB).toFixed(1)} KB`;
   return `${(bytes / MB).toFixed(1)} MB`;
 }
+
+// ─── Connect DB panel ────────────────────────────────────────────────────────
+// Engine grid + credentials form on a single page. Renders inside the picker's
+// body slot when tab === 'connect'. Owns its own footer (Cancel / Connect) so
+// the chat picker's selection footer doesn't apply here.
+
+type DbType = { id: string; label: string; defaultPort: string };
+
+const DB_TYPES: DbType[] = [
+  { id: 'postgres',  label: 'PostgreSQL', defaultPort: '5432' },
+  { id: 'mysql',     label: 'MySQL',      defaultPort: '3306' },
+  { id: 'snowflake', label: 'Snowflake',  defaultPort: '443'  },
+  { id: 'oracle',    label: 'Oracle',     defaultPort: '1521' },
+  { id: 'mssql',     label: 'SQL Server', defaultPort: '1433' },
+  { id: 'bigquery',  label: 'BigQuery',   defaultPort: '443'  },
+];
+
+interface ConnectDbPanelProps {
+  onCancel: () => void;
+  onConnect: (sel: Extract<AttachmentSelection, { kind: 'connect-db' }>) => void;
+}
+
+function ConnectDbPanel({ onCancel, onConnect }: ConnectDbPanelProps) {
+  const [dbType, setDbType] = useState<DbType | null>(null);
+  const [name, setName]         = useState('');
+  const [host, setHost]         = useState('');
+  const [port, setPort]         = useState('');
+  const [database, setDatabase] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'ok' | 'fail'>('idle');
+  const [connecting, setConnecting] = useState(false);
+
+  const requiredFilled = !!dbType && name.trim() && host.trim() && database.trim() && username.trim() && password.trim();
+  const canConnect = !!requiredFilled && testStatus === 'ok' && !connecting;
+
+  const pickType = (t: DbType) => {
+    if (dbType?.id === t.id) return;
+    setDbType(t);
+    setPort(t.defaultPort);
+    setName(prev => prev.trim() || `${t.label} connection`);
+    setTestStatus('idle');
+  };
+
+  const armTest = () => { if (testStatus !== 'idle') setTestStatus('idle'); };
+
+  const runTest = () => {
+    if (!requiredFilled) return;
+    setTestStatus('testing');
+    setTimeout(() => setTestStatus('ok'), 1200);
+  };
+
+  const submit = () => {
+    if (!dbType || !canConnect) return;
+    setConnecting(true);
+    setTimeout(() => {
+      onConnect({
+        kind: 'connect-db',
+        dbType: dbType.label,
+        name: name.trim(),
+        database: database.trim(),
+        host: host.trim(),
+      });
+      setConnecting(false);
+    }, 600);
+  };
+
+  return (
+    <div className="flex-1 flex flex-col min-h-0">
+      <div className="flex-1 px-6 py-4 space-y-4">
+        {/* Engine grid — selected uses brand-50 bg + brand-600 border per DESIGN.md selected state. */}
+        <section>
+          <div className="text-[11px] font-medium uppercase tracking-[0.06em] text-ink-500 mb-2">Engine</div>
+          <div className="grid grid-cols-3 gap-2">
+            {DB_TYPES.map(t => {
+              const selected = dbType?.id === t.id;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => pickType(t)}
+                  aria-pressed={selected}
+                  className={`flex items-center gap-2.5 px-3 h-10 rounded-lg border text-left transition-colors cursor-pointer ${
+                    selected
+                      ? 'border-brand-600 bg-brand-50'
+                      : 'border-paper-200 bg-paper-0 hover:border-paper-300 hover:bg-paper-50'
+                  }`}
+                >
+                  <div className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 ${
+                    selected ? 'bg-brand-600 text-white' : 'bg-evidence-50 text-evidence-700'
+                  }`}>
+                    <Database size={12} />
+                  </div>
+                  <div className={`text-[12.5px] font-semibold truncate ${selected ? 'text-brand-700' : 'text-ink-800'}`}>
+                    {t.label}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* Credentials — always editable; the test/connect buttons gate on engine pick. */}
+        <section className="grid grid-cols-2 gap-x-3 gap-y-3">
+          <Field label="Connection name" required full>
+            <input value={name} onChange={(e) => { setName(e.target.value); armTest(); }} placeholder="Prod analytics" className={inputCls} />
+          </Field>
+          <Field label="Host" required>
+            <input value={host} onChange={(e) => { setHost(e.target.value); armTest(); }} placeholder="db.example.com" className={inputCls} />
+          </Field>
+          <Field label="Port">
+            <input value={port} onChange={(e) => { setPort(e.target.value); armTest(); }} placeholder={dbType?.defaultPort ?? '—'} className={`${inputCls} tabular-nums`} />
+          </Field>
+          <Field label="Database" required full>
+            <input value={database} onChange={(e) => { setDatabase(e.target.value); armTest(); }} placeholder="analytics_prod" className={inputCls} />
+          </Field>
+          <Field label="Username" required>
+            <input value={username} onChange={(e) => { setUsername(e.target.value); armTest(); }} placeholder="ira_reader" autoComplete="off" className={inputCls} />
+          </Field>
+          <Field label="Password" required>
+            <input type="password" value={password} onChange={(e) => { setPassword(e.target.value); armTest(); }} placeholder="••••••••" autoComplete="new-password" className={inputCls} />
+          </Field>
+        </section>
+
+        {/* Test row — secondary button + flat status pill (DESIGN.md §6 Pill: no border, no icon). */}
+        <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={runTest}
+              disabled={!requiredFilled || testStatus === 'testing'}
+              className="inline-flex items-center gap-1.5 px-3 h-9 rounded-md border border-paper-200 bg-paper-0 text-[12.5px] font-semibold text-ink-800 hover:border-paper-300 hover:bg-paper-50 disabled:bg-paper-100 disabled:text-ink-400 disabled:border-paper-200 disabled:cursor-not-allowed transition-colors cursor-pointer"
+            >
+              {testStatus === 'testing' && <Loader2 size={12} className="animate-spin" />}
+              {testStatus === 'testing' ? 'Testing…' : 'Test connection'}
+            </button>
+            {testStatus === 'ok' && (
+              <span className="inline-flex items-center h-6 px-2 rounded-full text-[11.5px] font-semibold bg-compliant-50 text-compliant-700">
+                Connection successful
+              </span>
+            )}
+            {testStatus === 'fail' && (
+              <span className="inline-flex items-center h-6 px-2 rounded-full text-[11.5px] font-semibold bg-risk-50 text-risk-700">
+                Could not connect
+              </span>
+            )}
+            {testStatus === 'idle' && (
+              <span className="text-[11.5px] text-ink-500">
+                {requiredFilled ? 'Test before connecting.' : !dbType ? 'Pick an engine to begin.' : 'Fill the required fields.'}
+              </span>
+            )}
+        </div>
+      </div>
+
+      {/* Footer — paper-50 strip, helper on left, action group on right. */}
+      <div className="border-t border-paper-200 px-6 py-3 flex items-center justify-between bg-paper-50">
+        <span className="text-[11.5px] text-ink-500">Credentials are stored encrypted.</span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-4 h-9 rounded-md border border-paper-200 bg-paper-0 text-[12.5px] font-semibold text-ink-800 hover:border-paper-300 hover:bg-paper-50 transition-colors cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={submit}
+            disabled={!canConnect}
+            className="inline-flex items-center gap-1.5 px-4 h-9 rounded-md bg-brand-600 hover:bg-brand-500 active:bg-brand-800 text-white text-[12.5px] font-semibold disabled:bg-brand-600/40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+          >
+            {connecting && <Loader2 size={13} className="animate-spin" />}
+            {connecting ? 'Connecting…' : 'Connect'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const inputCls =
+  'w-full h-10 px-3 rounded-md border border-paper-200 bg-paper-0 text-[13px] text-ink-900 placeholder:text-ink-400 focus:outline-none focus:border-brand-600 focus:ring-[3px] focus:ring-brand-600/20 disabled:bg-paper-100 disabled:text-ink-400 disabled:cursor-not-allowed transition-colors';
+
+function Field({
+  label, required, full, children,
+}: { label: string; required?: boolean; full?: boolean; children: React.ReactNode }) {
+  return (
+    <label className={`flex flex-col gap-1.5 ${full ? 'col-span-2' : ''}`}>
+      <span className="text-[12px] font-medium text-ink-700">
+        {label}{required && <span className="text-risk ml-0.5" aria-hidden>*</span>}
+      </span>
+      {children}
+    </label>
+  );
+}
+
