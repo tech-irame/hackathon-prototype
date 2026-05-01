@@ -318,8 +318,8 @@ interface Props {
 export default function EngagementDetailView({ engagementId, freshActivation, onBack, onOpenControl }: Props) {
   const eng = ENGAGEMENT;
 
-  // Use seeded data only for the demo engagement; all others start fresh
-  const isDemoEngagement = engagementId === 'ap-1' || engagementId === 'eng-sox-fy26' || !engagementId;
+  // Use seeded data ONLY for explicit demo engagement IDs; everything else starts fresh
+  const isDemoEngagement = engagementId === 'ap-1' || engagementId === 'eng-sox-fy26';
   const isFreshEngagement = !isDemoEngagement || freshActivation;
   const sourceControls = isFreshEngagement ? resetControlsToClean(CONTROLS) : CONTROLS;
 

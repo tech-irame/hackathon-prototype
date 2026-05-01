@@ -1,17 +1,34 @@
-import { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   X, ChevronRight, ChevronDown, CheckCircle2, Clock, AlertTriangle,
   Database, FileText, Shield, Workflow, Target,
   Eye, ArrowRight, XCircle, ArrowLeft, Users,
   Paperclip, Send, Lock, Zap, CloudUpload, MessageSquare, Copy,
-  Upload, Play, Calendar, Filter, BarChart3, Download
+  Upload, Play, Calendar, Filter, BarChart3, Download, Settings, Plus
 } from 'lucide-react';
 import { getControlById, getLinkedWorkflows, getAttributesForWorkflow, FINDINGS, ENGAGEMENT, type ControlDetail, type SampleItem, type Finding, type LinkedWorkflow } from './engagementData';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type TestingStep = 'overview' | 'population' | 'samples' | 'evidence' | 'testing' | 'working-paper' | 'review' | 'conclusion';
+type TestingStep = 'overview' | 'population' | 'execution-mode' | 'samples' | 'create-samples' | 'evidence' | 'testing' | 'working-paper' | 'review' | 'conclusion';
+type ExecutionMode = 'full-run' | 'sampling' | null;
+type ControlExecType = 'Automated' | 'Manual' | 'Hybrid';
+
+// Shared evidence file type
+interface EvidenceFile { id: string; fileName: string; evidenceType: string; mappedAttributeIds: string[]; uploadedAt: string; }
+
+// Shared sample set type
+interface SampleSet { rows: number[]; size: number; populationSize: number; method: string; generatedAt: string; }
+
+function deriveControlType(ctrl: ControlDetail): ControlExecType {
+  const hasAutoWorkflow = ctrl.workflowName?.toLowerCase().includes('automat') || ctrl.controlName?.toLowerCase().includes('automat');
+  const hasManualEvidence = ctrl.workflowAttributes.some(a => a.requiredEvidence && a.requiredEvidence.length > 0);
+  if (ctrl.workflowAttributes.length === 0) return 'Manual';
+  if (hasAutoWorkflow && !hasManualEvidence) return 'Automated';
+  if (!hasAutoWorkflow && hasManualEvidence) return 'Manual';
+  return 'Hybrid';
+}
 
 function isConcluded(s: string): boolean {
   return ['effective', 'partially-effective', 'ineffective'].includes(s);
@@ -521,19 +538,14 @@ const EXISTING_DATASETS = [
 type PopulationState = 'NO_DATA_SELECTED' | 'DATA_SELECTED' | 'SNAPSHOT_CREATED';
 type SourceMode = 'existing' | 'upload' | null;
 
-function PopulationStep({ ctrl }: { ctrl: ControlDetail }) {
+function PopulationStep({ ctrl, onGoToStep, onPopulationLocked }: { ctrl: ControlDetail; onGoToStep?: (s: TestingStep) => void; onPopulationLocked?: (info: { locked: boolean; recordCount: number; source: string; snapshotId: string }) => void }) {
   // Always start with NO_DATA_SELECTED — user must explicitly choose
   const [popState, setPopState] = useState<PopulationState>('NO_DATA_SELECTED');
   const [sourceMode, setSourceMode] = useState<SourceMode>(null);
   const [selectedDatasetId, setSelectedDatasetId] = useState<string | null>(null);
   const [uploadedFile, setUploadedFile] = useState<{ name: string; records: number } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [samplingMethod, setSamplingMethod] = useState<SamplingMethod | null>(null);
-  const [sampleSize, setSampleSize] = useState(25);
-  const [interval, setInterval_] = useState(10);
-  const [samplesGenerated, setSamplesGenerated] = useState(false);
   const [locking, setLocking] = useState(false);
-  const [generating, setGenerating] = useState(false);
 
   // Resolved dataset info (from selection or upload)
   const selectedDataset = selectedDatasetId ? EXISTING_DATASETS.find(d => d.id === selectedDatasetId) : null;
@@ -576,6 +588,7 @@ function PopulationStep({ ctrl }: { ctrl: ControlDetail }) {
     setTimeout(() => {
       setPopState('SNAPSHOT_CREATED');
       setLocking(false);
+      onPopulationLocked?.({ locked: true, recordCount: datasetInfo?.records || 0, source: datasetInfo?.source || '', snapshotId: datasetInfo?.snapshotId || `POP-SNAP-${ctrl.controlId}-001` });
     }, 800);
   };
 
@@ -584,20 +597,7 @@ function PopulationStep({ ctrl }: { ctrl: ControlDetail }) {
     setSourceMode(null);
     setSelectedDatasetId(null);
     setUploadedFile(null);
-    setSamplingMethod(null);
-    setSamplesGenerated(false);
   };
-
-  const handleGenerateSamples = () => {
-    if (!samplingMethod) return;
-    setGenerating(true);
-    setTimeout(() => {
-      setSamplesGenerated(true);
-      setGenerating(false);
-    }, 1000);
-  };
-
-  const effectiveSampleSize = samplingMethod === 'full' ? (datasetInfo?.records || 0) : sampleSize;
 
   return (
     <div className="space-y-5">
@@ -762,129 +762,196 @@ function PopulationStep({ ctrl }: { ctrl: ControlDetail }) {
             </div>
             <div className="flex items-center gap-2 p-2.5 bg-compliant-50/50 rounded-lg border border-compliant/20">
               <Lock size={11} className="text-compliant-700 shrink-0" />
-              <span className="text-[11px] text-compliant-700">Samples generated from this test will reference this exact population snapshot.</span>
+              <span className="text-[11px] text-compliant-700">Population snapshot locked. Next, choose how this control should be tested.</span>
             </div>
+            <button onClick={() => onGoToStep?.('execution-mode')}
+              className="w-full py-2.5 bg-primary hover:bg-primary-hover text-white rounded-xl text-[12px] font-semibold transition-colors cursor-pointer flex items-center justify-center gap-1.5">
+              Continue to Execution Mode<ChevronRight size={12} />
+            </button>
           </div>
         </div>
       )}
 
-      {/* ── D. Sampling Method ── */}
-      {popState === 'DATA_SELECTED' && (
-        <div>
-          <h4 className="text-[11px] font-bold text-text-muted uppercase mb-2 flex items-center gap-1.5 opacity-40">
-            <Filter size={11} />Sampling Method
-          </h4>
-          <div className="glass-card rounded-xl p-4 opacity-40 pointer-events-none">
-            <p className="text-[11px] text-text-muted text-center py-2">Lock the population snapshot to enable sampling configuration.</p>
-          </div>
-        </div>
-      )}
-      {popState === 'SNAPSHOT_CREATED' && (
-        <div>
-          <h4 className="text-[11px] font-bold text-text-muted uppercase mb-2 flex items-center gap-1.5">
-            <Filter size={11} />Sampling Method
-          </h4>
-          <div className="glass-card rounded-xl p-4 space-y-3">
-            <div className="space-y-1.5">
-              {SAMPLING_METHODS.map(m => (
-                <button key={m.id} onClick={() => { if (!samplesGenerated) setSamplingMethod(m.id); }}
-                  disabled={samplesGenerated}
-                  className={`w-full text-left p-3 rounded-lg border transition-all ${
-                    samplingMethod === m.id
-                      ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
-                      : samplesGenerated ? 'border-border-light bg-surface-2/30 opacity-60 cursor-not-allowed' : 'border-border-light hover:border-primary/20 cursor-pointer'
-                  }`}>
-                  <div className="flex items-center gap-2">
-                    {samplingMethod === m.id ? <CheckCircle2 size={13} className="text-primary shrink-0" /> : <div className="w-3.5 h-3.5 rounded-full border-2 border-ink-300 shrink-0" />}
-                    <span className="text-[12px] font-semibold text-text">{m.label}</span>
-                  </div>
-                  <p className="text-[10px] text-text-muted mt-0.5 ml-5.5">{m.desc}</p>
-                </button>
-              ))}
+    </div>
+  );
+}
+
+// ─── EXECUTION MODE STEP ────────────────────────────────────────────────────
+
+function ExecutionModeStep({ ctrl, executionMode, onSelect, onGoToStep, onCreateTestItems, populationInfo }: {
+  ctrl: ControlDetail;
+  executionMode: ExecutionMode;
+  onSelect: (mode: ExecutionMode) => void;
+  onGoToStep: (s: TestingStep) => void;
+  onCreateTestItems: (set: SampleSet) => void;
+  populationInfo?: { locked: boolean; recordCount: number } | null;
+}) {
+  const isAutomated = ctrl.workflowName?.toLowerCase().includes('automat') || ctrl.controlName?.toLowerCase().includes('automat');
+  const defaultMode = isAutomated ? 'full-run' : 'sampling';
+
+  // Auto-select default on first render if no mode selected
+  const effectiveMode = executionMode || defaultMode;
+
+  const options: { id: ExecutionMode; title: string; subtitle: string; recommended?: boolean }[] = [
+    { id: 'full-run', title: 'Run on Full Dataset', subtitle: 'Test all records in the population. Recommended for automated controls.', recommended: isAutomated },
+    { id: 'sampling', title: 'Use Sampling', subtitle: 'Select a representative subset of records for manual testing.' , recommended: !isAutomated },
+  ];
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <h3 className="text-[14px] font-bold text-text mb-1">How do you want to test this control?</h3>
+        <p className="text-[12px] text-text-muted">Choose whether to test the full population or a sample subset.</p>
+      </div>
+
+      <div className="space-y-2">
+        {options.map(opt => (
+          <button key={opt.id} onClick={() => onSelect(opt.id)}
+            className={`w-full text-left p-4 rounded-xl border-2 transition-all cursor-pointer ${
+              effectiveMode === opt.id
+                ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
+                : 'border-border-light hover:border-primary/30 bg-white'
+            }`}>
+            <div className="flex items-center gap-2 mb-1">
+              {effectiveMode === opt.id
+                ? <CheckCircle2 size={14} className="text-primary" />
+                : <div className="w-3.5 h-3.5 rounded-full border-2 border-ink-300" />}
+              <span className="text-[13px] font-semibold text-text">{opt.title}</span>
+              {opt.recommended && <span className="px-1.5 h-4 rounded text-[8px] font-bold bg-primary/10 text-primary">Recommended</span>}
             </div>
+            <p className="text-[11px] text-text-muted ml-5.5">{opt.subtitle}</p>
+          </button>
+        ))}
+      </div>
 
-            {/* Sample size input */}
-            {samplingMethod && samplingMethod !== 'full' && samplingMethod !== 'judgmental' && !samplesGenerated && datasetInfo && (
-              <div className="pt-2 border-t border-border-light/60">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] text-text-muted uppercase block mb-1">Sample Size</label>
-                    <input type="number" min={1} max={datasetInfo.records} value={sampleSize}
-                      onChange={e => setSampleSize(Math.max(1, Math.min(datasetInfo.records, parseInt(e.target.value) || 1)))}
-                      className="w-full px-3 py-2 border border-border rounded-lg text-[12px] text-text focus:outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/10 bg-white" />
-                  </div>
-                  {samplingMethod === 'systematic' && (
-                    <div>
-                      <label className="text-[10px] text-text-muted uppercase block mb-1">Selection Interval</label>
-                      <input type="number" min={1} value={interval}
-                        onChange={e => setInterval_(Math.max(1, parseInt(e.target.value) || 1))}
-                        className="w-full px-3 py-2 border border-border rounded-lg text-[12px] text-text focus:outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/10 bg-white" />
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Generate button */}
-            {samplingMethod && !samplesGenerated && (
-              <button onClick={handleGenerateSamples} disabled={generating}
-                className="w-full py-2.5 bg-primary hover:bg-primary-hover text-white rounded-xl text-[12px] font-semibold transition-colors cursor-pointer disabled:opacity-60 flex items-center justify-center gap-1.5">
-                <Zap size={12} />{generating ? 'Generating…' : 'Generate Samples'}
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ── E. Sample Summary ── */}
-      {samplesGenerated && datasetInfo && (
-        <div>
-          <h4 className="text-[11px] font-bold text-text-muted uppercase mb-2 flex items-center gap-1.5">
-            <CheckCircle2 size={11} className="text-compliant-700" />Sample Summary
-          </h4>
-          <div className="glass-card rounded-xl p-4 border-compliant/20 space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div><span className="text-[10px] text-text-muted uppercase">Method</span><p className="text-[12px] text-text font-medium">{SAMPLING_METHODS.find(m => m.id === samplingMethod)?.label}</p></div>
-              <div><span className="text-[10px] text-text-muted uppercase">Population Size</span><p className="text-[12px] font-mono text-text">{datasetInfo.records.toLocaleString()}</p></div>
-              <div><span className="text-[10px] text-text-muted uppercase">Sample Size</span><p className="text-[12px] font-mono text-brand-700">{ctrl.samples.length > 0 ? ctrl.samples.length : effectiveSampleSize}</p></div>
-              <div><span className="text-[10px] text-text-muted uppercase">Generated At</span><p className="text-[12px] text-text">{new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</p></div>
-              {samplingMethod === 'random' && (
-                <div><span className="text-[10px] text-text-muted uppercase">Selection Seed</span><p className="text-[12px] font-mono text-text">0x7A3F</p></div>
-              )}
-            </div>
-            <div className="flex items-center gap-2 p-2.5 bg-compliant-50/30 rounded-lg border border-compliant/20">
-              <CheckCircle2 size={11} className="text-compliant-700 shrink-0" />
-              <span className="text-[11px] text-compliant-700">Samples generated and ready for testing. Proceed to the Samples tab.</span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── F. Next Action Guidance ── */}
-      {popState === 'NO_DATA_SELECTED' && sourceMode && (
+      {effectiveMode === 'full-run' && (
         <div className="flex items-center gap-2 p-3 bg-surface-2/50 rounded-lg">
-          <AlertTriangle size={12} className="text-text-muted shrink-0" />
-          <p className="text-[11px] text-text-muted">Select or upload a dataset to continue.</p>
+          <Database size={12} className="text-text-muted shrink-0" />
+          <p className="text-[11px] text-text-muted">All records in the population will be tested. Sampling configuration will be skipped.</p>
         </div>
       )}
-      {popState === 'DATA_SELECTED' && (
-        <div className="flex items-center gap-2 p-3 bg-high-50/30 rounded-lg border border-high/10">
-          <Lock size={12} className="text-high-700 shrink-0" />
-          <p className="text-[11px] text-high-700">Lock the population snapshot before configuring sampling.</p>
-        </div>
-      )}
-      {popState === 'SNAPSHOT_CREATED' && !samplesGenerated && !samplingMethod && (
+
+      {effectiveMode === 'sampling' && (
         <div className="flex items-center gap-2 p-3 bg-surface-2/50 rounded-lg">
           <Filter size={12} className="text-text-muted shrink-0" />
-          <p className="text-[11px] text-text-muted">Select a sampling method and generate samples before continuing.</p>
+          <p className="text-[11px] text-text-muted">You'll configure sampling method and size in the next step.</p>
         </div>
       )}
-      {popState === 'SNAPSHOT_CREATED' && !samplesGenerated && samplingMethod && (
-        <div className="flex items-center gap-2 p-3 bg-evidence-50/30 rounded-lg border border-evidence/10">
-          <Zap size={12} className="text-evidence-700 shrink-0" />
-          <p className="text-[11px] text-evidence-700">Click "Generate Samples" to create your test samples.</p>
+
+      <button onClick={() => {
+          onSelect(effectiveMode);
+          if (effectiveMode === 'full-run') {
+            const popSize = populationInfo?.recordCount || ctrl.populationSize || 10245;
+            onCreateTestItems({ rows: Array.from({ length: Math.min(popSize, 500) }, (_, i) => i), size: popSize, populationSize: popSize, method: 'full', generatedAt: new Date().toISOString() });
+            onGoToStep('evidence');
+          } else {
+            onGoToStep('samples');
+          }
+        }}
+        className="w-full py-2.5 bg-primary hover:bg-primary-hover text-white rounded-xl text-[12px] font-semibold transition-colors cursor-pointer flex items-center justify-center gap-1.5">
+        {effectiveMode === 'full-run' ? 'Continue to Testing' : 'Configure Sampling'}
+        <ChevronRight size={12} />
+      </button>
+    </div>
+  );
+}
+
+// ─── SAMPLING ENGINE ────────────────────────────────────────────────────────
+
+interface SamplingConfig {
+  method: 'random' | 'systematic' | 'monetary-unit' | 'judgmental' | 'full';
+  sampleSize: number;
+  filters?: { column: string; operator: string; value: string }[];
+}
+
+function generateSamples(populationSize: number, config: SamplingConfig): number[] {
+  const { method, sampleSize } = config;
+  const effectiveSize = Math.min(sampleSize, populationSize);
+
+  if (method === 'full') {
+    return Array.from({ length: populationSize }, (_, i) => i);
+  }
+
+  if (method === 'random') {
+    const indices = new Set<number>();
+    while (indices.size < effectiveSize) {
+      indices.add(Math.floor(Math.random() * populationSize));
+    }
+    return Array.from(indices).sort((a, b) => a - b);
+  }
+
+  if (method === 'systematic') {
+    const interval = Math.max(1, Math.floor(populationSize / effectiveSize));
+    const start = Math.floor(Math.random() * interval);
+    return Array.from({ length: effectiveSize }, (_, i) => (start + i * interval) % populationSize).sort((a, b) => a - b);
+  }
+
+  // Default: random for other methods
+  const indices = new Set<number>();
+  while (indices.size < effectiveSize) {
+    indices.add(Math.floor(Math.random() * populationSize));
+  }
+  return Array.from(indices).sort((a, b) => a - b);
+}
+
+// ─── CREATE SAMPLES STEP (for Manual controls) ─────────────────────────────
+
+function CreateSamplesStep({ ctrl, onGoToStep, onSamplesCreated }: {
+  ctrl: ControlDetail; onGoToStep?: (s: TestingStep) => void; onSamplesCreated?: (set: SampleSet) => void;
+}) {
+  const [items, setItems] = useState<{ ref: string; desc: string }[]>([]);
+  const [newRef, setNewRef] = useState('');
+  const [newDesc, setNewDesc] = useState('');
+  const handleAdd = () => { if (!newRef.trim()) return; setItems(prev => [...prev, { ref: newRef.trim(), desc: newDesc.trim() }]); setNewRef(''); setNewDesc(''); };
+  const handleConfirm = () => { if (items.length === 0) return; onSamplesCreated?.({ rows: items.map((_, i) => i), size: items.length, populationSize: items.length, method: 'manual', generatedAt: new Date().toISOString() }); onGoToStep?.('evidence'); };
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <h3 className="text-[14px] font-bold text-text mb-1">Select Samples for Testing</h3>
+        <p className="text-[12px] text-text-muted">Add the items you want to test manually. No population dataset is required.</p>
+      </div>
+      <div className="glass-card rounded-xl p-4 space-y-3">
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-[10px] text-text-muted uppercase block mb-1">Reference ID <span className="text-red-400">*</span></label>
+            <input value={newRef} onChange={e => setNewRef(e.target.value)} placeholder="e.g. INV-2026-001"
+              className="w-full px-3 py-2 border border-border rounded-lg text-[12px] text-text focus:outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/10 bg-white"
+              onKeyDown={e => { if (e.key === 'Enter') handleAdd(); }} />
+          </div>
+          <div>
+            <label className="text-[10px] text-text-muted uppercase block mb-1">Description</label>
+            <input value={newDesc} onChange={e => setNewDesc(e.target.value)} placeholder="Optional"
+              className="w-full px-3 py-2 border border-border rounded-lg text-[12px] text-text focus:outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/10 bg-white"
+              onKeyDown={e => { if (e.key === 'Enter') handleAdd(); }} />
+          </div>
+        </div>
+        <button onClick={handleAdd} disabled={!newRef.trim()} className="px-3 py-1.5 bg-primary/10 text-primary rounded-lg text-[11px] font-semibold hover:bg-primary/20 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1"><Plus size={11} />Add Sample</button>
+      </div>
+      {items.length > 0 && (
+        <div className="glass-card rounded-xl overflow-hidden">
+          <table className="w-full text-[11px]">
+            <thead><tr className="border-b border-border bg-surface-2/50">
+              <th className="px-3 py-2 text-left text-[9px] font-semibold text-text-muted uppercase">Sample</th>
+              <th className="px-3 py-2 text-left text-[9px] font-semibold text-text-muted uppercase">Reference</th>
+              <th className="px-3 py-2 text-left text-[9px] font-semibold text-text-muted uppercase">Description</th>
+              <th className="px-3 py-2 w-8"></th>
+            </tr></thead>
+            <tbody>{items.map((s, i) => (
+              <tr key={i} className="border-b border-border/40">
+                <td className="px-3 py-2 font-mono text-text-muted">S-{String(i + 1).padStart(3, '0')}</td>
+                <td className="px-3 py-2 text-text">{s.ref}</td>
+                <td className="px-3 py-2 text-text-muted">{s.desc || '—'}</td>
+                <td className="px-3 py-2"><button onClick={() => setItems(prev => prev.filter((_, j) => j !== i))} className="text-gray-400 hover:text-risk-700 cursor-pointer"><X size={11} /></button></td>
+              </tr>
+            ))}</tbody>
+          </table>
         </div>
       )}
+      <button onClick={handleConfirm} disabled={items.length === 0}
+        className="w-full py-2.5 bg-primary hover:bg-primary-hover text-white rounded-xl text-[12px] font-semibold transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1.5">
+        Confirm {items.length} Sample{items.length !== 1 ? 's' : ''} & Proceed to Evidence
+      </button>
     </div>
   );
 }
@@ -892,24 +959,141 @@ function PopulationStep({ ctrl }: { ctrl: ControlDetail }) {
 // ─── SAMPLES STEP (NEW) ─────────────────────────────────────────────────────
 
 function SamplesStep({ ctrl, onGoToStep }: { ctrl: ControlDetail; onGoToStep?: (s: TestingStep) => void }) {
-  // Empty states
+  const [samplingMethod, setSamplingMethod] = useState<'random' | 'mus' | 'risk-based' | 'manual'>('random');
+  const [sampleSize, setSampleSize] = useState(25);
+  const [generating, setGenerating] = useState(false);
+  const [generated, setGenerated] = useState(ctrl.samples.length > 0);
+  const [previewIndices, setPreviewIndices] = useState<number[]>([]);
+
+  const populationSize = ctrl.populationSize || 10245;
+  const recommendedMin = Math.min(25, populationSize);
+  const recommendedMax = Math.min(40, populationSize);
+
+  // Generate preview when config changes
+  const handlePreview = () => {
+    const indices = generateSamples(populationSize, { method: samplingMethod === 'random' ? 'random' : 'random', sampleSize: Math.min(5, sampleSize), filters: [] });
+    setPreviewIndices(indices);
+  };
+
+  const handleGenerate = () => {
+    setGenerating(true);
+    setTimeout(() => {
+      setGenerated(true);
+      setGenerating(false);
+    }, 1200);
+  };
+
+  // Gate: population not ready
   if (ctrl.populationStatus === 'none') {
     return (
       <div className="text-center py-14">
         <Lock size={28} className="text-text-muted mx-auto mb-3" />
-        <p className="text-[14px] font-semibold text-text mb-1">Lock population snapshot first</p>
-        <p className="text-[12px] text-text-muted mb-4">Upload and lock the population dataset before generating samples.</p>
+        <p className="text-[14px] font-semibold text-text mb-1">Population not available</p>
+        <p className="text-[12px] text-text-muted mb-4">Upload and lock the population dataset before configuring sampling.</p>
         <button onClick={() => onGoToStep?.('population')} className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-[12px] font-semibold transition-colors cursor-pointer">Go to Population</button>
       </div>
     );
   }
-  if (ctrl.samples.length === 0) {
+
+  // Sampling Configuration UI — not yet generated
+  if (ctrl.samples.length === 0 && !generated) {
     return (
-      <div className="text-center py-14">
-        <Database size={28} className="text-text-muted mx-auto mb-3" />
-        <p className="text-[14px] font-semibold text-text mb-1">Samples have not been generated yet</p>
-        <p className="text-[12px] text-text-muted mb-4">Complete the population and sampling setup to generate samples.</p>
-        <button onClick={() => onGoToStep?.('population')} className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-[12px] font-semibold transition-colors cursor-pointer">Generate Samples</button>
+      <div className="space-y-5">
+        <div>
+          <h3 className="text-[14px] font-bold text-text mb-1">Sampling Configuration</h3>
+          <p className="text-[12px] text-text-muted">Configure how transactions will be selected from the population for testing.</p>
+        </div>
+
+        {/* Sampling Method */}
+        <div>
+          <h4 className="text-[11px] font-bold text-text-muted uppercase mb-2">Sampling Method</h4>
+          <div className="space-y-1.5">
+            {([
+              { id: 'random' as const, label: 'Random Sampling', desc: 'Randomly select transactions from the population', enabled: true },
+              { id: 'mus' as const, label: 'Monetary Unit Sampling (MUS)', desc: 'Weight selection by monetary value', enabled: false },
+              { id: 'risk-based' as const, label: 'Risk-Based Sampling', desc: 'Prioritize higher-risk transactions', enabled: false },
+              { id: 'manual' as const, label: 'Manual Selection', desc: 'Manually pick specific transactions', enabled: false },
+            ]).map(m => (
+              <button key={m.id} onClick={() => { if (m.enabled) setSamplingMethod(m.id); }}
+                disabled={!m.enabled}
+                className={`w-full text-left p-3 rounded-lg border transition-all ${
+                  samplingMethod === m.id
+                    ? 'border-primary bg-primary/5 ring-1 ring-primary/20 cursor-pointer'
+                    : m.enabled ? 'border-border-light hover:border-primary/20 cursor-pointer' : 'border-border-light bg-gray-50/50 opacity-50 cursor-not-allowed'
+                }`}>
+                <div className="flex items-center gap-2">
+                  {samplingMethod === m.id ? <CheckCircle2 size={13} className="text-primary shrink-0" /> : <div className="w-3.5 h-3.5 rounded-full border-2 border-ink-300 shrink-0" />}
+                  <span className="text-[12px] font-semibold text-text">{m.label}</span>
+                  {!m.enabled && <span className="px-1.5 h-4 rounded text-[8px] font-bold bg-gray-100 text-gray-400 ml-auto">Coming Soon</span>}
+                </div>
+                <p className="text-[10px] text-text-muted mt-0.5 ml-5.5">{m.desc}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Sample Size */}
+        <div>
+          <h4 className="text-[11px] font-bold text-text-muted uppercase mb-2">Sample Size</h4>
+          <div className="glass-card rounded-xl p-4 space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[10px] text-text-muted uppercase block mb-1">Number of Samples</label>
+                <input type="number" min={1} max={populationSize} value={sampleSize}
+                  onChange={e => setSampleSize(Math.max(1, Math.min(populationSize, parseInt(e.target.value) || 1)))}
+                  className="w-full px-3 py-2 border border-border rounded-lg text-[12px] text-text focus:outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/10 bg-white" />
+              </div>
+              <div>
+                <label className="text-[10px] text-text-muted uppercase block mb-1">Population Size</label>
+                <div className="px-3 py-2 border border-border rounded-lg text-[12px] font-mono text-text bg-gray-50 cursor-not-allowed">{populationSize.toLocaleString()}</div>
+              </div>
+            </div>
+            <p className="text-[10px] text-text-muted">Recommended: {recommendedMin}–{recommendedMax} samples for this dataset.</p>
+            {sampleSize > populationSize && (
+              <div className="flex items-center gap-2 p-2.5 bg-amber-50/50 rounded-lg border border-amber-200/50">
+                <AlertTriangle size={11} className="text-amber-500 shrink-0" />
+                <span className="text-[10px] text-amber-700">Sample size exceeds population. All records will be selected.</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Preview */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="text-[11px] font-bold text-text-muted uppercase">Preview</h4>
+            <button onClick={handlePreview} className="text-[10px] font-semibold text-primary hover:underline cursor-pointer">Refresh Preview</button>
+          </div>
+          <div className="glass-card rounded-xl p-4">
+            <div className="grid grid-cols-3 gap-3 mb-3">
+              <div><span className="text-[10px] text-text-muted uppercase">Population</span><p className="text-[12px] font-mono text-text">{populationSize.toLocaleString()}</p></div>
+              <div><span className="text-[10px] text-text-muted uppercase">Sample Size</span><p className="text-[12px] font-mono text-primary">{Math.min(sampleSize, populationSize)}</p></div>
+              <div><span className="text-[10px] text-text-muted uppercase">Method</span><p className="text-[12px] text-text capitalize">{samplingMethod}</p></div>
+            </div>
+            {previewIndices.length > 0 ? (
+              <div>
+                <p className="text-[10px] text-text-muted mb-1.5">Sample preview (first 5 rows):</p>
+                <div className="space-y-1">
+                  {previewIndices.slice(0, 5).map((idx, i) => (
+                    <div key={i} className="flex items-center gap-3 px-3 py-1.5 rounded bg-surface-2/50 text-[11px]">
+                      <span className="text-text-muted font-mono w-8">#{idx + 1}</span>
+                      <span className="text-text">Transaction Row {idx + 1}</span>
+                      <span className="text-text-muted ml-auto font-mono">₹{(Math.random() * 50000 + 1000).toFixed(0)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="text-[11px] text-text-muted text-center py-3">Click "Refresh Preview" to see sample rows.</p>
+            )}
+          </div>
+        </div>
+
+        {/* CTA */}
+        <button onClick={handleGenerate} disabled={generating}
+          className="w-full py-2.5 bg-primary hover:bg-primary-hover text-white rounded-xl text-[12px] font-semibold transition-colors cursor-pointer disabled:opacity-60 flex items-center justify-center gap-1.5">
+          <Zap size={12} />{generating ? 'Generating…' : 'Select Transactions for Testing'}
+        </button>
       </div>
     );
   }
@@ -1246,62 +1430,106 @@ function EvidenceStep({ ctrl }: { ctrl: ControlDetail }) {
 function AttributeTestingStep({ ctrl }: { ctrl: ControlDetail }) {
   const [selectedSample, setSelectedSample] = useState(ctrl.samples[0]?.id || '');
   const sample = ctrl.samples.find(s => s.id === selectedSample);
+  const workflows = getLinkedWorkflows(ctrl);
 
   if (ctrl.samples.length === 0) {
-    return <div className="text-center py-12 text-text-muted text-[13px]">No samples generated yet. Complete the Population step first.</div>;
+    return <div className="text-center py-12 text-text-muted text-[13px]">No samples generated yet. Complete sampling configuration first.</div>;
   }
+
+  // Group attributes by workflow
+  const attrsByWorkflow = workflows.map(wf => ({
+    workflow: wf,
+    attributes: wf.id === 'lw-legacy'
+      ? ctrl.workflowAttributes
+      : ctrl.workflowAttributes.filter(a => a.workflowId === wf.id),
+  })).filter(g => g.attributes.length > 0);
+
+  // Derive sample-level result from all attributes
+  const getSampleResult = (s: SampleItem): 'pass' | 'fail' | 'pending' => {
+    const results = ctrl.workflowAttributes.map(a => s.attributes[a.id] || 'pending');
+    if (results.some(r => r === 'fail')) return 'fail';
+    if (results.every(r => r === 'pass' || r === 'na')) return 'pass';
+    return 'pending';
+  };
+
+  const testedCount = ctrl.samples.filter(s => getSampleResult(s) !== 'pending').length;
 
   return (
     <div className="space-y-4">
-      <h4 className="text-[11px] font-bold text-text-muted uppercase mb-2">Attribute Testing</h4>
-      <div className="flex items-center gap-2 p-2.5 bg-brand-50/50 rounded-lg border border-brand-100">
-        <Workflow size={12} className="text-brand-600" />
-        <span className="text-[11px] text-brand-700 font-medium">{ctrl.workflowName} {ctrl.workflowVersion}</span>
-        <span className="text-[10px] text-brand-600">· {ctrl.workflowAttributes.length} attributes per sample</span>
+      <div className="flex items-center justify-between">
+        <h4 className="text-[11px] font-bold text-text-muted uppercase">Attribute Testing</h4>
+        <span className="text-[10px] text-text-muted">{workflows.length} workflow{workflows.length !== 1 ? 's' : ''} · {ctrl.workflowAttributes.length} attributes per sample</span>
       </div>
+
       <div className="flex gap-4">
+        {/* Sample sidebar */}
         <div className="w-44 shrink-0">
-          <div className="text-[10px] font-bold text-text-muted uppercase mb-2">Samples ({ctrl.samples.filter(s => s.status !== 'not-tested').length}/{ctrl.samples.length})</div>
+          <div className="text-[10px] font-bold text-text-muted uppercase mb-2">Samples ({testedCount}/{ctrl.samples.length})</div>
           <div className="space-y-1 max-h-[400px] overflow-y-auto">
-            {ctrl.samples.map(s => (
-              <button key={s.id} onClick={() => setSelectedSample(s.id)}
-                className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left text-[11px] transition-all cursor-pointer ${
-                  selectedSample === s.id ? 'bg-primary/10 text-primary font-semibold ring-1 ring-primary/20' : 'hover:bg-surface-2 text-text-secondary'
-                }`}>
-                <SampleStatusDot status={s.status} />
-                <div className="min-w-0 flex-1"><div className="truncate font-medium">{s.label}</div><div className="text-[10px] text-text-muted truncate">{s.amount}</div></div>
-              </button>
-            ))}
+            {ctrl.samples.map(s => {
+              const result = getSampleResult(s);
+              return (
+                <button key={s.id} onClick={() => setSelectedSample(s.id)}
+                  className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left text-[11px] transition-all cursor-pointer ${
+                    selectedSample === s.id ? 'bg-primary/10 text-primary font-semibold ring-1 ring-primary/20' : 'hover:bg-surface-2 text-text-secondary'
+                  }`}>
+                  <SampleStatusDot status={result === 'pass' ? 'pass' : result === 'fail' ? 'fail' : s.status} />
+                  <div className="min-w-0 flex-1"><div className="truncate font-medium">{s.label}</div><div className="text-[10px] text-text-muted truncate">{s.amount}</div></div>
+                </button>
+              );
+            })}
           </div>
         </div>
+
+        {/* Attribute testing panel — grouped by workflow */}
         <div className="flex-1 min-w-0">
           {sample ? (
             <div>
               <div className="flex items-center justify-between mb-3">
                 <div><span className="text-[13px] font-semibold text-text">{sample.label}</span><span className="text-[11px] text-text-muted ml-2">{sample.referenceId} · {sample.amount}</span></div>
-                <span className="text-[10px] font-bold text-brand-700">{sample.evidenceFiles.length} evidence files</span>
+                <span className="text-[10px] font-bold text-text-muted">{sample.evidenceFiles.length} evidence files</span>
               </div>
-              <div className="space-y-2">
-                {ctrl.workflowAttributes.map(attr => {
-                  const result = sample.attributes[attr.id] || 'pending';
-                  return (
-                    <div key={attr.id} className="glass-card rounded-lg p-3">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-[12px] font-medium text-text">{attr.name}</span>
-                        <AttrResultChip result={result} />
-                      </div>
-                      <p className="text-[10px] text-text-muted mb-2">{attr.description}</p>
-                      <div className="flex gap-1">
-                        {['pass', 'fail', 'na'].map(r => (
-                          <button key={r} className={`px-2.5 py-1 rounded text-[10px] font-bold cursor-pointer transition-all ${
-                            result === r ? (r === 'pass' ? 'bg-compliant text-white' : r === 'fail' ? 'bg-risk text-white' : 'bg-ink-500 text-white') : 'bg-surface-2 text-text-muted hover:bg-primary/10'
-                          }`}>{r.toUpperCase()}</button>
-                        ))}
-                      </div>
+
+              {attrsByWorkflow.map(({ workflow, attributes }) => (
+                <div key={workflow.id} className="mb-4">
+                  {/* Workflow header */}
+                  {workflows.length > 1 && (
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-surface-2/50 rounded-lg mb-2">
+                      <Workflow size={10} className="text-brand-600" />
+                      <span className="text-[10px] font-semibold text-brand-700">{workflow.name}</span>
+                      <span className="text-[9px] text-text-muted">· {attributes.length} attributes</span>
                     </div>
-                  );
-                })}
-              </div>
+                  )}
+
+                  {/* Attribute cards */}
+                  <div className="space-y-2">
+                    {attributes.map(attr => {
+                      const result = sample.attributes[attr.id] || 'pending';
+                      return (
+                        <div key={attr.id} className="glass-card rounded-lg p-3">
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[12px] font-medium text-text">{attr.name}</span>
+                              {attr.assertions && attr.assertions.length > 0 && (
+                                <span className="text-[9px] text-gray-400">{attr.assertions.join(', ')}</span>
+                              )}
+                            </div>
+                            <AttrResultChip result={result} />
+                          </div>
+                          <p className="text-[10px] text-text-muted mb-2">{attr.description}</p>
+                          <div className="flex gap-1">
+                            {['pass', 'fail', 'na'].map(r => (
+                              <button key={r} className={`px-2.5 py-1 rounded text-[10px] font-bold cursor-pointer transition-all ${
+                                result === r ? (r === 'pass' ? 'bg-compliant text-white' : r === 'fail' ? 'bg-risk text-white' : 'bg-ink-500 text-white') : 'bg-surface-2 text-text-muted hover:bg-primary/10'
+                              }`}>{r.toUpperCase()}</button>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           ) : <div className="text-center py-12 text-text-muted text-[13px]">Select a sample</div>}
         </div>
@@ -2509,6 +2737,14 @@ export default function ControlDetailDrawer({ controlId, onClose, controlData }:
   const [activeStep, setActiveStep] = useState<TestingStep>('overview');
   const [reviewApproved, setReviewApproved] = useState(false);
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
+  const [executionMode, setExecutionMode] = useState<ExecutionMode>(null);
+  const [generatedSampleSet, setGeneratedSampleSet] = useState<SampleSet | null>(null);
+  const [populationLocked, setPopulationLocked] = useState<{ locked: boolean; recordCount: number; source: string; snapshotId: string } | null>(
+    ctrl.populationStatus !== 'none' ? { locked: true, recordCount: ctrl.populationSize || 0, source: ctrl.populationSource || '', snapshotId: `POP-SNAP-${ctrl.controlId}-001` } : null
+  );
+  const [uploadedEvidence, setUploadedEvidence] = useState<Record<string, EvidenceFile[]>>({});
+  const [attributeResults, setAttributeResults] = useState<Record<string, Record<string, { result: 'pass' | 'fail' | 'pending'; evidenceIds: string[]; notes: string }>>>({});
+  const controlType = deriveControlType(ctrl);
   const eng = ENGAGEMENT;
 
   const handleSubmitForReview = () => {
@@ -2527,16 +2763,30 @@ export default function ControlDetailDrawer({ controlId, onClose, controlData }:
     setTimeout(() => setActiveStep('testing'), 600);
   };
 
-  const steps: { id: TestingStep; label: string; icon: React.ElementType }[] = [
-    { id: 'overview', label: 'Overview', icon: Eye },
-    { id: 'population', label: 'Population', icon: Database },
-    { id: 'samples', label: 'Samples', icon: Filter },
-    { id: 'evidence', label: 'Evidence', icon: FileText },
-    { id: 'testing', label: 'Attribute Testing', icon: Target },
-    { id: 'working-paper', label: 'Working Paper', icon: Copy },
-    { id: 'review', label: 'Review', icon: Users },
-    { id: 'conclusion', label: 'Conclusion', icon: CheckCircle2 },
-  ];
+  const setAttrResult = (sampleId: string, attrId: string, result: 'pass' | 'fail' | 'pending', notes?: string) => {
+    setAttributeResults(prev => ({ ...prev, [sampleId]: { ...(prev[sampleId] || {}), [attrId]: { result, evidenceIds: [], notes: notes || '' } } }));
+  };
+
+  // Dynamic steps based on control type
+  const steps: { id: TestingStep; label: string; icon: React.ElementType }[] = (() => {
+    const common = [{ id: 'overview' as const, label: 'Overview', icon: Eye }];
+    const tail = [
+      { id: 'testing' as const, label: 'Attribute Testing', icon: Target },
+      { id: 'working-paper' as const, label: 'Working Paper', icon: Copy },
+      { id: 'review' as const, label: 'Review', icon: Users },
+      { id: 'conclusion' as const, label: 'Conclusion', icon: CheckCircle2 },
+    ];
+    if (controlType === 'Manual') {
+      return [...common, { id: 'create-samples' as const, label: 'Create Samples', icon: Plus }, { id: 'evidence' as const, label: 'Evidence', icon: FileText }, ...tail];
+    }
+    if (controlType === 'Automated') {
+      return [...common, { id: 'population' as const, label: 'Population', icon: Database }, { id: 'execution-mode' as const, label: 'Execution Mode', icon: Settings },
+        ...(executionMode !== 'full-run' ? [{ id: 'samples' as const, label: 'Samples', icon: Filter }] : []), ...tail];
+    }
+    return [...common, { id: 'population' as const, label: 'Population', icon: Database }, { id: 'execution-mode' as const, label: 'Execution Mode', icon: Settings },
+      ...(executionMode !== 'full-run' ? [{ id: 'samples' as const, label: 'Samples', icon: Filter }] : []),
+      { id: 'evidence' as const, label: 'Evidence', icon: FileText }, ...tail];
+  })();
 
   return (
     <>
@@ -2563,6 +2813,7 @@ export default function ControlDetailDrawer({ controlId, onClose, controlData }:
                 <span className="text-[10px] font-mono text-text-muted">{ctrl.controlId}</span>
                 {ctrl.isKey && <span className="px-1.5 h-4 rounded text-[9px] font-bold bg-mitigated-50 text-mitigated-700 inline-flex items-center">KEY</span>}
                 <StatusLabel status={ctrl.status} />
+                <span className={`px-1.5 h-4 rounded text-[8px] font-bold inline-flex items-center ${controlType === 'Automated' ? 'bg-evidence-50 text-evidence-700' : controlType === 'Manual' ? 'bg-gray-100 text-gray-600' : 'bg-brand-50 text-brand-700'}`}>{controlType}</span>
               </div>
               <h2 className="text-[14px] font-bold text-text truncate">{ctrl.controlName}</h2>
               <div className="flex items-center gap-2 mt-1">
@@ -2585,7 +2836,9 @@ export default function ControlDetailDrawer({ controlId, onClose, controlData }:
           <AnimatePresence mode="wait">
             <motion.div key={activeStep} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }}>
               {activeStep === 'overview' && <OverviewStep ctrl={ctrl} onGoToStep={setActiveStep} />}
-              {activeStep === 'population' && <PopulationStep ctrl={ctrl} />}
+              {activeStep === 'population' && <PopulationStep ctrl={ctrl} onGoToStep={setActiveStep} onPopulationLocked={setPopulationLocked} />}
+              {activeStep === 'execution-mode' && <ExecutionModeStep ctrl={ctrl} executionMode={executionMode} onSelect={setExecutionMode} onGoToStep={setActiveStep} onCreateTestItems={setGeneratedSampleSet} populationInfo={populationLocked} />}
+              {activeStep === 'create-samples' && <CreateSamplesStep ctrl={ctrl} onGoToStep={setActiveStep} onSamplesCreated={setGeneratedSampleSet} />}
               {activeStep === 'samples' && <SamplesStep ctrl={ctrl} onGoToStep={setActiveStep} />}
               {activeStep === 'evidence' && <EvidenceStep ctrl={ctrl} />}
               {activeStep === 'testing' && <AttributeTestingStep ctrl={ctrl} />}
