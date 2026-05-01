@@ -1,4 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+// Default name for the kh-add combine input. Date-based so it sorts cleanly
+// in the grid; user can edit or clear.
+function defaultGroupName(): string {
+  const d = new Date();
+  return `Upload · ${d.toLocaleString('en-US', { month: 'short' })} ${d.getDate()}`;
+}
 import { motion, AnimatePresence } from 'motion/react';
 import {
   X, Search, Layers, FileText, Database, Upload, Check, Mail, Plus, Loader2, Folder,
@@ -66,6 +72,11 @@ export default function DataPickerModal({
   // Multi-select state — keyed by source id (for source rows) or local upload id.
   const [selectedSourceIds, setSelectedSourceIds] = useState<Set<string>>(new Set());
   const [pendingUploads, setPendingUploads] = useState<Array<{ localId: string; name: string; sizeBytes: number; progress: number; path?: string }>>([]);
+  // Optional "combine" name (kh-add only). Visible in the pending list when
+  // 2+ loose files (no folder) are queued. Filled → all loose files commit
+  // as one source under this name. Empty → each loose file = its own source.
+  // Folder uploads are unaffected and always commit per-folder.
+  const [combinedName, setCombinedName] = useState('');
 
   // Reset transient state when the modal opens fresh. The starting tab is
   // caller-controlled (defaults to Upload, which is the chat default).
@@ -75,6 +86,7 @@ export default function DataPickerModal({
       setSearch('');
       setSelectedSourceIds(new Set());
       setPendingUploads([]);
+      setCombinedName('');
     }
   }, [open, defaultTab]);
 
@@ -104,6 +116,25 @@ export default function DataPickerModal({
   const totalSelected = selectedSourceIds.size + readyUploads.length;
   const inFlightCount = pendingUploads.length - readyUploads.length;
 
+  // Loose pending uploads (no folder path). Used to decide whether to show
+  // the "Combine into one source" name input — only meaningful for 2+ loose.
+  const loosePendingCount = pendingUploads.filter(u => !u.path || u.path === u.name).length;
+
+  // Auto-fill the combine name with a sensible default the first time 2+
+  // loose files appear in this modal session. User can edit or clear; if
+  // cleared, it stays cleared (we don't re-apply the default).
+  const combineDefaultedRef = useRef(false);
+  useEffect(() => {
+    if (mode !== 'kh-add') return;
+    if (loosePendingCount >= 2 && !combineDefaultedRef.current) {
+      setCombinedName(prev => (prev === '' ? defaultGroupName() : prev));
+      combineDefaultedRef.current = true;
+    }
+  }, [mode, loosePendingCount]);
+  useEffect(() => {
+    if (!open) combineDefaultedRef.current = false;
+  }, [open]);
+
   const toggleSource = (id: string) => {
     setSelectedSourceIds(prev => {
       const next = new Set(prev);
@@ -116,8 +147,20 @@ export default function DataPickerModal({
     const sourceSelections: AttachmentSelection[] = SEED
       .filter(s => selectedSourceIds.has(s.id))
       .map(s => ({ kind: 'source' as const, sourceId: s.id, name: s.name, subtype: s.subtype, type: s.type }));
-    const uploadSelections: AttachmentSelection[] = readyUploads
-      .map(u => ({ kind: 'upload' as const, localId: u.localId, name: u.name, sizeBytes: u.sizeBytes, path: u.path }));
+
+    // Combine loose files into a single named source if the user typed a name.
+    // Implementation trick: rewrite each loose file's path to `${combinedName}/${file.name}`
+    // — DataSourcesView's existing folder-grouping logic will then treat them
+    // as one source. Folders are unaffected.
+    const combine = mode === 'kh-add' && combinedName.trim().length > 0;
+    const combinedRoot = combinedName.trim();
+
+    const uploadSelections: AttachmentSelection[] = readyUploads.map(u => {
+      const isLoose = !u.path || u.path === u.name;
+      const path = combine && isLoose ? `${combinedRoot}/${u.name}` : u.path;
+      return { kind: 'upload' as const, localId: u.localId, name: u.name, sizeBytes: u.sizeBytes, path };
+    });
+
     onConfirm([...sourceSelections, ...uploadSelections]);
   };
 
@@ -229,22 +272,36 @@ export default function DataPickerModal({
               )}
             </div>
 
-            {/* Footer — selection count + Attach CTA */}
-            <div className="border-t border-border-light px-5 py-3 flex items-center justify-between bg-surface-2/60">
-              <div className="text-[12px] text-text-muted tabular-nums flex items-center gap-2">
-                {totalSelected === 0 && inFlightCount === 0 && (
-                  <>Pick sources or files to attach to your message.</>
-                )}
-                {totalSelected > 0 && (
-                  <span><span className="font-semibold text-text-secondary">{totalSelected}</span> {totalSelected === 1 ? 'item' : 'items'} selected</span>
-                )}
-                {inFlightCount > 0 && (
-                  <span className="inline-flex items-center gap-1 text-primary">
-                    <Loader2 size={11} className="animate-spin" />
-                    {inFlightCount} uploading…
-                  </span>
-                )}
-              </div>
+            {/* Footer — selection count + Attach CTA. In kh-add upload tab,
+                if 2+ loose files are queued, replace the status text with a
+                slim "Group as" input on the left side. */}
+            <div className="border-t border-border-light px-5 py-3 flex items-center justify-between gap-3 bg-surface-2/60">
+              {mode === 'kh-add' && tab === 'upload' && loosePendingCount >= 2 ? (
+                <label className="flex items-center gap-2 flex-1 min-w-0 max-w-md">
+                  <span className="text-[12px] font-medium text-text-secondary shrink-0">Group as</span>
+                  <input
+                    value={combinedName}
+                    onChange={(e) => setCombinedName(e.target.value)}
+                    placeholder="Leave empty to add as separate files"
+                    className="flex-1 min-w-0 h-8 px-2.5 rounded-md border border-border-light bg-white text-[12.5px] text-ink-900 placeholder:text-text-muted/60 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-colors"
+                  />
+                </label>
+              ) : (
+                <div className="text-[12px] text-text-muted tabular-nums flex items-center gap-2">
+                  {totalSelected === 0 && inFlightCount === 0 && (
+                    <>Pick sources or files to attach to your message.</>
+                  )}
+                  {totalSelected > 0 && (
+                    <span><span className="font-semibold text-text-secondary">{totalSelected}</span> {totalSelected === 1 ? 'item' : 'items'} selected</span>
+                  )}
+                  {inFlightCount > 0 && (
+                    <span className="inline-flex items-center gap-1 text-primary">
+                      <Loader2 size={11} className="animate-spin" />
+                      {inFlightCount} uploading…
+                    </span>
+                  )}
+                </div>
+              )}
               <div className="flex items-center gap-2">
                 <button
                   onClick={onClose}
@@ -264,6 +321,7 @@ export default function DataPickerModal({
             </div>
             </>
             )}
+
           </motion.div>
         </div>
       )}
@@ -582,7 +640,9 @@ function UploadPanel({ pendingUploads, setPendingUploads, mode }: UploadPanelPro
         )}
       </div>
 
-      {/* Pending uploads list — progress bar per file, "Ready" pill when done */}
+      {/* Pending uploads list — flat across modes. Folder uploads keep their
+          path tag inline. The Combine input above only renders in kh-add when
+          2+ loose files are queued. */}
       {pendingUploads.length > 0 && (
         <div className="rounded-xl border border-border-light bg-white overflow-hidden">
           <div className="px-4 py-2 border-b border-border-light bg-surface-2/60 flex items-center justify-between">
@@ -596,63 +656,11 @@ function UploadPanel({ pendingUploads, setPendingUploads, mode }: UploadPanelPro
               </span>
             )}
           </div>
+
           <ul className="divide-y divide-border-light">
-            {pendingUploads.map(u => {
-              const isDone = u.progress >= 100;
-              return (
-                <li key={u.localId} className="flex items-center gap-3 px-4 py-3">
-                  {u.path ? (
-                    <Folder size={14} className={`shrink-0 ${isDone ? 'text-primary' : 'text-text-muted/60'}`} />
-                  ) : (
-                    <FileText size={14} className={`shrink-0 ${isDone ? 'text-primary' : 'text-text-muted/60'}`} />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <div className="text-[13px] text-text truncate flex-1 min-w-0">
-                        {u.name}
-                        {u.path && (
-                          <span className="ml-1.5 text-[11px] text-ink-400 font-normal" title={u.path}>
-                            · {u.path.replace(`/${u.name}`, '') || u.path}
-                          </span>
-                        )}
-                      </div>
-                      {isDone ? (
-                        <span className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10.5px] font-semibold text-compliant bg-compliant-50">
-                          <Check size={10} />
-                          Ready
-                        </span>
-                      ) : (
-                        <span className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10.5px] font-semibold text-primary bg-primary-xlight">
-                          <Loader2 size={10} className="animate-spin" />
-                          {u.progress}%
-                        </span>
-                      )}
-                    </div>
-                    {/* Progress bar — visible until upload completes */}
-                    {!isDone && (
-                      <div className="mt-1.5 h-1.5 rounded-full bg-surface-2 overflow-hidden">
-                        <motion.div
-                          className="h-full bg-primary"
-                          initial={{ width: 0 }}
-                          animate={{ width: `${u.progress}%` }}
-                          transition={{ duration: 0.18, ease: 'linear' }}
-                        />
-                      </div>
-                    )}
-                    <div className={`text-[11px] tabular-nums mt-${isDone ? '0.5' : '1'} text-text-muted`}>
-                      {formatBytesShort(u.sizeBytes)}
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => removeUpload(u.localId)}
-                    className="p-1.5 text-text-muted hover:text-risk hover:bg-surface-2 rounded-md transition-colors cursor-pointer shrink-0"
-                    aria-label={`${isDone ? 'Remove' : 'Cancel'} ${u.name}`}
-                  >
-                    <X size={13} />
-                  </button>
-                </li>
-              );
-            })}
+            {pendingUploads.map(u => (
+              <PendingFileRow key={u.localId} upload={u} onRemove={removeUpload} indent={false} />
+            ))}
           </ul>
         </div>
       )}
@@ -859,6 +867,74 @@ function Field({
       </span>
       {children}
     </label>
+  );
+}
+
+// ─── Pending list rendering helpers ──────────────────────────────────────────
+
+// Flat pending file row — shows the file's name plus a small path tag when
+// the file came from a folder upload (e.g. "sales.pdf · Reports/Q1"). Used
+// in both chat and kh-add modes.
+function PendingFileRow({
+  upload, onRemove, indent,
+}: { upload: PendingUpload; onRemove: (id: string) => void; indent: boolean }) {
+  const isDone = upload.progress >= 100;
+  // Path tag = the directory portion of the path (everything except the
+  // file name itself). Empty when file is loose.
+  const pathTag = upload.path && upload.path !== upload.name
+    ? upload.path.replace(`/${upload.name}`, '') || upload.path
+    : '';
+  return (
+    <li className={`flex items-center gap-3 py-3 ${indent ? 'pl-10 pr-4' : 'px-4'}`}>
+      {pathTag ? (
+        <Folder size={14} className={`shrink-0 ${isDone ? 'text-primary' : 'text-text-muted/60'}`} />
+      ) : (
+        <FileText size={14} className={`shrink-0 ${isDone ? 'text-primary' : 'text-text-muted/60'}`} />
+      )}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <div className="text-[13px] text-text truncate flex-1 min-w-0">
+            {upload.name}
+            {pathTag && (
+              <span className="ml-1.5 text-[11px] text-ink-400 font-normal" title={upload.path}>
+                · {pathTag}
+              </span>
+            )}
+          </div>
+          {isDone ? (
+            <span className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10.5px] font-semibold text-compliant bg-compliant-50">
+              <Check size={10} />
+              Ready
+            </span>
+          ) : (
+            <span className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10.5px] font-semibold text-primary bg-primary-xlight">
+              <Loader2 size={10} className="animate-spin" />
+              {upload.progress}%
+            </span>
+          )}
+        </div>
+        {!isDone && (
+          <div className="mt-1.5 h-1.5 rounded-full bg-surface-2 overflow-hidden">
+            <motion.div
+              className="h-full bg-primary"
+              initial={{ width: 0 }}
+              animate={{ width: `${upload.progress}%` }}
+              transition={{ duration: 0.18, ease: 'linear' }}
+            />
+          </div>
+        )}
+        <div className={`text-[11px] tabular-nums mt-${isDone ? '0.5' : '1'} text-text-muted`}>
+          {formatBytesShort(upload.sizeBytes)}
+        </div>
+      </div>
+      <button
+        onClick={() => onRemove(upload.localId)}
+        className="p-1.5 text-text-muted hover:text-risk hover:bg-surface-2 rounded-md transition-colors cursor-pointer shrink-0"
+        aria-label={`${isDone ? 'Remove' : 'Cancel'} ${upload.name}`}
+      >
+        <X size={13} />
+      </button>
+    </li>
   );
 }
 
