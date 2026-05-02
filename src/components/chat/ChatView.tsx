@@ -2,9 +2,9 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Send, Paperclip, Sparkles, History, X, FileText,
-  Workflow, BarChart3, ChevronDown, ChevronRight,
+  Workflow, BarChart3, ChevronDown, ChevronLeft, ChevronRight,
   MessageSquare, ArrowRight, Plus, Lightbulb,
-  Save, CheckCircle, Maximize2, Lock,
+  Save, CheckCircle, Maximize2, Lock, Calendar,
   ExternalLink, Download, MoreHorizontal, Pencil, CornerDownLeft, ArrowUpRight,
 } from 'lucide-react';
 import { CHAT_HISTORY, CHAT_CONVERSATIONS, CLARIFICATION_STEPS, BUSINESS_PROCESSES, SOPS } from '../../data/mockData';
@@ -32,7 +32,7 @@ interface ChatMessage {
   followUps?: string[];
   timestamp: Date;
   // Rich inline components
-  richType?: 'summary-kpi' | 'audit-result' | 'audit-loading' | 'clarification' | 'save-workflow-prompt' | 'workflow-checkpoint';
+  richType?: 'summary-kpi' | 'audit-result' | 'audit-loading' | 'clarification' | 'save-workflow-prompt' | 'workflow-checkpoint' | 'qna-plan';
   richData?: Record<string, unknown>;
   // Tracks which dashboards/reports this result was added to
   addedTo?: {
@@ -47,6 +47,9 @@ interface ClarificationData {
   questions: { question: string; options: string[] }[];
   answers: Record<number, string>;
   status: 'open' | 'submitted'; // 'submitted' freezes the UI into a recap
+  // 'audit-query' (default) feeds the audit run; 'save-workflow' captures
+  // tolerance/threshold config and then opens the Save-as-Workflow modal.
+  purpose?: 'audit-query' | 'save-workflow';
 }
 
 // ─── Audit-query result fixture ──────────────────────────────────────────────
@@ -414,24 +417,33 @@ function ClarificationBlock({
   const answeredCount = Object.keys(data.answers).length;
   const activeIndex = data.questions.findIndex((_, i) => data.answers[i] === undefined);
 
+  // displayIndex lets the user navigate back to already-answered questions to
+  // change their picks. `null` = follow the natural flow (next-unanswered =
+  // activeIndex). Back/Forward chevrons set it explicitly.
+  const [displayIndex, setDisplayIndex] = useState<number | null>(null);
+  const viewIndex = displayIndex ?? (activeIndex !== -1 ? activeIndex : total - 1);
+  const viewQ = viewIndex >= 0 && viewIndex < total ? data.questions[viewIndex] : null;
+  const optionCount = viewQ?.options.length ?? 0;
+  const canGoBack = viewIndex > 0;
+  const canGoForward =
+    viewIndex < total - 1 &&
+    (data.answers[viewIndex] !== undefined || viewIndex < activeIndex || activeIndex === -1);
+
   const [highlighted, setHighlighted] = useState(0);
   const [customInput, setCustomInput] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const customInputRef = useRef(customInput);
   customInputRef.current = customInput;
 
-  // Reset highlight + input when active question changes
+  // Reset highlight + input when viewed question changes
   useEffect(() => {
     setHighlighted(0);
     setCustomInput('');
-  }, [activeIndex]);
-
-  const activeQ = activeIndex !== -1 ? data.questions[activeIndex] : null;
-  const optionCount = activeQ?.options.length ?? 0;
+  }, [viewIndex]);
 
   // Keyboard navigation — only fires while clarification is open and active
   useEffect(() => {
-    if (data.status === 'submitted' || activeIndex === -1 || !activeQ) return;
+    if (data.status === 'submitted' || !viewQ) return;
     const handler = (e: KeyboardEvent) => {
       const active = document.activeElement;
       const inMainTextarea =
@@ -449,7 +461,7 @@ function ClarificationBlock({
         setHighlighted(h => Math.max(h - 1, 0));
       } else if (e.key === 'Enter' && !inMainTextarea && !inOurInput) {
         e.preventDefault();
-        selectOption(activeQ.options[highlighted]);
+        selectOption(viewQ.options[highlighted]);
       } else if (e.key === 'Escape') {
         if (inMainTextarea) return;
         e.preventDefault();
@@ -458,15 +470,15 @@ function ClarificationBlock({
         const num = parseInt(e.key, 10) - 1;
         if (num < optionCount) {
           e.preventDefault();
-          selectOption(activeQ.options[num]);
+          selectOption(viewQ.options[num]);
         }
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-    // selectOption / skipCurrent close over highlighted + activeIndex; we want fresh ones
+    // selectOption / skipCurrent close over highlighted + viewIndex; we want fresh ones
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [highlighted, activeIndex, optionCount, data.status]);
+  }, [highlighted, viewIndex, optionCount, data.status]);
 
   if (data.status === 'submitted') {
     return (
@@ -476,37 +488,77 @@ function ClarificationBlock({
     );
   }
 
-  if (activeIndex === -1 || !activeQ) {
+  if (!viewQ) {
     return null;
   }
 
   function selectOption(opt: string) {
-    if (activeIndex === -1) return;
-    const wasLast = answeredCount === total - 1;
-    onAnswer(activeIndex, opt);
-    if (wasLast) setTimeout(() => onSubmit(), 80);
+    if (!viewQ) return;
+    const isReAnswering = data.answers[viewIndex] !== undefined;
+    const willBeLast =
+      !isReAnswering && answeredCount === total - 1 && viewIndex === activeIndex;
+    onAnswer(viewIndex, opt);
+    if (willBeLast) setTimeout(() => onSubmit(), 80);
+    // When the user is answering the question they're naturally on (viewIndex
+    // tracking activeIndex), resume auto-follow so the next render advances to
+    // the new first-unanswered. When they back-navigated to re-answer, stay put
+    // so they can confirm the change before moving on.
+    if (!isReAnswering && viewIndex === activeIndex) {
+      setDisplayIndex(null);
+    }
   }
 
   function skipCurrent() {
-    if (activeIndex === -1) return;
-    const wasLast = activeIndex === total - 1;
-    onSkipCurrent(activeIndex);
+    if (!viewQ) return;
+    const wasLast = viewIndex === total - 1;
+    onSkipCurrent(viewIndex);
     if (wasLast) setTimeout(() => onSubmit(), 80);
+    if (viewIndex === activeIndex) setDisplayIndex(null);
+  }
+
+  function goBack() {
+    if (canGoBack) setDisplayIndex(viewIndex - 1);
+  }
+  function goForward() {
+    if (canGoForward) setDisplayIndex(viewIndex + 1);
   }
 
   return (
     <div className="space-y-2">
       <div className="rounded-xl border border-canvas-border bg-canvas-elevated overflow-hidden shadow-sm">
-        {/* Header */}
+        {/* Header — title + Back/Forward + pagination */}
         <div className="px-4 py-3 border-b border-canvas-border/60 bg-canvas-elevated flex items-center gap-2 min-w-0">
-          <span className="text-[13px] font-semibold text-ink-800 truncate">{activeQ.question}</span>
-          <span className="text-[11px] text-ink-500 tabular-nums shrink-0">· {activeIndex + 1} of {total}</span>
+          <span className="text-[13px] font-semibold text-ink-800 truncate flex-1">{viewQ.question}</span>
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              onClick={goBack}
+              disabled={!canGoBack}
+              aria-label="Previous question"
+              className="flex items-center gap-1 h-7 px-2 rounded-md text-[12px] font-medium text-ink-600 hover:bg-paper-100 hover:text-ink-800 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent cursor-pointer transition-colors"
+            >
+              <ChevronLeft size={13} />
+              Back
+            </button>
+            <span className="text-[11px] text-ink-500 tabular-nums px-1.5 min-w-[44px] text-center">
+              {viewIndex + 1} of {total}
+            </span>
+            <button
+              onClick={goForward}
+              disabled={!canGoForward}
+              aria-label="Next question"
+              className="flex items-center gap-1 h-7 px-2 rounded-md text-[12px] font-medium text-ink-600 hover:bg-paper-100 hover:text-ink-800 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent cursor-pointer transition-colors"
+            >
+              Next
+              <ChevronRight size={13} />
+            </button>
+          </div>
         </div>
 
         {/* Numbered options */}
-        <div role="listbox" aria-label={activeQ.question}>
-          {activeQ.options.map((opt, idx) => {
+        <div role="listbox" aria-label={viewQ.question}>
+          {viewQ.options.map((opt, idx) => {
             const isHighlighted = highlighted === idx;
+            const isPicked = data.answers[viewIndex] === opt;
             return (
               <button
                 key={opt}
@@ -515,21 +567,40 @@ function ClarificationBlock({
                 onClick={() => selectOption(opt)}
                 onMouseEnter={() => setHighlighted(idx)}
                 className={`w-full flex items-center gap-3 px-4 py-2.5 text-left border-t border-canvas-border/60 first:border-t-0 transition-colors cursor-pointer ${
-                  isHighlighted ? 'bg-primary-xlight' : 'hover:bg-primary-xlight/50'
+                  isPicked ? 'bg-primary/5' : isHighlighted ? 'bg-primary-xlight' : 'hover:bg-primary-xlight/50'
                 }`}
               >
                 <span className={`inline-flex items-center justify-center w-6 h-6 rounded text-[11px] font-mono tabular-nums shrink-0 transition-colors ${
-                  isHighlighted ? 'bg-primary-xlight text-primary font-semibold' : 'bg-ink-300/15 text-ink-400'
+                  isPicked
+                    ? 'bg-primary text-white font-semibold'
+                    : isHighlighted
+                      ? 'bg-primary-xlight text-primary font-semibold'
+                      : 'bg-ink-300/15 text-ink-400'
                 }`}>
                   {idx + 1}
                 </span>
                 <span className="flex-1 text-[13px] text-ink-800">{opt}</span>
-                {isHighlighted && (
+                {isHighlighted && !isPicked && (
                   <CornerDownLeft size={12} className="text-primary shrink-0" />
                 )}
               </button>
             );
           })}
+
+          {/* Submit row — surfaces user's progress and lets them commit early */}
+          {answeredCount > 0 && (
+            <div className="border-t border-canvas-border/60 flex items-center justify-between gap-3 px-4 py-2.5 bg-paper-50/40">
+              <span className="text-[12px] text-ink-500 tabular-nums">
+                {answeredCount} of {total} answered
+              </span>
+              <button
+                onClick={onSubmit}
+                className="flex items-center gap-1.5 h-7 px-3 rounded-md bg-primary hover:bg-primary-hover text-white text-[12px] font-semibold transition-colors cursor-pointer"
+              >
+                Submit {answeredCount} answer{answeredCount === 1 ? '' : 's'}
+              </button>
+            </div>
+          )}
 
           {/* Custom input row */}
           <div className="border-t border-canvas-border/60 flex items-center gap-3 px-4 py-2">
@@ -643,12 +714,27 @@ function SaveWorkflowButton() {
 // irreversible per PRD, so the modal captures metadata (name, BP, sub-process,
 // description) and surfaces the warning copy before flipping artifactMode.
 
+type WorkflowFrequencyConfig = {
+  frequency: 'Hourly' | 'Daily' | 'Weekly' | 'Monthly';
+  runTime: string;
+  dayOfWeek?: 'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri' | 'Sat' | 'Sun';
+  monthlyDate?: string;
+  triggerOn: 'Schedule' | 'Data Change' | 'Manual';
+  retry: 'Off' | '1x' | '3x' | '5x';
+};
+
 interface SaveAsWorkflowModalProps {
   open: boolean;
   defaultName: string;
   defaultDescription: string;
   onCancel: () => void;
-  onConfirm: (data: { name: string; bpId: string; subProcessId: string; description: string }) => void;
+  onConfirm: (data: {
+    name: string;
+    bpId: string;
+    subProcessId: string;
+    description: string;
+    frequencyConfig: WorkflowFrequencyConfig;
+  }) => void;
 }
 
 function SaveAsWorkflowModal({ open, defaultName, defaultDescription, onCancel, onConfirm }: SaveAsWorkflowModalProps) {
@@ -656,6 +742,14 @@ function SaveAsWorkflowModal({ open, defaultName, defaultDescription, onCancel, 
   const [description, setDescription] = useState(defaultDescription);
   const [bpId, setBpId] = useState<string>('');
   const [subProcessId, setSubProcessId] = useState<string>('');
+  // Audit run frequency — same shape as Workflow Library > Configuration tab
+  // (WorkflowDetail.tsx). Defaults match the canonical "Daily 06:00 Schedule 3x".
+  const [frequency, setFrequency] = useState<WorkflowFrequencyConfig['frequency']>('Daily');
+  const [runTime, setRunTime] = useState('06:00');
+  const [dayOfWeek, setDayOfWeek] = useState<NonNullable<WorkflowFrequencyConfig['dayOfWeek']>>('Mon');
+  const [monthlyDate, setMonthlyDate] = useState('');
+  const [triggerOn, setTriggerOn] = useState<WorkflowFrequencyConfig['triggerOn']>('Schedule');
+  const [retry, setRetry] = useState<WorkflowFrequencyConfig['retry']>('3x');
 
   // Reset form when modal opens with fresh defaults
   useEffect(() => {
@@ -664,8 +758,21 @@ function SaveAsWorkflowModal({ open, defaultName, defaultDescription, onCancel, 
       setDescription(defaultDescription);
       setBpId('');
       setSubProcessId('');
+      setFrequency('Daily');
+      setRunTime('06:00');
+      setDayOfWeek('Mon');
+      setMonthlyDate('');
+      setTriggerOn('Schedule');
+      setRetry('3x');
     }
   }, [open, defaultName, defaultDescription]);
+
+  const pillCls = (active: boolean) =>
+    `px-3 py-1 rounded-full text-[11.5px] font-medium border transition-colors cursor-pointer ${
+      active
+        ? 'bg-primary border-primary text-white'
+        : 'bg-white border-border-light text-text-muted hover:border-primary/40 hover:text-text'
+    }`;
 
   // Sub-process options derived from SOPs filtered by selected BP
   const subProcessOptions = bpId ? SOPS.filter(s => s.bpId === bpId) : [];
@@ -689,7 +796,7 @@ function SaveAsWorkflowModal({ open, defaultName, defaultDescription, onCancel, 
         initial={{ opacity: 0, y: 8, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
-        className="relative bg-white rounded-2xl shadow-2xl border border-border-light w-[560px] max-w-[92vw] max-h-[88vh] overflow-hidden flex flex-col"
+        className="relative bg-white rounded-2xl shadow-2xl border border-border-light w-[800px] max-w-[92vw] max-h-[88vh] overflow-hidden flex flex-col"
       >
         {/* Header */}
         <div className="flex items-start justify-between px-6 pt-5 pb-3">
@@ -708,7 +815,7 @@ function SaveAsWorkflowModal({ open, defaultName, defaultDescription, onCancel, 
         </div>
 
         {/* Warning */}
-        <div className="mx-6 mb-4 px-3 py-2.5 rounded-lg bg-mitigated-50 border border-mitigated-200 flex gap-2 items-start">
+        <div className="mx-6 mb-4 px-3 py-2.5 rounded-lg bg-mitigated-50 border border-mitigated/10 flex gap-2 items-start">
           <Lightbulb size={13} className="text-mitigated-700 mt-0.5 shrink-0" />
           <p className="text-[12px] leading-relaxed text-mitigated-700">
             This chat will switch to <strong>workflow mode</strong>. You won't be able to switch back to query mode in this chat — start a new chat for that.
@@ -773,6 +880,101 @@ function SaveAsWorkflowModal({ open, defaultName, defaultDescription, onCancel, 
             />
             <p className="text-[11px] text-text-muted mt-1">Optional. IRA pre-filled this from your query.</p>
           </div>
+
+          {/* Audit run frequency — mirrors Workflow Library > Configuration tab */}
+          <div>
+            <label className="text-[12px] font-semibold text-text mb-2 inline-flex items-center gap-1.5">
+              <Calendar size={12} className="text-primary" />
+              Audit run frequency
+            </label>
+            <div className="rounded-lg border border-border-light bg-paper-50/50 p-3.5 grid grid-cols-2 gap-x-4 gap-y-3.5">
+              <div>
+                <label className="text-[11px] font-semibold text-text-secondary block mb-1.5">Frequency</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {(['Hourly', 'Daily', 'Weekly', 'Monthly'] as const).map(f => (
+                    <button
+                      key={f}
+                      type="button"
+                      onClick={() => setFrequency(f)}
+                      className={pillCls(frequency === f)}
+                    >
+                      {f}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="text-[11px] font-semibold text-text-secondary block mb-1.5">Run Time</label>
+                <input
+                  type="time"
+                  value={runTime}
+                  onChange={e => setRunTime(e.target.value)}
+                  className="w-full h-9 px-3 rounded-md border border-border-light text-[13px] bg-white text-text focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/15 transition-all"
+                />
+              </div>
+
+              {frequency === 'Weekly' && (
+                <div className="col-span-2">
+                  <label className="text-[11px] font-semibold text-text-secondary block mb-1.5">Select day of the week</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const).map(d => (
+                      <button
+                        key={d}
+                        type="button"
+                        onClick={() => setDayOfWeek(d)}
+                        className={pillCls(dayOfWeek === d)}
+                      >
+                        {d}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {frequency === 'Monthly' && (
+                <div>
+                  <label className="text-[11px] font-semibold text-text-secondary block mb-1.5">Select date</label>
+                  <input
+                    type="date"
+                    value={monthlyDate}
+                    onChange={e => setMonthlyDate(e.target.value)}
+                    className="w-full h-9 px-3 rounded-md border border-border-light text-[13px] bg-white text-text focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/15 transition-all"
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className="text-[11px] font-semibold text-text-secondary block mb-1.5">Trigger On</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {(['Schedule', 'Data Change', 'Manual'] as const).map(t => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setTriggerOn(t)}
+                      className={pillCls(triggerOn === t)}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="text-[11px] font-semibold text-text-secondary block mb-1.5">Retry on Failure</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {(['Off', '1x', '3x', '5x'] as const).map(r => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => setRetry(r)}
+                      className={pillCls(retry === r)}
+                    >
+                      {r}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Footer */}
@@ -781,7 +983,20 @@ function SaveAsWorkflowModal({ open, defaultName, defaultDescription, onCancel, 
             Cancel
           </button>
           <button
-            onClick={() => canConfirm && onConfirm({ name: name.trim(), bpId, subProcessId, description: description.trim() })}
+            onClick={() => canConfirm && onConfirm({
+              name: name.trim(),
+              bpId,
+              subProcessId,
+              description: description.trim(),
+              frequencyConfig: {
+                frequency,
+                runTime,
+                dayOfWeek: frequency === 'Weekly' ? dayOfWeek : undefined,
+                monthlyDate: frequency === 'Monthly' ? monthlyDate : undefined,
+                triggerOn,
+                retry,
+              },
+            })}
             disabled={!canConfirm}
             className="flex items-center gap-1.5 px-4 py-2 bg-primary hover:bg-primary-hover disabled:bg-paper-200 disabled:text-text-muted disabled:cursor-not-allowed text-white rounded-lg text-[12px] font-semibold transition-colors cursor-pointer"
           >
@@ -818,6 +1033,12 @@ export default function ChatView({ showChatHistory, toggleChatHistory, setShowAr
   // Save-as-workflow flow state (Path 3 — query → workflow flip)
   const [showSaveAsWfModal, setShowSaveAsWfModal] = useState(false);
   const [lockedAsWorkflow, setLockedAsWorkflow] = useState(false);
+  // Captured tolerance/threshold config from the pre-modal clarification —
+  // drives the modal's prefilled name + description so the user sees their
+  // choices reflected before they commit to the workflow.
+  const saveWorkflowConfigRef = useRef<{ amount: string; date: string; threshold: string }>({
+    amount: '', date: '', threshold: '',
+  });
 
   // Data picker modal — replaces the raw file-input click on the upload buttons.
   // attachedSources are picks from existing data (files / DBs / APIs / cloud / session)
@@ -971,9 +1192,14 @@ export default function ChatView({ showChatHistory, toggleChatHistory, setShowAr
   // ─── Submit the clarification — freeze it, drop a single user msg, start the run ───
   const submitClarification = (msgId: string, fromSkip = false) => {
     let consolidated: { question: string; answer: string }[] = [];
+    // Holder object — TS narrows bare `let` initialized to a literal, but
+    // assignments inside the setMessages callback aren't visible to its flow
+    // analysis. Wrapping in an object property defeats that narrowing.
+    const flow: { purpose: 'audit-query' | 'save-workflow' } = { purpose: 'audit-query' };
     setMessages(prev => prev.map(m => {
       if (m.id !== msgId || m.richType !== 'clarification') return m;
       const data = m.richData as unknown as ClarificationData;
+      flow.purpose = data.purpose ?? 'audit-query';
       consolidated = data.questions
         .map((q, qi) => ({ question: q.question, answer: data.answers[qi] }))
         .filter(p => !!p.answer);
@@ -995,7 +1221,57 @@ export default function ChatView({ showChatHistory, toggleChatHistory, setShowAr
       }]);
     }, 80);
 
-    schedule(() => startAuditQueryRun(), 240);
+    if (flow.purpose === 'save-workflow') {
+      // Stash answers so the Save-as-Workflow modal's prefilled name/description
+      // echo them. Defaults match the question's "(current)" option.
+      const findAnswer = (kw: string) =>
+        consolidated.find(c => c.question.toLowerCase().includes(kw))?.answer ?? '';
+      saveWorkflowConfigRef.current = {
+        amount: findAnswer('amount') || '±₹1,000',
+        date: findAnswer('date') || '±3 days',
+        threshold: findAnswer('threshold') || '≥90%',
+      };
+      schedule(() => setShowSaveAsWfModal(true), 360);
+      return;
+    }
+
+    schedule(() => {
+      if (buildWorkflowMode) {
+        // Workflow-mode plan-approve gate (ported from auditify-app aa19493).
+        // In workflow mode, surface the plan and wait for explicit Approve / Revise
+        // before kicking off the audit run. Query mode auto-approves below.
+        setMessages(prev => [...prev, {
+          id: `msg-qna-plan-${Date.now()}`,
+          role: 'assistant',
+          text: '',
+          timestamp: new Date(),
+          richType: 'qna-plan',
+          richData: {
+            planText: 'Plan ready — review the steps in the artifact panel. Approve to run the audit, or revise to adjust your inputs.',
+          },
+        }]);
+      } else {
+        startAuditQueryRun();
+      }
+    }, 240);
+  };
+
+  // ─── Approve / Revise the workflow-mode plan-gate (qna-plan messages) ───
+  const handleApprovePlan = (msgId: string) => {
+    setMessages(prev => prev.filter(m => m.id !== msgId));
+    startAuditQueryRun();
+  };
+
+  const handleRevisePlan = (msgId: string) => {
+    setMessages(prev => [
+      ...prev.filter(m => m.id !== msgId),
+      {
+        id: `msg-plan-revise-${Date.now()}`,
+        role: 'assistant',
+        text: 'Got it — revise your inputs in the message box and re-send.',
+        timestamp: new Date(),
+      },
+    ]);
   };
 
   // ─── Workflow Clarification Complete Handler ───
@@ -1291,12 +1567,57 @@ export default function ChatView({ showChatHistory, toggleChatHistory, setShowAr
   };
 
   // Path 3 entry — open the Save-as-Workflow modal from the audit-result action bar.
-  const openSaveAsWorkflowModal = () => setShowSaveAsWfModal(true);
+  // Path 3 entry — instead of jumping straight to the metadata modal, IRA first
+  // posts an inline clarification asking for tolerance / threshold config.
+  // submitClarification (purpose: 'save-workflow') opens the modal once
+  // those choices are captured.
+  const openSaveAsWorkflowModal = () => {
+    const hasOpenSaveClarify = messages.some(
+      m => m.richType === 'clarification' &&
+        (m.richData as unknown as ClarificationData)?.purpose === 'save-workflow' &&
+        (m.richData as unknown as ClarificationData)?.status === 'open'
+    );
+    if (hasOpenSaveClarify) return;
+
+    const data: ClarificationData = {
+      intro: "Before I save this as a re-runnable workflow, let me confirm the matching tolerances and thresholds. Pick what fits, or type your own.",
+      questions: [
+        {
+          question: 'Amount tolerance for duplicate matching',
+          options: ['Exact match (₹0)', '±₹1,000', '±₹5,000', '±2% of invoice value'],
+        },
+        {
+          question: 'Date tolerance for duplicate matching',
+          options: ['Same day only', '±3 days (current)', '±7 days', '±14 days'],
+        },
+        {
+          question: 'Match-score threshold to flag',
+          options: ['≥90% (current)', '≥85%', '≥80%', '≥95%'],
+        },
+      ],
+      answers: {},
+      status: 'open',
+      purpose: 'save-workflow',
+    };
+    setMessages(prev => [...prev, {
+      id: `msg-clarify-savewf-${Date.now()}`,
+      role: 'assistant',
+      text: '',
+      thinking: [
+        'User asked to save as workflow',
+        'Identified tolerances + threshold as configurable parameters',
+        'Asking before locking the workflow definition',
+      ],
+      timestamp: new Date(),
+      richType: 'clarification',
+      richData: data as unknown as Record<string, unknown>,
+    }]);
+  };
 
   // Path 3 commit — modal confirmed. Lock the thread into workflow mode,
   // swap the IRA Workspace canvas (parent App.tsx handles the Y-spin), and
   // post the inline checkpoint message asking which params to make configurable.
-  const handleSaveAsWorkflowConfirm = (data: { name: string; bpId: string; subProcessId: string; description: string }) => {
+  const handleSaveAsWorkflowConfirm = (data: { name: string; bpId: string; subProcessId: string; description: string; frequencyConfig: WorkflowFrequencyConfig }) => {
     setShowSaveAsWfModal(false);
 
     // Lock the composer pill — visual signal that mode is irreversible per thread.
@@ -1311,30 +1632,11 @@ export default function ChatView({ showChatHistory, toggleChatHistory, setShowAr
     setArtifactMode('workflow');
     setWorkflowType?.('detection'); // duplicate-invoice query → detection workflow
     setShowArtifacts(true);
-
-    // Inject IRA's checkpoint message inline in the same thread. Configurable
-    // params are seeded from the existing AUDIT_RESULT context (date / threshold
-    // / vendor / amount). User can multi-select via chips.
-    schedule(() => {
-      setMessages(prev => [...prev, {
-        id: `msg-wf-checkpoint-${Date.now()}`,
-        role: 'assistant',
-        text: '',
-        richType: 'workflow-checkpoint',
-        richData: {
-          intro: `I'll turn this into a workflow under **${BUSINESS_PROCESSES.find(b => b.id === data.bpId)?.name ?? 'the selected process'}**. Which parameters should be configurable when someone runs this later?`,
-          options: [
-            { id: 'date', label: 'Date range', detail: 'currently Q1 2026 — switch to rolling window at run time' },
-            { id: 'threshold', label: 'Match threshold', detail: 'currently 90% — adjustable per run' },
-            { id: 'vendor', label: 'Vendor scope', detail: 'currently all — filter to specific vendors' },
-            { id: 'amount', label: 'Amount threshold', detail: 'currently any — filter to >X' },
-          ],
-          selected: [] as string[],
-          status: 'open' as 'open' | 'submitted',
-        },
-        timestamp: new Date(),
-      }]);
-    }, 800);
+    // The "which params should be configurable?" checkpoint message used to
+    // post here, but the tolerance/threshold clarification (PR#55) already
+    // captures those choices before the modal opens — so showing it again is
+    // redundant. Render handlers + branch for `workflow-checkpoint` are kept
+    // so existing post-save hint messages (freeze tip, save-prompt) still fire.
   };
 
   // Toggle a checkpoint chip selection (multi-select).
@@ -1448,7 +1750,10 @@ export default function ChatView({ showChatHistory, toggleChatHistory, setShowAr
     setFiles([]);
     setAttachedSources([]);
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
-    simulateResponse(text, buildWorkflowMode ? 'workflow' : 'query');
+    // Workflow mode: don't force 'workflow' explicit (which routes straight to
+    // the canvas builder); fall through to the keyword router so non-workflow
+    // queries reach clarification → the qna-plan approve/revise gate.
+    simulateResponse(text, buildWorkflowMode ? undefined : 'query');
   };
 
   const handleFollowUpClick = (question: string) => {
@@ -1672,33 +1977,33 @@ export default function ChatView({ showChatHistory, toggleChatHistory, setShowAr
                 Your AI copilot already knows what to look for. Just ask.
               </motion.p>
 
-              {/* Attachment chips — surface picked sources / fresh uploads above the composer */}
-              {(files.length > 0 || attachedSources.length > 0) && (
-                <div className="flex flex-wrap gap-1.5 mb-2 max-w-[680px] mx-auto">
-                  {attachedSources.map((s, i) => (
-                    s.kind === 'source' && (
-                      <div key={`src-${i}`} className="flex items-center gap-1 bg-evidence-50 text-evidence-700 text-[12px] px-2 py-1 rounded-md font-medium border border-evidence-200">
-                        <span className="text-[10px] uppercase font-bold tracking-wide opacity-60">{s.type === 'database' ? 'DB' : s.type === 'api' ? 'API' : s.type === 'cloud' ? 'CLOUD' : s.type === 'session' ? 'SESS' : 'FILE'}</span>
-                        <span className="truncate max-w-[160px]">{s.name}</span>
-                        <button
-                          onClick={() => setAttachedSources(prev => prev.filter((_, j) => j !== i))}
-                          className="hover:text-evidence-700 ml-0.5 cursor-pointer"
-                          aria-label={`Remove ${s.name}`}
-                        ><X size={10} /></button>
-                      </div>
-                    )
-                  ))}
-                  {files.map((f, i) => (
-                    <div key={`file-${i}`} className="flex items-center gap-1 bg-primary-light text-primary text-[12px] px-2 py-1 rounded-md font-medium">
-                      <FileText size={11} />
-                      <span className="truncate max-w-[100px]">{f.name}</span>
-                      <button onClick={() => setFiles(prev => prev.filter((_, j) => j !== i))} className="hover:text-primary-hover ml-0.5 cursor-pointer"><X size={10} /></button>
-                    </div>
-                  ))}
-                </div>
-              )}
               <div className="ai-border" style={{ marginBottom: 24 }}>
                 <div style={{ position: 'relative', background: 'white', borderRadius: 18 }}>
+                  {/* Attachment chips — picked sources / fresh uploads, inside the composer */}
+                  {(files.length > 0 || attachedSources.length > 0) && (
+                    <div className="flex items-center gap-1.5 overflow-x-auto px-5 pt-3 pb-1">
+                      {attachedSources.map((s, i) => (
+                        s.kind === 'source' && (
+                          <div key={`src-${i}`} title={s.name} className="flex items-center gap-1 bg-evidence-50 text-evidence-700 text-[12px] px-2 py-1 rounded-md font-medium border border-evidence-200 shrink-0">
+                            <span className="text-[10px] uppercase font-bold tracking-wide opacity-60">{s.type === 'database' ? 'DB' : s.type === 'api' ? 'API' : s.type === 'cloud' ? 'CLOUD' : s.type === 'session' ? 'SESS' : 'FILE'}</span>
+                            <span className="truncate max-w-[160px]">{s.name}</span>
+                            <button
+                              onClick={() => setAttachedSources(prev => prev.filter((_, j) => j !== i))}
+                              className="hover:text-evidence-700 ml-0.5 cursor-pointer"
+                              aria-label={`Remove ${s.name}`}
+                            ><X size={10} /></button>
+                          </div>
+                        )
+                      ))}
+                      {files.map((f, i) => (
+                        <div key={`file-${i}`} title={f.name} className="flex items-center gap-1 bg-primary-light text-primary text-[12px] px-2 py-1 rounded-md font-medium shrink-0">
+                          <FileText size={11} />
+                          <span className="truncate max-w-[100px]">{f.name}</span>
+                          <button onClick={() => setFiles(prev => prev.filter((_, j) => j !== i))} className="hover:text-primary-hover ml-0.5 cursor-pointer" aria-label={`Remove ${f.name}`}><X size={10} /></button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <textarea
                     ref={textareaRef}
                     value={input}
@@ -1783,7 +2088,7 @@ export default function ChatView({ showChatHistory, toggleChatHistory, setShowAr
           </div>
           <div className="flex items-center gap-3">
             <button
-              onClick={() => { setMessages([]); setInput(''); setShowClarificationCard(false); setShowProgressiveLoader(false); setWorkflowBuildPhase(0); setCurrentWorkflowType(null); setLockedAsWorkflow(false); setAttachedSources([]); setFiles([]); clearTimers(); }}
+              onClick={() => { setMessages([]); setInput(''); setShowClarificationCard(false); setShowProgressiveLoader(false); setWorkflowBuildPhase(0); setCurrentWorkflowType(null); setLockedAsWorkflow(false); setAttachedSources([]); setFiles([]); clearTimers(); setShowArtifacts(false); setArtifactMode('query'); setActiveArtifactTab('sources'); setBuildWorkflowMode(false); }}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border-light text-[12px] font-medium text-text-secondary hover:bg-white hover:border-primary/20 transition-all cursor-pointer"
             >
               <Plus size={12} />
@@ -1844,8 +2149,11 @@ export default function ChatView({ showChatHistory, toggleChatHistory, setShowAr
                     {msg.role === 'assistant' && msg.thinking && msg.thinking.length > 0 && (
                       <ThinkingTrail
                         summary={
-                          msg.richType === 'clarification' ? 'Identified ambiguity, asking for inputs' :
-                          msg.richType === 'audit-loading' ? 'Running query through plan → SQL → sources → results' :
+                          msg.richType === 'clarification'
+                            ? ((msg.richData as unknown as ClarificationData)?.purpose === 'save-workflow'
+                                ? 'Confirming tolerances + threshold before saving'
+                                : 'Identified ambiguity, asking for inputs')
+                            : msg.richType === 'audit-loading' ? 'Running query through plan → SQL → sources → results' :
                           msg.richType === 'audit-result' ? 'Completed query — running through plan → SQL → sources → results' :
                           `Thought for ${msg.thinking.length} steps`
                         }
@@ -1863,13 +2171,39 @@ export default function ChatView({ showChatHistory, toggleChatHistory, setShowAr
                       <div className="max-w-[66ch]">
                         {(msg.richData as unknown as ClarificationData).status === 'submitted' ? (
                           <div className="text-[13px] text-ink-700 leading-relaxed">
-                            Got it — running with these inputs.
+                            {(msg.richData as unknown as ClarificationData).purpose === 'save-workflow'
+                              ? 'Got it — saving as workflow with these settings.'
+                              : 'Got it — running with these inputs.'}
                           </div>
                         ) : (
                           <div className="text-[15px] leading-[1.65] text-ink-800">
                             {(msg.richData as unknown as ClarificationData).intro}
                           </div>
                         )}
+                      </div>
+                    ) : msg.richType === 'qna-plan' ? (
+                      // Workflow-mode plan-approve gate — Approve runs the audit,
+                      // Revise drops the plan and returns control to the composer.
+                      <div className="space-y-3 max-w-[680px]">
+                        {(msg.richData as { planText?: string })?.planText && (
+                          <div className="text-[14px] leading-[1.6] text-ink-700">
+                            {(msg.richData as { planText?: string }).planText}
+                          </div>
+                        )}
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            onClick={() => handleApprovePlan(msg.id)}
+                            className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-md bg-primary hover:bg-primary-hover text-white text-[12px] font-semibold transition-colors cursor-pointer"
+                          >
+                            <CheckCircle size={13} /> Approve & run
+                          </button>
+                          <button
+                            onClick={() => handleRevisePlan(msg.id)}
+                            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md bg-canvas-elevated border border-canvas-border text-[12px] font-semibold text-ink-700 hover:border-brand-200 transition-colors cursor-pointer"
+                          >
+                            <Pencil size={12} /> Revise
+                          </button>
+                        </div>
                       </div>
                     ) : msg.richType === 'audit-loading' ? (
                       <div className="max-w-[680px]">
@@ -2298,46 +2632,70 @@ export default function ChatView({ showChatHistory, toggleChatHistory, setShowAr
                     <Lock size={10} /> Workflow mode
                   </div>
                   <span className="text-[11px] text-text-muted">
-                    Switched at save. Start a <button onClick={() => { setMessages([]); setInput(''); setShowClarificationCard(false); setShowProgressiveLoader(false); setWorkflowBuildPhase(0); setCurrentWorkflowType(null); setLockedAsWorkflow(false); setAttachedSources([]); setFiles([]); clearTimers(); }} className="underline hover:text-primary cursor-pointer">new chat</button> for a query.
+                    Switched at save. Start a <button onClick={() => { setMessages([]); setInput(''); setShowClarificationCard(false); setShowProgressiveLoader(false); setWorkflowBuildPhase(0); setCurrentWorkflowType(null); setLockedAsWorkflow(false); setAttachedSources([]); setFiles([]); clearTimers(); setShowArtifacts(false); setArtifactMode('query'); setActiveArtifactTab('sources'); setBuildWorkflowMode(false); }} className="underline hover:text-primary cursor-pointer">new chat</button> for a query.
                   </span>
                 </div>
               )}
-              {(files.length > 0 || attachedSources.length > 0) && (
-                <div className="flex flex-wrap gap-1.5 mb-2">
-                  {/* Source attachments — picked from existing data (DBs / files / APIs / cloud) */}
-                  {attachedSources.map((s, i) => (
-                    <div key={`src-${i}`} className="flex items-center gap-1 bg-evidence-50 text-evidence-700 text-[12px] px-2 py-1 rounded-md font-medium border border-evidence-200">
-                      {s.kind === 'source' && (
-                        <>
-                          <span className="text-[10px] uppercase font-bold tracking-wide opacity-60">{s.type === 'database' ? 'DB' : s.type === 'api' ? 'API' : s.type === 'cloud' ? 'CLOUD' : s.type === 'session' ? 'SESS' : 'FILE'}</span>
-                          <span className="truncate max-w-[160px]">{s.name}</span>
-                        </>
-                      )}
-                      <button
-                        onClick={() => setAttachedSources(prev => prev.filter((_, j) => j !== i))}
-                        className="hover:text-evidence-700 ml-0.5 cursor-pointer"
-                        aria-label={`Remove ${s.kind === 'source' ? s.name : ''}`}
-                      ><X size={10} /></button>
-                    </div>
-                  ))}
-                  {/* Fresh uploads — raw files added via the Upload tab or legacy path */}
-                  {files.map((f, i) => (
-                    <div key={`file-${i}`} className="flex items-center gap-1 bg-primary-light text-primary text-[12px] px-2 py-1 rounded-md font-medium">
-                      <FileText size={11} />
-                      <span className="truncate max-w-[100px]">{f.name}</span>
-                      <button onClick={() => setFiles(prev => prev.filter((_, j) => j !== i))} className="hover:text-primary-hover ml-0.5 cursor-pointer"><X size={10} /></button>
-                    </div>
-                  ))}
-                </div>
-              )}
               <div className="ai-border">
-                <div className="relative bg-white rounded-[18px]">
+                <div className="bg-white rounded-[18px]">
+                  {/* Attachment chips — picked sources / fresh uploads, inside the composer */}
+                  {(files.length > 0 || attachedSources.length > 0) && (
+                    <div className="flex items-center gap-1.5 overflow-x-auto px-3 pt-3 pb-1">
+                      {/* Source attachments — picked from existing data (DBs / files / APIs / cloud) */}
+                      {attachedSources.map((s, i) => (
+                        <div key={`src-${i}`} title={s.kind === 'source' ? s.name : undefined} className="flex items-center gap-1 bg-evidence-50 text-evidence-700 text-[12px] px-2 py-1 rounded-md font-medium border border-evidence-200 shrink-0">
+                          {s.kind === 'source' && (
+                            <>
+                              <span className="text-[10px] uppercase font-bold tracking-wide opacity-60">{s.type === 'database' ? 'DB' : s.type === 'api' ? 'API' : s.type === 'cloud' ? 'CLOUD' : s.type === 'session' ? 'SESS' : 'FILE'}</span>
+                              <span className="truncate max-w-[160px]">{s.name}</span>
+                            </>
+                          )}
+                          <button
+                            onClick={() => setAttachedSources(prev => prev.filter((_, j) => j !== i))}
+                            className="hover:text-evidence-700 ml-0.5 cursor-pointer"
+                            aria-label={`Remove ${s.kind === 'source' ? s.name : ''}`}
+                          ><X size={10} /></button>
+                        </div>
+                      ))}
+                      {/* Fresh uploads — raw files added via the Upload tab or legacy path */}
+                      {files.map((f, i) => (
+                        <div key={`file-${i}`} title={f.name} className="flex items-center gap-1 bg-primary-light text-primary text-[12px] px-2 py-1 rounded-md font-medium shrink-0">
+                          <FileText size={11} />
+                          <span className="truncate max-w-[100px]">{f.name}</span>
+                          <button onClick={() => setFiles(prev => prev.filter((_, j) => j !== i))} className="hover:text-primary-hover ml-0.5 cursor-pointer" aria-label={`Remove ${f.name}`}><X size={10} /></button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {/* Mid-chat workflow toggle — opens the qna-plan approve/revise gate
+                      after clarification (mirrors the empty-state toggle so workflow
+                      mode is reachable during a conversation, not just on the first send). */}
+                  <div className="flex items-center justify-start px-3 pt-2.5">
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={buildWorkflowMode}
+                      aria-label="Build a workflow"
+                      onClick={() => setBuildWorkflowMode(v => !v)}
+                      className={`flex items-center gap-1.5 h-7 px-2.5 rounded-full border text-[11.5px] font-medium transition-colors cursor-pointer ${
+                        buildWorkflowMode
+                          ? 'border-primary/40 bg-primary-xlight text-primary'
+                          : 'border-border-light bg-white text-text-secondary hover:text-text hover:border-border'
+                      }`}
+                    >
+                      <span className={`w-3.5 h-3.5 rounded-full flex items-center justify-center ${buildWorkflowMode ? 'bg-gradient-to-br from-purple-500 to-violet-600' : 'bg-paper-100'}`}>
+                        <Workflow size={8} className={buildWorkflowMode ? 'text-white' : 'text-text-muted'} />
+                      </span>
+                      Build a workflow
+                    </button>
+                  </div>
+                  <div className="relative">
                   <textarea
                     value={input}
                     onChange={e => { setInput(e.target.value); handleTextareaInput(); }}
                     onKeyDown={handleKeyDown}
                     placeholder="Ask anything or describe a workflow to build..."
-                    className="w-full bg-transparent border-none outline-none resize-none py-4 pl-4 pr-28 text-[13.5px] text-text placeholder:text-text-muted min-h-[48px] max-h-[160px] rounded-[18px]"
+                    className="no-focus-ring w-full bg-transparent border-none outline-none resize-none py-3 pl-4 pr-28 text-[13.5px] text-text placeholder:text-text-muted min-h-[48px] max-h-[160px] rounded-[18px]"
                     rows={1}
                   />
                   <div className="absolute right-2 bottom-2 flex items-center gap-1">
@@ -2353,6 +2711,7 @@ export default function ChatView({ showChatHistory, toggleChatHistory, setShowAr
                       <Send size={15} />
                     </button>
                   </div>
+                  </div>
                 </div>
               </div>
             </>
@@ -2360,17 +2719,27 @@ export default function ChatView({ showChatHistory, toggleChatHistory, setShowAr
         </div>
       </div>
 
-      {/* Save-as-Workflow modal — Path 3 commit step */}
+      {/* Save-as-Workflow modal — Path 3 commit step. Defaults pull from the
+          tolerance/threshold answers captured in the pre-modal clarification
+          so the prefilled name + description echo what the user just chose. */}
       <AnimatePresence>
-        {showSaveAsWfModal && (
-          <SaveAsWorkflowModal
-            open={showSaveAsWfModal}
-            defaultName="Duplicate Invoice Detection — Q1 ±3 days"
-            defaultDescription="Detects duplicate invoices in Q1 2026 with same vendor, amount, and date within ±3 days at 90% match threshold."
-            onCancel={() => setShowSaveAsWfModal(false)}
-            onConfirm={handleSaveAsWorkflowConfirm}
-          />
-        )}
+        {showSaveAsWfModal && (() => {
+          const cfg = saveWorkflowConfigRef.current;
+          const dateShort = (cfg.date || '±3 days').replace(/\s*\(current\)\s*/i, '').trim();
+          const amountShort = (cfg.amount || '±₹1,000').replace(/\s*\(current\)\s*/i, '').trim();
+          const thresholdShort = (cfg.threshold || '≥90%').replace(/\s*\(current\)\s*/i, '').trim();
+          const defaultName = `Duplicate Invoice Detection — Q1 ${dateShort}`;
+          const defaultDescription = `Detects duplicate invoices in Q1 2026 with same vendor, ${amountShort} amount tolerance, and ${dateShort} date tolerance at ${thresholdShort} match threshold.`;
+          return (
+            <SaveAsWorkflowModal
+              open={showSaveAsWfModal}
+              defaultName={defaultName}
+              defaultDescription={defaultDescription}
+              onCancel={() => setShowSaveAsWfModal(false)}
+              onConfirm={handleSaveAsWorkflowConfirm}
+            />
+          );
+        })()}
       </AnimatePresence>
 
       {/* Data picker modal — attach existing sources or upload fresh files */}

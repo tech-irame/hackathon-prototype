@@ -13,7 +13,6 @@ import {
   CheckCircle2,
   File as FileIcon,
   X,
-  PanelRightClose,
   FileOutput,
   Lock,
   Zap,
@@ -544,56 +543,40 @@ export default function DataSourcePanel({
 
   return (
     <aside className="flex flex-col h-full w-full bg-canvas border-l border-canvas-border min-h-0">
-      {/* Tabs */}
-      <div className="px-4 pt-3 border-b border-canvas-border shrink-0">
-        <div className="flex items-center gap-5">
+      {/* Tabs — outlined buttons, no header rule */}
+      <div className="px-4 py-3 shrink-0">
+        <div className="flex items-center gap-2">
           {TABS.map((t) => {
             const active = tab === t.id;
-            const dotColor =
-              t.tone === 'ok'
-                ? 'bg-compliant'
-                : t.tone === 'warn'
-                  ? 'bg-mitigated'
-                  : 'bg-ink-200';
             return (
               <button
                 key={t.id}
                 type="button"
                 onClick={() => setTab(t.id)}
+                aria-pressed={active}
                 className={[
-                  'relative pb-2.5 text-[13px] font-semibold transition-colors cursor-pointer inline-flex items-center gap-1.5',
+                  'inline-flex items-center gap-1.5 h-8 px-3 rounded-md border text-[12px] font-semibold transition-colors cursor-pointer',
                   active
-                    ? 'text-brand-700'
-                    : 'text-ink-500 hover:text-ink-800',
+                    ? 'bg-brand-600 text-white border-brand-600 hover:bg-brand-500'
+                    : 'bg-white text-ink-700 border-paper-200 hover:bg-paper-50 hover:text-ink-800',
                 ].join(' ')}
               >
                 <span>{t.label}</span>
                 {t.badge && (
                   <span
                     className={[
-                      'inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-md text-[10.5px] font-bold tabular-nums',
+                      'inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10.5px] font-bold tabular-nums',
                       active
-                        ? 'bg-brand-100 text-brand-700'
+                        ? 'bg-white/20 text-white'
                         : 'bg-canvas-elevated text-ink-500 border border-canvas-border',
                     ].join(' ')}
                   >
                     {t.badge}
                   </span>
                 )}
-                <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`} aria-hidden />
-                {active && (
-                  <span className="absolute left-0 right-0 -bottom-px h-[2px] bg-brand-600 rounded-full" />
-                )}
               </button>
             );
           })}
-          <button
-            type="button"
-            aria-label="Collapse panel"
-            className="ml-auto mb-1.5 w-7 h-7 rounded-md text-ink-400 hover:text-ink-700 hover:bg-canvas-elevated flex items-center justify-center transition-colors cursor-pointer"
-          >
-            <PanelRightClose size={15} />
-          </button>
         </div>
       </div>
 
