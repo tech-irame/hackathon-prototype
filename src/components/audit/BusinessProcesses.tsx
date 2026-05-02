@@ -5,7 +5,7 @@ import {
   ChevronRight, ChevronDown,
   ArrowLeft, ArrowRight,
   Building2, Briefcase, Calendar, Users,
-  FileText, CheckCircle2, AlertTriangle, X, Eye, Loader2, Paperclip, Play, Lock, ShieldCheck,
+  FileText, CheckCircle2, AlertTriangle, X, Eye, Loader2, Paperclip, Play, Lock, ShieldCheck, Pencil, Trash2,
 } from 'lucide-react';
 import { BUSINESS_PROCESSES, SOPS, RACMS, RISKS, CONTROLS, WORKFLOWS, ENGAGEMENTS } from '../../data/mockData';
 import { CardContainer, CardBody, CardItem } from '../shared/3DCard';
@@ -1783,108 +1783,121 @@ function ControlDesignTab({ bpAbbr }: { bpAbbr: string }) {
 
 // ─── Workflow Cockpit Tab ────────────────────────────────────────────────────
 
-interface WfRun { id: string; date: string; status: 'Completed' | 'Failed' | 'Running'; records: number; duration: string; }
-interface CockpitWorkflow {
-  id: string; name: string; description: string; type: 'Automated' | 'Manual';
-  linkedControl: string | null; attributeCount: number;
-  status: 'Draft' | 'Ready' | 'Needs Mapping' | 'Running' | 'Completed' | 'Failed' | 'Manual Required';
-  runs: number; lastRunDate: string; lastRunStatus: string; successRate: number;
-  recentRuns: WfRun[];
+// ─── Workflow Types for BP-scoped view ─────────────────────────────────────
+interface BPWorkflow {
+  id: string; name: string; description: string;
+  type: 'Automated' | 'Manual';
+  nature: 'Preventive' | 'Detective';
+  status: 'Live' | 'Draft';
+  linkedControls: string[]; // control IDs
 }
 
-const SEED_WF: CockpitWorkflow[] = [
-  { id: 'wf-c1', name: 'Three-Way PO Match', description: 'Automated matching of PO, GRN, and Invoice before payment release.', type: 'Automated', linkedControl: 'C-001', attributeCount: 5, status: 'Completed', runs: 14, lastRunDate: 'Apr 28, 2026', lastRunStatus: 'Completed', successRate: 93, recentRuns: [
-    { id: 'run-001', date: 'Apr 28, 2026', status: 'Completed', records: 1245, duration: '2m 14s' },
-    { id: 'run-002', date: 'Apr 21, 2026', status: 'Completed', records: 1102, duration: '1m 58s' },
-    { id: 'run-003', date: 'Apr 14, 2026', status: 'Failed', records: 980, duration: '0m 45s' },
-  ]},
-  { id: 'wf-c2', name: 'Vendor Change Monitor', description: 'Monitors vendor master data changes and validates approval chain.', type: 'Automated', linkedControl: 'C-002', attributeCount: 3, status: 'Ready', runs: 8, lastRunDate: 'Apr 20, 2026', lastRunStatus: 'Completed', successRate: 100, recentRuns: [
-    { id: 'run-004', date: 'Apr 20, 2026', status: 'Completed', records: 45, duration: '0m 32s' },
-  ]},
-  { id: 'wf-c3', name: 'Duplicate Invoice Detector', description: 'Scans invoices against historical data to flag duplicates.', type: 'Automated', linkedControl: 'C-003', attributeCount: 2, status: 'Completed', runs: 12, lastRunDate: 'Apr 26, 2026', lastRunStatus: 'Completed', successRate: 100, recentRuns: [
-    { id: 'run-005', date: 'Apr 26, 2026', status: 'Completed', records: 3200, duration: '4m 10s' },
-  ]},
-  { id: 'wf-c4', name: 'Payment Approval Review', description: 'Manual review of high-value payment approvals.', type: 'Manual', linkedControl: 'C-004', attributeCount: 2, status: 'Manual Required', runs: 3, lastRunDate: 'Apr 10, 2026', lastRunStatus: 'Completed', successRate: 100, recentRuns: [] },
-  { id: 'wf-c5', name: 'PO Dual Sign-Off Check', description: 'Validates dual authorization for purchase orders above threshold.', type: 'Automated', linkedControl: null, attributeCount: 0, status: 'Needs Mapping', runs: 0, lastRunDate: '—', lastRunStatus: '—', successRate: 0, recentRuns: [] },
+const SEED_BP_WF: BPWorkflow[] = [
+  { id: 'wf-c1', name: 'Three-Way PO Match', description: 'Automated matching of PO, GRN, and Invoice before payment release.', type: 'Automated', nature: 'Preventive', status: 'Live', linkedControls: ['C-001', 'C-006'] },
+  { id: 'wf-c2', name: 'Vendor Change Monitor', description: 'Monitors vendor master data changes and validates approval chain.', type: 'Automated', nature: 'Detective', status: 'Live', linkedControls: ['C-002'] },
+  { id: 'wf-c3', name: 'Duplicate Invoice Detector', description: 'Scans invoices against historical data to flag duplicates.', type: 'Automated', nature: 'Detective', status: 'Live', linkedControls: ['C-003'] },
+  { id: 'wf-c4', name: 'Payment Approval Review', description: 'Manual review of high-value payment approvals.', type: 'Manual', nature: 'Preventive', status: 'Live', linkedControls: ['C-004'] },
+  { id: 'wf-c5', name: 'PO Dual Sign-Off Check', description: 'Validates dual authorization for purchase orders above threshold.', type: 'Automated', nature: 'Preventive', status: 'Draft', linkedControls: [] },
 ];
-
-const WF_STATUS_CLS: Record<string, string> = {
-  Draft: 'bg-gray-100 text-gray-600', Ready: 'bg-emerald-50 text-emerald-700', 'Needs Mapping': 'bg-amber-50 text-amber-600',
-  Running: 'bg-blue-50 text-blue-600', Completed: 'bg-emerald-50 text-emerald-700', Failed: 'bg-red-50 text-red-600', 'Manual Required': 'bg-gray-100 text-gray-500',
-};
 
 function WorkflowGovernanceTab({ bpAbbr }: { bpAbbr: string }) {
   const { addToast } = useToast();
-  const [workflows, setWorkflows] = useState<CockpitWorkflow[]>(SEED_WF);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [workflows, setWorkflows] = useState<BPWorkflow[]>(SEED_BP_WF);
+  const [showCreateDrawer, setShowCreateDrawer] = useState(false);
+  const [usageFilter, setUsageFilter] = useState<'All' | 'Used' | 'Unused'>('All');
+  const [showLinkedControls, setShowLinkedControls] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
   const [bulkMode, setBulkMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [showCreateDrawer, setShowCreateDrawer] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<string>('All');
 
-  const filtered = statusFilter === 'All' ? workflows : workflows.filter(w => w.status === statusFilter);
+  const searched = search.trim() ? workflows.filter(w => w.name.toLowerCase().includes(search.toLowerCase()) || w.description.toLowerCase().includes(search.toLowerCase())) : workflows;
+  const filtered = usageFilter === 'All' ? searched
+    : usageFilter === 'Used' ? searched.filter(w => w.linkedControls.length > 0)
+    : searched.filter(w => w.linkedControls.length === 0);
 
-  const toggleSelect = (id: string) => setSelectedIds(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const usedCount = workflows.filter(w => w.linkedControls.length > 0).length;
+  const unusedCount = workflows.filter(w => w.linkedControls.length === 0).length;
 
-  const handleRun = (wfId: string) => {
-    const wf = workflows.find(w => w.id === wfId);
-    if (!wf) return;
-    if (wf.type === 'Manual') { addToast({ message: `"${wf.name}" is a manual workflow — start manual execution.`, type: 'info' }); return; }
-    if (!wf.linkedControl) { addToast({ message: `"${wf.name}" has no linked control. Map it first.`, type: 'warning' }); return; }
-    // Set running
-    setWorkflows(prev => prev.map(w => w.id === wfId ? { ...w, status: 'Running' as const } : w));
-    addToast({ message: `Running "${wf.name}"...`, type: 'info' });
-    // Simulate completion
-    setTimeout(() => {
-      const success = Math.random() > 0.15;
-      const newRun: WfRun = { id: `run-${Date.now()}`, date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }), status: success ? 'Completed' : 'Failed', records: Math.floor(Math.random() * 3000) + 500, duration: `${Math.floor(Math.random() * 5)}m ${Math.floor(Math.random() * 59)}s` };
-      setWorkflows(prev => prev.map(w => w.id === wfId ? { ...w, status: success ? 'Completed' : 'Failed', runs: w.runs + 1, lastRunDate: newRun.date, lastRunStatus: newRun.status, recentRuns: [newRun, ...w.recentRuns].slice(0, 5) } : w));
-      addToast({ message: success ? `"${wf.name}" completed successfully.` : `"${wf.name}" failed — check results.`, type: success ? 'success' : 'error' });
-    }, 2000);
+  const handleDelete = (id: string) => {
+    const wf = workflows.find(w => w.id === id);
+    setWorkflows(prev => prev.filter(w => w.id !== id));
+    if (wf) addToast({ message: `Workflow "${wf.name}" deleted.`, type: 'info' });
   };
 
-  const handleBulkRun = () => {
-    const selected = workflows.filter(w => selectedIds.has(w.id));
-    const runnable = selected.filter(w => w.type === 'Automated' && w.linkedControl && w.status !== 'Running');
-    const skipped = selected.length - runnable.length;
-    if (runnable.length === 0) { addToast({ message: 'No runnable workflows selected.', type: 'warning' }); return; }
-    runnable.forEach(w => handleRun(w.id));
-    if (skipped > 0) addToast({ message: `${skipped} workflow${skipped !== 1 ? 's' : ''} skipped (manual or unmapped).`, type: 'info' });
-    setBulkMode(false); setSelectedIds(new Set());
-  };
-
-  const handleMapControl = (wfId: string, controlId: string) => {
-    setWorkflows(prev => prev.map(w => w.id === wfId ? { ...w, linkedControl: controlId, status: 'Ready' as const } : w));
-    addToast({ message: `Workflow mapped to ${controlId}.`, type: 'success' });
-  };
-
-  const handleCreate = (data: { name: string; type: 'Automated' | 'Manual'; desc: string }) => {
-    setWorkflows(prev => [{ id: `wf-${Date.now()}`, name: data.name, description: data.desc, type: data.type, linkedControl: null, attributeCount: 0, status: 'Draft', runs: 0, lastRunDate: '—', lastRunStatus: '—', successRate: 0, recentRuns: [] }, ...prev]);
+  const handleCreate = (data: { name: string; type: 'Automated' | 'Manual'; nature: 'Preventive' | 'Detective'; desc: string }) => {
+    setWorkflows(prev => [{ id: `wf-${Date.now()}`, name: data.name, description: data.desc, type: data.type, nature: data.nature, status: 'Draft', linkedControls: [] }, ...prev]);
     setShowCreateDrawer(false);
     addToast({ message: `Workflow "${data.name}" created.`, type: 'success' });
   };
 
-  const statuses = ['All', 'Ready', 'Completed', 'Failed', 'Needs Mapping', 'Draft', 'Manual Required'];
+  const toggleSelect = (id: string) => setSelectedIds(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const allVisibleSelected = filtered.length > 0 && filtered.every(w => selectedIds.has(w.id));
+  const someVisibleSelected = filtered.some(w => selectedIds.has(w.id));
+  const toggleSelectAll = () => {
+    if (allVisibleSelected) setSelectedIds(new Set());
+    else setSelectedIds(new Set(filtered.map(w => w.id)));
+  };
+
+  const handleBulkRun = () => {
+    const selected = workflows.filter(w => selectedIds.has(w.id));
+    const runnable = selected.filter(w => w.type === 'Automated' && w.status === 'Live');
+    const skipped = selected.length - runnable.length;
+    if (runnable.length === 0) { addToast({ message: 'No runnable workflows selected. Only Live + Automated workflows can be run.', type: 'warning' }); return; }
+    runnable.forEach(w => addToast({ message: `Running "${w.name}"...`, type: 'info' }));
+    if (skipped > 0) addToast({ message: `${skipped} workflow${skipped !== 1 ? 's' : ''} skipped (manual or draft).`, type: 'info' });
+    setBulkMode(false); setSelectedIds(new Set());
+  };
 
   return (
-    <div className="space-y-4">
-      {/* Toolbar */}
-      <div className="flex items-center justify-between gap-3">
+    <div className="space-y-5">
+      {/* Header */}
+      <div>
+        <h2 className="text-[18px] font-semibold text-text">Workflows</h2>
+        <p className="text-[13px] text-text-muted mt-0.5">Reusable workflows available for this business process.</p>
+      </div>
+
+      {/* Search + Filters + CTA */}
+      <div className="flex items-center gap-3">
+        <div className="relative w-[320px]">
+          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted" />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search workflow..."
+            className="w-full pl-10 pr-4 h-10 rounded-md border border-border bg-white text-[13px] outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/10 transition-all" />
+        </div>
         <div className="flex items-center gap-1.5">
-          {statuses.map(s => (
-            <button key={s} onClick={() => setStatusFilter(s)} className={`px-2 py-1 rounded-full text-[10px] font-semibold cursor-pointer transition-all ${statusFilter === s ? 'bg-primary text-white' : 'bg-surface-2 text-text-muted hover:bg-primary/10'}`}>{s}</button>
+          {([
+            { id: 'All' as const, label: 'All', count: workflows.length },
+            { id: 'Used' as const, label: 'Used', count: usedCount },
+            { id: 'Unused' as const, label: 'Unused', count: unusedCount },
+          ]).map(f => (
+            <button key={f.id} onClick={() => setUsageFilter(f.id)}
+              className={`px-2.5 py-1.5 rounded-md text-[11px] font-semibold cursor-pointer transition-all ${usageFilter === f.id ? 'bg-primary text-white' : 'bg-surface-2 text-text-muted hover:bg-primary/10'}`}>
+              {f.label} ({f.count})
+            </button>
           ))}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-3">
           {bulkMode ? (
             <>
-              <button onClick={handleBulkRun} disabled={selectedIds.size === 0} className="px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-primary text-white hover:bg-primary/90 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">Run Selected ({selectedIds.size})</button>
-              <button onClick={() => { setBulkMode(false); setSelectedIds(new Set()); }} className="px-3 py-1.5 rounded-lg text-[11px] font-medium border border-border text-text-muted hover:bg-gray-50 cursor-pointer">Cancel</button>
+              <span className="text-[13px] text-text-secondary"><span className="font-semibold text-text">{selectedIds.size}</span> selected</span>
+              <button onClick={handleBulkRun} disabled={selectedIds.size === 0}
+                className="flex items-center gap-2 px-4 h-10 rounded-md bg-primary text-white text-[13px] font-semibold hover:bg-primary/90 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
+                <Play size={14} />Run Selected
+              </button>
+              <button onClick={() => { setBulkMode(false); setSelectedIds(new Set()); }}
+                className="flex items-center gap-2 px-4 h-10 rounded-md bg-white text-text border border-border text-[13px] font-semibold hover:bg-surface-2 transition-colors cursor-pointer">
+                Cancel
+              </button>
             </>
           ) : (
             <>
-              <button onClick={() => setBulkMode(true)} className="px-3 py-1.5 rounded-lg text-[11px] font-medium border border-border text-text-muted hover:bg-gray-50 cursor-pointer">Bulk Run</button>
-              <button onClick={() => setShowCreateDrawer(true)} className="px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-primary text-white hover:bg-primary/90 cursor-pointer flex items-center gap-1"><Plus size={11} />Create Workflow</button>
+              <button onClick={() => setShowCreateDrawer(true)}
+                className="flex items-center gap-2 px-4 h-10 rounded-md bg-primary-xlight text-primary border border-primary/15 text-[13px] font-semibold hover:bg-primary/10 transition-colors cursor-pointer">
+                <Sparkles size={14} />Create Workflow
+              </button>
+              <button onClick={() => setBulkMode(true)}
+                className="flex items-center gap-2 px-4 h-10 rounded-md bg-white text-text border border-border text-[13px] font-semibold transition-colors cursor-pointer hover:bg-[#6a12cd] hover:text-white hover:border-[#6a12cd]">
+                <Play size={14} />Bulk Run
+              </button>
             </>
           )}
         </div>
@@ -1892,143 +1905,177 @@ function WorkflowGovernanceTab({ bpAbbr }: { bpAbbr: string }) {
 
       {/* Table */}
       {filtered.length === 0 ? (
-        <div className="bg-white rounded-xl border border-border-light p-10 text-center">
-          <FileText size={28} className="mx-auto text-gray-200 mb-3" />
-          <p className="text-[13px] font-medium text-text-muted">No workflows match the current filter.</p>
+        <div className="bg-white rounded-xl border border-border-light p-14 text-center">
+          <FileText size={32} className="mx-auto text-gray-200 mb-3" />
+          <p className="text-[14px] font-semibold text-text-muted mb-1">
+            {workflows.length === 0 ? 'No workflows created for this process yet' : `No workflows match "${search || usageFilter}"`}
+          </p>
+          {workflows.length === 0 && (
+            <button onClick={() => setShowCreateDrawer(true)} className="mt-3 px-4 py-2 rounded-lg text-[12px] font-semibold bg-primary text-white hover:bg-primary/90 cursor-pointer inline-flex items-center gap-1"><Plus size={12} />Create Workflow</button>
+          )}
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-border-light overflow-hidden">
-          <table className="w-full text-[12px]">
-            <thead>
-              <tr className="border-b border-border bg-gray-50/50">
-                {bulkMode && <th className="px-3 py-2.5 w-8"></th>}
-                {['Workflow', 'Type', 'Control', 'Attrs', 'Status', 'Runs', 'Last Run', 'Last Status', ''].map(h => (
-                  <th key={h || 'act'} className="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap">{h}</th>
-                ))}
+        <div className="border-t border-border-light">
+          <table className="w-full border-collapse">
+            <thead className="bg-white sticky top-0 z-10 border-b border-border-light">
+              <tr>
+                {bulkMode && (
+                  <th className="pl-4 pr-2 py-3 w-[44px]">
+                    <input type="checkbox" checked={allVisibleSelected} ref={el => { if (el) el.indeterminate = !allVisibleSelected && someVisibleSelected; }}
+                      onChange={toggleSelectAll} className="w-4 h-4 rounded border-gray-300 accent-primary cursor-pointer" aria-label="Select all" />
+                  </th>
+                )}
+                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-text-muted w-[280px]">Workflow Name</th>
+                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-text-muted">Description</th>
+                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-text-muted w-[160px]">Type</th>
+                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-text-muted w-[150px]">Usage</th>
+                <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-text-muted w-[120px]" aria-label="Actions"></th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((wf, i) => {
-                const isExpanded = expandedId === wf.id;
-                const isRunning = wf.status === 'Running';
+                const isSelected = selectedIds.has(wf.id);
                 return (
-                  <React.Fragment key={wf.id}>
-                    <motion.tr initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.015 }}
-                      className={`border-b border-border/40 transition-colors ${isRunning ? 'bg-blue-50/20' : 'hover:bg-gray-50/50'} cursor-pointer`}
-                      onClick={() => setExpandedId(isExpanded ? null : wf.id)}>
-                      {bulkMode && <td className="px-3 py-2.5" onClick={e => e.stopPropagation()}><input type="checkbox" checked={selectedIds.has(wf.id)} onChange={() => toggleSelect(wf.id)} className="w-3.5 h-3.5 rounded accent-primary cursor-pointer" /></td>}
-                      <td className="px-3 py-2.5"><span className="text-[12px] font-medium text-text">{wf.name}</span></td>
-                      <td className="px-3 py-2.5"><span className={`px-1.5 h-4 rounded text-[8px] font-bold inline-flex items-center ${wf.type === 'Automated' ? 'bg-evidence-50 text-evidence-700' : 'bg-gray-100 text-gray-600'}`}>{wf.type}</span></td>
-                      <td className="px-3 py-2.5"><span className="text-[11px] text-gray-500">{wf.linkedControl || '—'}</span></td>
-                      <td className="px-3 py-2.5"><span className="text-[12px] text-text tabular-nums">{wf.attributeCount}</span></td>
-                      <td className="px-3 py-2.5"><span className={`px-2 h-5 rounded-full text-[9px] font-semibold inline-flex items-center ${WF_STATUS_CLS[wf.status] || WF_STATUS_CLS.Draft}`}>{isRunning && <Loader2 size={9} className="animate-spin mr-1" />}{wf.status}</span></td>
-                      <td className="px-3 py-2.5"><span className="text-[12px] text-text tabular-nums">{wf.runs}</span></td>
-                      <td className="px-3 py-2.5"><span className="text-[11px] text-gray-400">{wf.lastRunDate}</span></td>
-                      <td className="px-3 py-2.5"><span className="text-[11px] text-gray-500">{wf.lastRunStatus}</span></td>
-                      <td className="px-3 py-2.5 text-right" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center gap-1 justify-end">
-                          {!wf.linkedControl && <button onClick={() => handleMapControl(wf.id, 'C-001')} className="px-2 py-1 rounded text-[9px] font-semibold bg-amber-50 text-amber-700 hover:bg-amber-100 cursor-pointer">Map</button>}
-                          {wf.type === 'Automated' && wf.linkedControl && !isRunning && <button onClick={() => handleRun(wf.id)} className="px-2 py-1 rounded text-[9px] font-semibold bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer">Run</button>}
-                          <button onClick={() => setExpandedId(isExpanded ? null : wf.id)} className="px-2 py-1 rounded text-[9px] font-bold bg-gray-100 text-gray-600 hover:bg-gray-200/70 cursor-pointer">{isExpanded ? 'Close' : 'View'}</button>
-                        </div>
-                      </td>
-                    </motion.tr>
-
-                    {/* Expanded detail */}
-                    {isExpanded && (
-                      <tr>
-                        <td colSpan={bulkMode ? 10 : 9} className="p-0">
-                          <div className="px-5 py-4 bg-surface-2/20 border-t border-border/30 space-y-4">
-                            {/* Overview */}
-                            <div className="grid grid-cols-2 gap-4">
-                              <div>
-                                <span className="text-[9px] text-gray-400 uppercase block">Description</span>
-                                <p className="text-[11px] text-text mt-0.5">{wf.description}</p>
-                              </div>
-                              <div className="grid grid-cols-3 gap-2">
-                                <div><span className="text-[9px] text-gray-400 uppercase block">Runs</span><p className="text-[12px] font-bold text-text tabular-nums">{wf.runs}</p></div>
-                                <div><span className="text-[9px] text-gray-400 uppercase block">Success Rate</span><p className="text-[12px] font-bold text-text tabular-nums">{wf.runs > 0 ? `${wf.successRate}%` : '—'}</p></div>
-                                <div><span className="text-[9px] text-gray-400 uppercase block">Attributes</span><p className="text-[12px] font-bold text-text tabular-nums">{wf.attributeCount}</p></div>
-                              </div>
-                            </div>
-
-                            {/* Recent Runs */}
-                            {wf.recentRuns.length > 0 ? (
-                              <div>
-                                <h5 className="text-[10px] font-bold text-gray-400 uppercase mb-1.5">Recent Runs</h5>
-                                <div className="bg-white rounded-lg border border-border/50 overflow-hidden">
-                                  <table className="w-full text-[11px]">
-                                    <thead><tr className="border-b border-border/30 bg-gray-50/30">
-                                      <th className="px-3 py-1.5 text-left text-[9px] font-semibold text-gray-400 uppercase">Run</th>
-                                      <th className="px-3 py-1.5 text-left text-[9px] font-semibold text-gray-400 uppercase">Date</th>
-                                      <th className="px-3 py-1.5 text-center text-[9px] font-semibold text-gray-400 uppercase">Status</th>
-                                      <th className="px-3 py-1.5 text-right text-[9px] font-semibold text-gray-400 uppercase">Records</th>
-                                      <th className="px-3 py-1.5 text-right text-[9px] font-semibold text-gray-400 uppercase">Duration</th>
-                                    </tr></thead>
-                                    <tbody>{wf.recentRuns.map(r => (
-                                      <tr key={r.id} className="border-b border-border/20">
-                                        <td className="px-3 py-1.5 font-mono text-gray-400">{r.id.slice(-3)}</td>
-                                        <td className="px-3 py-1.5 text-text">{r.date}</td>
-                                        <td className="px-3 py-1.5 text-center"><span className={`px-1.5 h-4 rounded text-[8px] font-bold inline-flex items-center ${r.status === 'Completed' ? 'bg-emerald-50 text-emerald-700' : r.status === 'Failed' ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'}`}>{r.status}</span></td>
-                                        <td className="px-3 py-1.5 text-right tabular-nums text-gray-500">{r.records.toLocaleString()}</td>
-                                        <td className="px-3 py-1.5 text-right text-gray-400">{r.duration}</td>
-                                      </tr>
-                                    ))}</tbody>
-                                  </table>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="text-[11px] text-gray-400 py-2">No runs recorded yet.</div>
-                            )}
-
-                            {/* Actions */}
-                            <div className="flex items-center gap-2 pt-1">
-                              {wf.type === 'Automated' && wf.linkedControl && !isRunning && (
-                                <button onClick={() => handleRun(wf.id)} className="px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer flex items-center gap-1"><Play size={10} />Run Now</button>
-                              )}
-                              {wf.type === 'Manual' && (
-                                <button onClick={() => addToast({ message: 'Opening manual execution checklist...', type: 'info' })} className="px-3 py-1.5 rounded-lg text-[11px] font-semibold border border-border text-text-secondary hover:bg-gray-50 cursor-pointer">Start Manual Execution</button>
-                              )}
-                              {!wf.linkedControl && (
-                                <button onClick={() => handleMapControl(wf.id, 'C-001')} className="px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-amber-50 text-amber-700 hover:bg-amber-100 cursor-pointer">Map to Control</button>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                      </tr>
+                <motion.tr key={wf.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.015 }}
+                  onClick={() => { if (bulkMode) toggleSelect(wf.id); }}
+                  className={`border-t border-border-light transition-colors ${bulkMode ? 'cursor-pointer' : ''} ${bulkMode && isSelected ? 'bg-primary-xlight/50 hover:bg-primary-xlight/70' : 'hover:bg-surface-2/40'}`}>
+                  {bulkMode && (
+                    <td className="pl-4 pr-2 py-4 align-top" onClick={e => e.stopPropagation()}>
+                      <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(wf.id)}
+                        className="w-4 h-4 rounded border-gray-300 accent-primary cursor-pointer" />
+                    </td>
+                  )}
+                  {/* Workflow Name + Live/Draft badge + ID */}
+                  <td className="px-4 py-4 align-top w-[280px]">
+                    <div className="flex flex-col gap-1.5">
+                      <div className="flex items-start gap-2">
+                        <span className="text-[13px] text-text font-medium leading-snug">{wf.name}</span>
+                        {wf.status === 'Live' ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium shrink-0 mt-0.5" style={{ backgroundColor: '#ECFEF3', color: '#047A48' }}>
+                            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#047A48' }} />Live
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 text-gray-500 shrink-0 mt-0.5">Draft</span>
+                        )}
+                      </div>
+                      <span className="text-[11px] font-mono text-ink-500 tracking-tight">{wf.id.toUpperCase()}</span>
+                    </div>
+                  </td>
+                  {/* Description */}
+                  <td className="px-4 py-4 align-top">
+                    <span className="text-[13px] text-text-secondary line-clamp-2">{wf.description}</span>
+                  </td>
+                  {/* Type — tags */}
+                  <td className="px-4 py-4 align-top">
+                    <div className="flex flex-wrap gap-1.5">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-surface-2 border border-border-light text-ink-700 text-[11px] font-medium">{wf.nature}</span>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-surface-2 border border-border-light text-ink-700 text-[11px] font-medium">{wf.type}</span>
+                    </div>
+                  </td>
+                  {/* Usage */}
+                  <td className="px-4 py-4 align-top">
+                    {wf.linkedControls.length > 0 ? (
+                      <button onClick={() => setShowLinkedControls(showLinkedControls === wf.id ? null : wf.id)}
+                        className="text-[12px] font-medium text-primary hover:underline cursor-pointer">
+                        Used in {wf.linkedControls.length} control{wf.linkedControls.length !== 1 ? 's' : ''}
+                      </button>
+                    ) : (
+                      <span className="text-[12px] text-gray-400">Not used</span>
                     )}
-                  </React.Fragment>
+                  </td>
+                  {/* Actions */}
+                  <td className={`px-4 py-4 align-top ${bulkMode ? 'pointer-events-none opacity-40' : ''}`}>
+                    <div className="flex items-center justify-end gap-0.5">
+                      {wf.type === 'Automated' && wf.status === 'Live' && (
+                        <button onClick={() => addToast({ message: `Running "${wf.name}"...`, type: 'info' })}
+                          className="w-8 h-8 rounded-md flex items-center justify-center text-text-muted hover:text-primary hover:bg-primary/10 cursor-pointer transition-colors" title="Run">
+                          <Play size={14} />
+                        </button>
+                      )}
+                      <button onClick={() => addToast({ message: `Editing "${wf.name}"...`, type: 'info' })}
+                        className="w-8 h-8 rounded-md flex items-center justify-center text-text-muted hover:text-primary hover:bg-primary/10 cursor-pointer transition-colors" title="Edit">
+                        <Pencil size={14} />
+                      </button>
+                      <button onClick={() => handleDelete(wf.id)}
+                        className="w-8 h-8 rounded-md flex items-center justify-center text-text-muted hover:text-red-500 hover:bg-red-50 cursor-pointer transition-colors" title="Delete">
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </td>
+                </motion.tr>
                 );
               })}
             </tbody>
           </table>
+          <div className="flex items-center justify-between px-4 py-2.5 border-t border-border-light bg-white">
+            <span className="text-[11px] text-text-muted">{filtered.length} workflow{filtered.length !== 1 ? 's' : ''}</span>
+          </div>
         </div>
       )}
+
+      {/* Linked Controls Modal */}
+      <AnimatePresence>
+        {showLinkedControls && (() => {
+          const wf = workflows.find(w => w.id === showLinkedControls);
+          if (!wf || wf.linkedControls.length === 0) return null;
+          return (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-[1px]"
+              onClick={() => setShowLinkedControls(null)}>
+              <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+                className="bg-white rounded-xl shadow-xl border border-border-light w-[360px] overflow-hidden"
+                onClick={e => e.stopPropagation()}>
+                <div className="px-5 py-4 border-b border-border-light flex items-center justify-between">
+                  <div>
+                    <h3 className="text-[14px] font-bold text-text">Linked Controls</h3>
+                    <p className="text-[11px] text-text-muted mt-0.5">{wf.name}</p>
+                  </div>
+                  <button onClick={() => setShowLinkedControls(null)} className="text-gray-400 hover:text-gray-600 cursor-pointer"><X size={14} /></button>
+                </div>
+                <div className="px-5 py-3 space-y-2">
+                  {wf.linkedControls.map(cId => (
+                    <div key={cId} className="flex items-center gap-2 p-2.5 rounded-lg bg-surface-2/40 border border-border-light">
+                      <span className="text-[11px] font-mono text-gray-500">{cId}</span>
+                      <span className="text-[12px] text-text">{CONTROLS.find(c => c.id === cId)?.name || `Control ${cId}`}</span>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            </motion.div>
+          );
+        })()}
+      </AnimatePresence>
 
       {/* Create Workflow Drawer */}
       <AnimatePresence>
         {showCreateDrawer && (() => {
           const D = () => {
-            const [n, setN] = useState(''); const [t, setT] = useState<'Automated' | 'Manual'>('Automated'); const [d, setD] = useState('');
+            const [n, setN] = useState(''); const [t, setT] = useState<'Automated' | 'Manual'>('Automated'); const [nat, setNat] = useState<'Preventive' | 'Detective'>('Preventive'); const [d, setD] = useState('');
             const fCls = 'w-full px-3 py-2.5 border border-border rounded-lg text-[13px] text-text bg-white outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/10 transition-all';
             return (<>
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-ink-900/20 backdrop-blur-sm" onClick={() => setShowCreateDrawer(false)} />
               <motion.aside initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: 'spring', damping: 30, stiffness: 300 }}
                 className="fixed top-0 right-0 z-50 w-full max-w-[480px] h-full bg-white border-l border-canvas-border shadow-2xl flex flex-col">
                 <div className="px-6 pt-5 pb-4 border-b border-canvas-border flex items-start justify-between shrink-0">
-                  <div><h2 className="font-display text-[18px] font-semibold text-ink-900">Create Workflow</h2><p className="text-[12px] text-ink-500 mt-0.5">Define a new workflow for control testing.</p></div>
+                  <div><h2 className="font-display text-[18px] font-semibold text-ink-900">Create Workflow</h2><p className="text-[12px] text-ink-500 mt-0.5">Define a new workflow for this business process.</p></div>
                   <button onClick={() => setShowCreateDrawer(false)} className="w-8 h-8 rounded-full text-ink-500 hover:text-ink-800 hover:bg-[#F4F2F7] flex items-center justify-center cursor-pointer"><X size={16} /></button>
                 </div>
                 <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
                   <div><label className="text-[12px] font-semibold text-text-muted block mb-1.5">Name <span className="text-red-400">*</span></label><input value={n} onChange={e => setN(e.target.value)} placeholder="e.g. Three-Way PO Match" className={fCls} autoFocus /></div>
-                  <div><label className="text-[12px] font-semibold text-text-muted block mb-1.5">Type</label>
+                  <div><label className="text-[12px] font-semibold text-text-muted block mb-1.5">Business Process</label>
+                    <div className="px-3 py-2.5 border border-border rounded-lg text-[13px] text-text bg-gray-50/80 cursor-not-allowed flex items-center gap-2"><Building2 size={13} className="text-gray-400 shrink-0" />{bpAbbr}<span className="ml-auto text-[10px] text-gray-400">Auto-filled</span></div>
+                  </div>
+                  <div><label className="text-[12px] font-semibold text-text-muted block mb-1.5">Automation Type</label>
                     <div className="flex gap-2">{(['Automated', 'Manual'] as const).map(v => (<button key={v} onClick={() => setT(v)} className={`px-3 py-2 rounded-lg text-[12px] font-medium border cursor-pointer transition-all ${t === v ? 'border-primary bg-primary/5 text-primary' : 'border-border text-text-muted'}`}>{v}</button>))}</div>
                   </div>
-                  <div><label className="text-[12px] font-semibold text-text-muted block mb-1.5">Description</label><textarea value={d} onChange={e => setD(e.target.value)} rows={3} placeholder="Describe..." className={fCls + ' resize-none'} /></div>
+                  <div><label className="text-[12px] font-semibold text-text-muted block mb-1.5">Nature</label>
+                    <div className="flex gap-2">{(['Preventive', 'Detective'] as const).map(v => (<button key={v} onClick={() => setNat(v)} className={`px-3 py-2 rounded-lg text-[12px] font-medium border cursor-pointer transition-all ${nat === v ? 'border-primary bg-primary/5 text-primary' : 'border-border text-text-muted'}`}>{v}</button>))}</div>
+                  </div>
+                  <div><label className="text-[12px] font-semibold text-text-muted block mb-1.5">Description</label><textarea value={d} onChange={e => setD(e.target.value)} rows={3} placeholder="Describe what this workflow does..." className={fCls + ' resize-none'} /></div>
                 </div>
                 <div className="px-6 py-4 border-t border-canvas-border flex justify-end gap-3 shrink-0">
                   <button onClick={() => setShowCreateDrawer(false)} className="px-4 py-2.5 rounded-lg border border-border text-[13px] font-medium text-ink-600 hover:bg-canvas cursor-pointer">Cancel</button>
-                  <button onClick={() => { if (n.trim()) handleCreate({ name: n.trim(), type: t, desc: d }); }} disabled={!n.trim()} className="px-5 py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-white text-[13px] font-semibold cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">Create</button>
+                  <button onClick={() => { if (n.trim()) handleCreate({ name: n.trim(), type: t, nature: nat, desc: d }); }} disabled={!n.trim()} className="px-5 py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-white text-[13px] font-semibold cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">Create</button>
                 </div>
               </motion.aside>
             </>);
@@ -2281,7 +2328,9 @@ function ReviewImportWorkspace({ racmName, bpAbbr, fileName, onBack, onFreeze }:
               <button onClick={() => addToast({ message: 'Draft saved.', type: 'success' })}
                 className="px-3 py-2 rounded-lg border border-border text-[12px] font-medium text-text-secondary hover:bg-gray-50 cursor-pointer">Save Draft</button>
               <button onClick={() => { setFreezeConfirmed(false); setShowFreezeModal(true); }}
-                className="px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white text-[12px] font-semibold cursor-pointer flex items-center gap-1.5"><Lock size={12} />Freeze RACM</button>
+                disabled={reviewedCount < rows.length}
+                title={reviewedCount < rows.length ? `Review all rows before freezing (${reviewedCount}/${rows.length} reviewed)` : ''}
+                className="px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white text-[12px] font-semibold flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"><Lock size={12} />Freeze RACM</button>
             </div>
           </div>
         </div>
