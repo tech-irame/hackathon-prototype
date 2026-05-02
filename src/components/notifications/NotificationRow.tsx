@@ -2,22 +2,29 @@ import { useState } from 'react';
 import { Check, X, MessageSquare } from 'lucide-react';
 import type {
   PlatformNotification,
-  NotificationSeverity,
+  NotificationCategory,
   NotificationAction,
   NotificationActionState,
 } from '../../data/notifications';
 import { timeAgo } from '../../utils/timeAgo';
 
-const SEVERITY_BAR: Record<NotificationSeverity, string> = {
-  info:     'bg-evidence',
-  warning:  'bg-mitigated',
-  critical: 'bg-risk',
+// Each category gets its own dedicated color on the unread stripe — so the
+// user can scan the panel and tell at a glance: red bars = exceptions,
+// blue bars = workflow runs, amber bars = engagement, purple bars = reports.
+const CATEGORY_BAR: Record<NotificationCategory, string> = {
+  exception:  'bg-risk',        // red — issues / failures
+  workflow:   'bg-evidence',    // blue — automation / runs
+  engagement: 'bg-mitigated',   // amber — audit / engagements
+  report:     'bg-brand-500',   // purple — reporting / dashboards
 };
 
+// Action pills use color-tones that are NOT in the category palette above
+// (no red, blue, amber, or purple). That way: row stripe never visually
+// collides with the action confirmation pill.
 const PILL_TONE: Record<NotificationAction, { bg: string; fg: string; label: string }> = {
-  accept:  { bg: 'bg-compliant-50', fg: 'text-compliant-700', label: 'Accepted' },
-  decline: { bg: 'bg-mitigated-50', fg: 'text-mitigated-700', label: 'Declined' },
-  comment: { bg: 'bg-evidence-50',  fg: 'text-evidence-700',  label: 'Commented' },
+  accept:  { bg: 'bg-compliant-50', fg: 'text-compliant-700', label: 'Accepted' },   // green
+  decline: { bg: 'bg-high-50',      fg: 'text-high-700',      label: 'Declined' },   // orange
+  comment: { bg: 'bg-draft-50',     fg: 'text-draft-700',     label: 'Commented' },  // muted gray
 };
 
 interface NotificationRowProps {
@@ -82,17 +89,18 @@ export default function NotificationRow({
           onClick(notification);
         }
       }}
-      className={`group relative w-full text-left border-b border-canvas-border transition-colors cursor-pointer
+      className={`group relative w-full text-left border-b border-canvas-border transition-all cursor-pointer
         ${unread
-          ? 'bg-brand-50/40 hover:bg-brand-50/60'
-          : 'bg-canvas-elevated hover:bg-[#FAFAFD]'}
+          ? 'bg-brand-50/40 hover:bg-brand-50/60 hover:shadow-[inset_0_-1px_0_rgb(15_8_30_/_0.04),0_2px_8px_-2px_rgb(15_8_30_/_0.08)]'
+          : 'bg-canvas-elevated hover:bg-[#FAFAFD] hover:shadow-[inset_0_-1px_0_rgb(15_8_30_/_0.04),0_2px_8px_-2px_rgb(15_8_30_/_0.06)]'}
       `}
     >
-      {/* Severity-coded unread accent — red (critical) / amber (warning) /
-          blue (info). Inset rounded stripe, only on unread rows. */}
+      {/* Category-coded unread accent — red (exceptions) / blue (workflows)
+          / amber (engagement) / purple (reports). Inset rounded stripe,
+          only on unread rows. */}
       {unread && (
         <span
-          className={`absolute left-0 top-3 bottom-3 w-1 rounded-r-full ${SEVERITY_BAR[notification.severity]}`}
+          className={`absolute left-0 top-3 bottom-3 w-1 rounded-r-full ${CATEGORY_BAR[notification.category]}`}
           aria-hidden="true"
         />
       )}

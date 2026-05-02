@@ -37,10 +37,14 @@ function writeSession(key: string, value: string): void {
 const PRIMARY_VALUES:  readonly PrimaryFilter[]  = ['all', 'action', 'unread'];
 const CATEGORY_VALUES: readonly CategoryFilter[] = ['all', 'exception', 'workflow', 'engagement', 'report'];
 
+// Order: Unread first (most common entry point), Action in the middle
+// (the actionable subset users drill into), All last (full view as a
+// fallback). Unread is also the default selection when the drawer opens
+// fresh.
 const PRIMARY_FILTERS: { id: PrimaryFilter; label: string; icon: LucideIcon }[] = [
-  { id: 'all',    label: 'All',     icon: Inbox },
-  { id: 'action', label: 'Action',  icon: Zap },
   { id: 'unread', label: 'Unread',  icon: Mail },
+  { id: 'action', label: 'Action',  icon: Zap },
+  { id: 'all',    label: 'All',     icon: Inbox },
 ];
 
 const CATEGORY_FILTERS: { id: CategoryFilter; label: string }[] = [
@@ -71,7 +75,7 @@ export default function NotificationDrawer({
   onRestore,
 }: NotificationDrawerProps) {
   const [primaryFilter, setPrimaryFilterState] = useState<PrimaryFilter>(
-    () => readSession(PRIMARY_KEY, PRIMARY_VALUES, 'all'),
+    () => readSession(PRIMARY_KEY, PRIMARY_VALUES, 'unread'),
   );
   const [categoryFilter, setCategoryFilterState] = useState<CategoryFilter>(
     () => readSession(CATEGORY_KEY, CATEGORY_VALUES, 'all'),
