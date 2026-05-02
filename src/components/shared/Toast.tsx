@@ -9,6 +9,8 @@ interface Toast {
   message: string;
   type: ToastType;
   action?: { label: string; onClick: () => void };
+  /** Secondary action (e.g. Undo) shown to the left of the primary action */
+  secondaryAction?: { label: string; onClick: () => void };
 }
 
 interface ToastContextType {
@@ -79,6 +81,14 @@ function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: (id: string) =
     >
       {icons[toast.type]}
       <span className="text-[13px] text-ink-800 flex-1">{toast.message}</span>
+      {toast.secondaryAction && (
+        <button
+          onClick={() => { toast.secondaryAction!.onClick(); onRemove(toast.id); }}
+          className="text-[12px] font-semibold text-ink-600 hover:text-ink-800 transition-colors cursor-pointer whitespace-nowrap"
+        >
+          {toast.secondaryAction.label}
+        </button>
+      )}
       {toast.action && (
         <button
           onClick={toast.action.onClick}
