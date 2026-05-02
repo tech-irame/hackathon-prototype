@@ -1220,15 +1220,14 @@ export default function ChatView({ showChatHistory, toggleChatHistory, setShowAr
       }));
     }
     onAddResultToDashboard?.(payload);
-    const undoMsgId = activeAddMsgId;
     const itemCount = payload.selection.kpis.length + payload.selection.charts.length + payload.selection.columns.length;
+    // No Undo on dashboard toast: removeFromDashboard would only clear the
+    // chat pill, leaving the persisted widgets orphaned on the dashboard.
+    // Users remove widgets from the dashboard view itself.
     addToast({
       type: 'success',
       message: `Added ${itemCount} item${itemCount === 1 ? '' : 's'} to dashboard “${payload.dashboardName}”.`,
       action: { label: 'View Dashboard', onClick: () => onViewDashboard?.(payload.dashboardId) },
-      secondaryAction: undoMsgId
-        ? { label: 'Undo', onClick: () => removeFromDashboard(undoMsgId, payload.dashboardId) }
-        : undefined,
     });
     setActiveAddMsgId(null);
   };
@@ -2393,7 +2392,6 @@ export default function ChatView({ showChatHistory, toggleChatHistory, setShowAr
           table: { columns: AUDIT_RESULT.table.columns, rows: AUDIT_RESULT.table.rows },
         }}
         onConfirm={handleDashboardConfirm}
-        onView={onViewDashboard}
       />
 
       {/* Add to Report modal */}
@@ -2408,7 +2406,6 @@ export default function ChatView({ showChatHistory, toggleChatHistory, setShowAr
           table: { columns: AUDIT_RESULT.table.columns, rows: AUDIT_RESULT.table.rows },
         }}
         onConfirm={handleReportConfirm}
-        onView={onViewReport}
       />
     </div>
   );

@@ -9,7 +9,7 @@ import {
 import { toggleIn, setAll } from './widgetPickerHelpers';
 import {
   ModalShell, ModalEmptyState, ModalErrorBanner, ModalRowSkeleton, ModalSubmitError,
-  ButtonSpinner, OfflineBanner, SuccessPanel,
+  ButtonSpinner, OfflineBanner,
 } from './ModalPrimitives';
 import {
   useDialogA11y, useStableId, useOnlineStatus, useListKeyboardNav,
@@ -44,7 +44,6 @@ interface AddToReportModalProps {
   loading?: boolean;
   loadError?: string | null;
   onRetryLoad?: () => void;
-  onView?: (reportId: string) => void;
 }
 
 const ACCENT = 'violet' as const;
@@ -56,9 +55,9 @@ const RESERVED_NAMES = new Set(['default', 'system', 'untitled', 'new report']);
 
 export function AddToReportModal({
   open, onClose, reports, alreadyAddedIds = [], resultData, onConfirm,
-  loading = false, loadError = null, onRetryLoad, onView,
+  loading = false, loadError = null, onRetryLoad,
 }: AddToReportModalProps) {
-  const [step, setStep] = useState<'pick' | 'sections' | 'success'>('pick');
+  const [step, setStep] = useState<'pick' | 'sections'>('pick');
   const [mode, setMode] = useState<'existing' | 'new'>('existing');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -74,8 +73,6 @@ export function AddToReportModal({
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
-
-  const [successInfo, setSuccessInfo] = useState<{ reportId: string; reportName: string; count: number; isNew: boolean } | null>(null);
 
   const online = useOnlineStatus();
 
@@ -95,7 +92,6 @@ export function AddToReportModal({
     setSelCols(new Set(resultData?.table?.columns || []));
     setSubmitError(null);
     setSubmitting(false);
-    setSuccessInfo(null);
     abortRef.current?.abort();
     abortRef.current = null;
   }, [resultData]);
@@ -159,18 +155,14 @@ export function AddToReportModal({
       return;
     }
 
-    const finishSuccess = () => {
-      setSuccessInfo({ reportId, reportName, count: totalSelected, isNew });
-      setStep('success');
-    };
-
     if (result && typeof (result as Promise<void>).then === 'function') {
       const ctrl = new AbortController();
       abortRef.current = ctrl;
       setSubmitting(true);
       try {
         await withTimeout(result, SUBMIT_TIMEOUT_MS, ctrl.signal);
-        finishSuccess();
+        reset();
+        onClose();
       } catch (e) {
         if (!ctrl.signal.aborted) setSubmitError(messageFrom(e));
       } finally {
@@ -178,7 +170,8 @@ export function AddToReportModal({
         abortRef.current = null;
       }
     } else {
-      finishSuccess();
+      reset();
+      onClose();
     }
   };
 
@@ -230,13 +223,10 @@ export function AddToReportModal({
           </div>
           <div>
             <h2 id={titleId} className="text-[15px] font-semibold text-ink-800">
-              {step === 'success' ? 'Done'
-                : step === 'pick' ? 'Add to Report'
-                : 'Choose What to Include'}
+              {step === 'pick' ? 'Add to Report' : 'Choose What to Include'}
             </h2>
             <p id={descId} className="text-[11px] text-ink-500">
-              {step === 'success' ? 'Result attached to report'
-                : step === 'pick' ? 'Choose a draft report or create a new one'
+              {step === 'pick' ? 'Choose a draft report or create a new one'
                 : 'Select individual KPIs, charts, and columns'}
             </p>
           </div>
@@ -254,18 +244,7 @@ export function AddToReportModal({
 
       {/* Body */}
       <div className="flex-1 overflow-y-auto px-5 py-4">
-        {step === 'success' && successInfo ? (
-          <SuccessPanel
-            accent="violet"
-            title={`Added ${successInfo.count} item${successInfo.count === 1 ? '' : 's'} to “${successInfo.reportName}”`}
-            description={successInfo.isNew ? 'Your new draft report is ready to view.' : 'You can keep adding more or close this dialog.'}
-            primaryAction={onView ? {
-              label: 'View report',
-              onClick: () => { onView(successInfo.reportId); handleClose(); },
-            } : undefined}
-            secondaryAction={{ label: 'Done', onClick: handleClose }}
-          />
-        ) : step === 'pick' ? (
+        {step === 'pick' ? (
           <div className="space-y-4">
             {!online && <OfflineBanner />}
 
@@ -594,66 +573,64 @@ export function AddToReportModal({
         )}
       </div>
 
-      {/* Footer (hidden on success step) */}
-      {step !== 'success' && (
-        <div className="flex flex-wrap items-center justify-between px-5 py-3.5 border-t border-canvas-border bg-paper-50/50 gap-3">
-          {step === 'sections' ? (
+      {/* Footer */}
+      <div className="flex flex-wrap items-center justify-between px-5 py-3.5 border-t border-canvas-border bg-paper-50/50 gap-3">
+        {step === 'sections' ? (
+          <button
+            type="button"
+            onClick={() => { setSubmitError(null); setStep('pick'); }}
+            disabled={submitting}
+            className="text-[12px] font-medium text-ink-500 hover:text-ink-700 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed min-h-[40px] px-2 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-300"
+          >
+            Back
+          </button>
+        ) : <div />}
+        <div className="flex flex-wrap items-center gap-3 min-w-0">
+          {submitError && (
+            <div className="flex items-center gap-2 min-w-0 max-w-[260px]">
+              <ModalSubmitError message={submitError} />
+            </div>
+          )}
+          {submitting ? (
             <button
               type="button"
-              onClick={() => { setSubmitError(null); setStep('pick'); }}
-              disabled={submitting}
-              className="text-[12px] font-medium text-ink-500 hover:text-ink-700 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed min-h-[40px] px-2 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-300"
+              onClick={stop}
+              className="min-h-[40px] px-3.5 rounded-md text-[12px] font-semibold text-risk-700 hover:bg-risk-50 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-risk/40"
             >
-              Back
+              Stop
             </button>
-          ) : <div />}
-          <div className="flex flex-wrap items-center gap-3 min-w-0">
-            {submitError && (
-              <div className="flex items-center gap-2 min-w-0 max-w-[260px]">
-                <ModalSubmitError message={submitError} />
-              </div>
-            )}
-            {submitting ? (
-              <button
-                type="button"
-                onClick={stop}
-                className="min-h-[40px] px-3.5 rounded-md text-[12px] font-semibold text-risk-700 hover:bg-risk-50 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-risk/40"
-              >
-                Stop
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleClose}
-                disabled={submitting}
-                className="min-h-[40px] px-3.5 rounded-md text-[12px] font-semibold text-ink-600 hover:bg-paper-100 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-300"
-              >
-                Cancel
-              </button>
-            )}
-            {step === 'pick' ? (
-              <button
-                type="button"
-                disabled={!canProceed}
-                onClick={() => setStep('sections')}
-                className="inline-flex items-center gap-1 min-h-[40px] px-3.5 rounded-md bg-violet-600 hover:bg-violet-700 text-white text-[12px] font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-1"
-              >
-                Next <ChevronRight size={13} />
-              </button>
-            ) : (
-              <button
-                type="button"
-                disabled={totalSelected === 0 || submitting}
-                onClick={handleConfirm}
-                className="inline-flex items-center gap-1.5 min-h-[40px] px-3.5 rounded-md bg-violet-600 hover:bg-violet-700 text-white text-[12px] font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-1"
-              >
-                {submitting ? <ButtonSpinner /> : <FileText size={13} />}
-                {submitError && !submitting ? 'Retry' : submitting ? 'Adding…' : 'Add to Report'}
-              </button>
-            )}
-          </div>
+          ) : (
+            <button
+              type="button"
+              onClick={handleClose}
+              disabled={submitting}
+              className="min-h-[40px] px-3.5 rounded-md text-[12px] font-semibold text-ink-600 hover:bg-paper-100 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-300"
+            >
+              Cancel
+            </button>
+          )}
+          {step === 'pick' ? (
+            <button
+              type="button"
+              disabled={!canProceed}
+              onClick={() => setStep('sections')}
+              className="inline-flex items-center gap-1 min-h-[40px] px-3.5 rounded-md bg-violet-600 hover:bg-violet-700 text-white text-[12px] font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-1"
+            >
+              Next <ChevronRight size={13} />
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled={totalSelected === 0 || submitting}
+              onClick={handleConfirm}
+              className="inline-flex items-center gap-1.5 min-h-[40px] px-3.5 rounded-md bg-violet-600 hover:bg-violet-700 text-white text-[12px] font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-1"
+            >
+              {submitting ? <ButtonSpinner /> : <FileText size={13} />}
+              {submitError && !submitting ? 'Retry' : submitting ? 'Adding…' : 'Add to Report'}
+            </button>
+          )}
         </div>
-      )}
+      </div>
     </ModalShell>
   );
 }

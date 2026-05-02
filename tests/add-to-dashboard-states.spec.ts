@@ -257,26 +257,21 @@ test.describe('Add to Dashboard / Report — every shipped state', () => {
     await closeModal(page);
   });
 
-  // ─── E. Submit — success step + toast count + Undo ──────────────────────────
+  // ─── E. Submit — modal closes + toast confirmation ──────────────────────────
 
-  test('E1: success step shows item count + View + Done; toast carries count + Undo', async ({ page }) => {
+  test('E1: confirm closes the modal and surfaces a toast with item count + View Dashboard (no Undo on dashboard side)', async ({ page }) => {
     await openDashboardModal(page);
     await page.getByRole('option').first().click();
     await page.getByRole('button', { name: /^Next/ }).click();
     await page.getByRole('button', { name: /^Add to Dashboard/ }).click();
 
-    // In-modal success — scope to the dialog
-    await expect(page.getByRole('heading', { name: 'Done' })).toBeVisible();
-    const dlg = page.getByRole('dialog');
-    await expect(dlg.getByText(/Added \d+ items? to/)).toBeVisible();
-    await expect(dlg.getByRole('button', { name: 'Done' })).toBeVisible();
+    // Modal closes — single confirmation surface
+    await expect(page.getByRole('dialog')).toHaveCount(0, { timeout: 5000 });
 
-    // Toast — scope outside the dialog
+    // Toast carries the count + View Dashboard, no Undo on dashboard side
     await expect(page.getByText(/Added \d+ items? to dashboard/)).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Undo' })).toBeVisible();
-
-    await page.getByRole('button', { name: 'Done' }).click();
-    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'View Dashboard' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Undo' })).toHaveCount(0);
   });
 
   // ─── F. Mobile / responsive ─────────────────────────────────────────────────
@@ -303,7 +298,7 @@ test.describe.serial('Add to Report — parity smoke', () => {
     await produceAuditResult(page);
   });
 
-  test('R1: opens, has Description field on Create New, success step works', async ({ page }) => {
+  test('R1: opens, Description field present (parity), confirm closes + toast (Undo OK on report)', async ({ page }) => {
     await openReportModal(page);
     await expect(page.getByRole('heading', { name: 'Add to Report' })).toBeVisible();
 
@@ -315,8 +310,12 @@ test.describe.serial('Add to Report — parity smoke', () => {
     await page.getByRole('button', { name: /^Next/ }).click();
     await page.getByRole('button', { name: /^Add to Report/ }).click();
 
-    await expect(page.getByRole('heading', { name: 'Done' })).toBeVisible();
-    await expect(page.getByRole('dialog').getByText(/Added \d+ items? to/)).toBeVisible();
+    // Modal closes
+    await expect(page.getByRole('dialog')).toHaveCount(0, { timeout: 5000 });
+    // Toast — Undo is OK on report side because the report callback is a no-op
+    await expect(page.getByText(/Added \d+ items? to report/)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'View Report' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Undo' })).toBeVisible();
   });
 
 });
