@@ -36,14 +36,21 @@ export function SectionHeader({ title, count, total, collapsed, onToggle, onTogg
   const allSelected = count === total;
   return (
     <div className="flex items-center justify-between">
-      <button onClick={onToggle} className="flex items-center gap-1.5 text-[12px] font-semibold text-ink-700 cursor-pointer">
-        <ChevronDown size={14} className={`transition-transform ${collapsed ? '-rotate-90' : ''}`} />
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={!collapsed}
+        className="flex items-center gap-1.5 text-[12px] font-semibold text-ink-700 cursor-pointer min-h-[32px] px-1 -mx-1 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
+      >
+        <ChevronDown size={14} className={`transition-transform motion-reduce:transition-none ${collapsed ? '-rotate-90' : ''}`} />
         {title}
         <span className="text-ink-400 font-normal">({count}/{total})</span>
       </button>
       <button
+        type="button"
         onClick={() => onToggleAll(!allSelected)}
-        className={`text-[11px] font-medium cursor-pointer ${ACCENT[accent].toggle}`}
+        title={allSelected ? `Deselect all ${title.toLowerCase()}` : `Select all ${title.toLowerCase()}`}
+        className={`text-[11px] font-medium cursor-pointer min-h-[32px] px-2 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 ${ACCENT[accent].toggle}`}
       >
         {allSelected ? 'None' : 'All'}
       </button>
@@ -71,8 +78,12 @@ export function KpiPreviewRow({ kpi, checked, onChange, accent = 'brand' }: {
   const a = ACCENT[accent];
   return (
     <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      aria-label={`${kpi.label}: ${kpi.value}`}
       onClick={onChange}
-      className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg border transition-all cursor-pointer text-left ${
+      className={`w-full flex items-center gap-2 min-h-[40px] px-2.5 py-2 rounded-lg border transition-all cursor-pointer text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 ${
         checked ? a.rowOn : `border-canvas-border ${a.rowHover}`
       }`}
     >
@@ -97,8 +108,12 @@ export function ChartPreviewRow({ chart, checked, onChange, accent = 'brand' }: 
   const a = ACCENT[accent];
   return (
     <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      aria-label={chart.label}
       onClick={onChange}
-      className={`w-full glass-card rounded-xl overflow-hidden transition-all cursor-pointer text-left flex flex-col ${
+      className={`w-full glass-card rounded-xl overflow-hidden transition-all cursor-pointer text-left flex flex-col focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 ${
         checked ? a.ring : ''
       }`}
     >
@@ -132,8 +147,12 @@ export function TablePreviewRow({ columns, sampleRows, checked, onChange, accent
   const rows = sampleRows.slice(0, 2);
   return (
     <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      aria-label={`Results table: ${columns.length} columns, ${sampleRows.length} rows`}
       onClick={onChange}
-      className={`w-full rounded-lg border transition-all cursor-pointer text-left ${
+      className={`w-full rounded-lg border transition-all cursor-pointer text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 ${
         checked ? a.rowOn : `border-canvas-border ${a.rowHover}`
       }`}
     >
@@ -164,14 +183,4 @@ export function TablePreviewRow({ columns, sampleRows, checked, onChange, accent
   );
 }
 
-// ─── Toggle helpers ───────────────────────────────────────────────────────────
-
-export function toggleIn(set: Set<string>, key: string, setter: (s: Set<string>) => void) {
-  const next = new Set(set);
-  next.has(key) ? next.delete(key) : next.add(key);
-  setter(next);
-}
-
-export function setAll(items: string[], all: boolean, setter: (s: Set<string>) => void) {
-  setter(all ? new Set(items) : new Set());
-}
+// Helpers moved to ./widgetPickerHelpers (kept this file component-only for Fast Refresh).
