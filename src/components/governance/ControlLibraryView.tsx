@@ -48,7 +48,7 @@ interface ControlLibraryProps {
   processFilter?: string;
 }
 
-export default function ControlLibraryView({ processFilter }: ControlLibraryProps = {}) {
+export default function ControlLibraryView({ processFilter }: ControlLibraryProps) {
   const { addToast } = useToast();
 
   // Stateful controls list

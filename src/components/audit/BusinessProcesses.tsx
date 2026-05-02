@@ -5,7 +5,7 @@ import {
   ChevronRight, ChevronDown,
   ArrowLeft, ArrowRight,
   Building2, Briefcase, Calendar, Users,
-  FileText, CheckCircle2, AlertTriangle, X, Eye, Loader2,
+  FileText, CheckCircle2, AlertTriangle, X, Eye, Loader2, Paperclip, Play, Lock, ShieldCheck,
 } from 'lucide-react';
 import { BUSINESS_PROCESSES, SOPS, RACMS, RISKS, CONTROLS, WORKFLOWS, ENGAGEMENTS } from '../../data/mockData';
 import { CardContainer, CardBody, CardItem } from '../shared/3DCard';
@@ -13,8 +13,8 @@ import Orb from '../shared/Orb';
 import { useToast } from '../shared/Toast';
 import RacmListTable from './RacmListTable';
 import RiskRegister from './RiskRegister';
-import ControlLibraryView from '../governance/ControlLibraryView';
-import WorkflowLibraryView from '../workflow/WorkflowLibraryView';
+// ControlLibraryView no longer embedded — replaced by ControlDesignTab
+// WorkflowLibraryView no longer used — replaced by WorkflowGovernanceTab
 
 interface Props {
   selectedBPId: string | null;
@@ -51,7 +51,11 @@ interface SOPAction {
   cls: string;
 }
 
-function getSOPAction(status: SOPStatus, hasRacm: boolean): SOPAction {
+function getSOPAction(status: SOPStatus, hasRacm: boolean, racmFrozen?: boolean): SOPAction {
+  if (hasRacm && (status === 'Ready for Review' || status === 'Partial' || status === 'Processed')) {
+    if (racmFrozen) return { label: 'Configure RACM', cls: 'bg-primary/10 text-primary hover:bg-primary/20' };
+    return { label: 'Edit RACM Draft', cls: 'bg-primary/10 text-primary hover:bg-primary/20' };
+  }
   switch (status) {
     case 'Uploaded':         return { label: 'Start Processing',  cls: 'bg-primary/10 text-primary hover:bg-primary/20' };
     case 'Processing':       return { label: 'View Progress',     cls: 'bg-gray-100 text-gray-500 hover:bg-gray-200/70' };
@@ -938,116 +942,218 @@ const RACM_AUDIT_TYPES = ['IFC', 'Internal Audit', 'Operational Audit', 'Concurr
 const RACM_FY_OPTIONS = ['FY25', 'FY26', 'FY27'];
 const RACM_FRAMEWORKS = ['SOX ICFR', 'ISO 27001', 'Internal Policy', 'Custom'];
 
-function CreateRacmFromSOPModal({ sopName, bpAbbr, onClose, onCreate }: {
+function CreateRacmFromSOPModal({ sopName, bpAbbr, onClose, onCreate, onStartReview }: {
   sopName: string;
   bpAbbr: string;
   onClose: () => void;
   onCreate: (racmName: string, framework: string) => void;
+  onStartReview?: (racmName: string, fileName: string) => void;
 }) {
-  const defaultName = `FY26 ${bpAbbr} — ${sopName.replace(/\s*SOP\s*/i, '').trim()}`;
-  const [name, setName] = useState(defaultName);
+  const { addToast } = useToast();
+  type SourceMode = 'blank' | 'upload' | 'sop';
+  const [source, setSource] = useState<SourceMode | null>(sopName ? 'sop' : null);
+  const [uploadedFile, setUploadedFile] = useState<string | null>(null);
+  const [uploadParsing, setUploadParsing] = useState(false);
+  const [uploadParsed, setUploadParsed] = useState(false);
+  const [extractedStats, setExtractedStats] = useState<{ risks: number; controls: number; rows: number } | null>(null);
+
+  // Form state
+  const sopLabel = sopName.replace(/\s*SOP\s*/i, '').trim();
+  const [name, setName] = useState(sopLabel ? `FY26 ${bpAbbr} — ${sopLabel}` : '');
   const [description, setDescription] = useState('');
-  const [auditType, setAuditType] = useState('');
-  const [financialYear, setFinancialYear] = useState('FY26');
   const [framework, setFramework] = useState('');
   const [owner, setOwner] = useState('Current User');
 
-  const isValid = name.trim().length > 0 && auditType !== '' && financialYear !== '' && owner.trim().length > 0;
+  const isFormValid = name.trim().length > 0 && owner.trim().length > 0;
   const fieldCls = 'w-full px-3 py-2.5 border border-border rounded-lg text-[13px] text-text bg-white outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/10 transition-all';
   const labelCls = 'text-[12px] font-semibold text-text-muted block mb-1.5';
+
+  const handleFileUpload = (fileName: string) => {
+    setUploadedFile(fileName);
+    setUploadParsing(true);
+    if (!name) setName(`FY26 ${bpAbbr} — ${fileName.replace(/\.[^.]+$/, '').replace(/[_-]/g, ' ')}`);
+    // Simulate parsing delay
+    setTimeout(() => {
+      setUploadParsing(false);
+      setUploadParsed(true);
+      setExtractedStats({ risks: 5, controls: 7, rows: 7 });
+      addToast({ message: `"${fileName}" parsed — 5 risks, 7 controls extracted.`, type: 'success' });
+    }, 1200);
+  };
+
+  const handleRemoveFile = () => {
+    setUploadedFile(null);
+    setUploadParsing(false);
+    setUploadParsed(false);
+    setExtractedStats(null);
+  };
+
+  // Determine CTA label + action
+  const isUploadReview = source === 'upload' && uploadParsed && uploadedFile;
+  const ctaLabel = isUploadReview ? 'Review Imported RACM' : 'Create RACM';
+  const ctaDisabled = !isFormValid || (source === 'upload' && !uploadParsed);
+  const hasSopSource = !!sopName;
 
   return (
     <>
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}
-        className="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/30 backdrop-blur-sm" onClick={onClose}>
-        <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }}
-          transition={{ duration: 0.2 }} className="bg-white rounded-2xl shadow-xl border border-canvas-border w-full max-w-[480px] flex flex-col" onClick={e => e.stopPropagation()}>
+        className="fixed inset-0 z-50 bg-ink-900/20 backdrop-blur-sm" onClick={onClose} />
+      <motion.aside initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
+        transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+        className="fixed top-0 right-0 z-50 w-full max-w-[540px] h-full bg-white border-l border-canvas-border shadow-2xl flex flex-col">
 
-          <div className="px-6 pt-5 pb-4 border-b border-canvas-border flex items-start justify-between">
+        <div className="px-6 pt-5 pb-4 border-b border-canvas-border flex items-start justify-between shrink-0">
+          <div>
+            <h2 className="font-display text-[18px] font-semibold text-ink-900">Create RACM</h2>
+            <p className="text-[12px] text-ink-500 mt-0.5">Define a new Risk &amp; Control Matrix for audit governance.</p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-full text-ink-500 hover:text-ink-800 hover:bg-[#F4F2F7] flex items-center justify-center cursor-pointer"><X size={16} /></button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+
+          {/* ─── Form Fields (always visible once source chosen or immediately) ─── */}
+          <div className="space-y-3">
+            <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Basic Info</h3>
             <div>
-              <h2 className="font-display text-[18px] font-semibold text-ink-900">Create RACM</h2>
-              <p className="text-[12px] text-ink-500 mt-0.5">Create a Risk & Control Matrix from "{sopName}".</p>
+              <label className={labelCls}>RACM Name <span className="text-red-400">*</span></label>
+              <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. FY26 P2P — Vendor Payment" className={fieldCls} autoFocus />
             </div>
-            <button onClick={onClose} className="w-8 h-8 rounded-full text-ink-500 hover:text-ink-800 hover:bg-[#F4F2F7] flex items-center justify-center cursor-pointer"><X size={16} /></button>
-          </div>
-
-          <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5" style={{ maxHeight: 480 }}>
-            {/* Section 1: Basic Info */}
-            <div className="space-y-3">
-              <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Basic Info</h3>
-              <div>
-                <label className={labelCls}>RACM Name <span className="text-red-400">*</span></label>
-                <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. FY26 P2P — Vendor Payment" className={fieldCls} autoFocus />
-              </div>
-              <div>
-                <label className={labelCls}>Description <span className="font-normal text-ink-400">(optional)</span></label>
-                <textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} placeholder="Brief description of scope..." className={fieldCls + ' resize-none'} />
-              </div>
+            <div>
+              <label className={labelCls}>Framework <span className="font-normal text-ink-400">(optional)</span></label>
+              <select value={framework} onChange={e => setFramework(e.target.value)} className={fieldCls + ' cursor-pointer appearance-none'}>
+                <option value="">Select...</option>
+                {RACM_FRAMEWORKS.map(f => <option key={f} value={f}>{f}</option>)}
+              </select>
             </div>
-
-            {/* Section 2: Audit Context */}
-            <div className="space-y-3">
-              <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Audit Context</h3>
-              <div>
-                <label className={labelCls}>Business Process</label>
-                <div className="px-3 py-2.5 border border-border rounded-lg text-[13px] text-text bg-gray-50 cursor-not-allowed">{bpAbbr}</div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className={labelCls}>Audit Type <span className="text-red-400">*</span></label>
-                  <select value={auditType} onChange={e => setAuditType(e.target.value)} className={fieldCls + ' cursor-pointer appearance-none'}>
-                    <option value="">Select audit type...</option>
-                    {RACM_AUDIT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className={labelCls}>Financial Year <span className="text-red-400">*</span></label>
-                  <select value={financialYear} onChange={e => setFinancialYear(e.target.value)} className={fieldCls + ' cursor-pointer appearance-none'}>
-                    {RACM_FY_OPTIONS.map(fy => <option key={fy} value={fy}>{fy}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className={labelCls}>Framework <span className="font-normal text-ink-400">(optional)</span></label>
-                <select value={framework} onChange={e => setFramework(e.target.value)} className={fieldCls + ' cursor-pointer appearance-none'}>
-                  <option value="">Select framework...</option>
-                  {RACM_FRAMEWORKS.map(f => <option key={f} value={f}>{f}</option>)}
-                </select>
-              </div>
+            <div>
+              <label className={labelCls}>Owner <span className="text-red-400">*</span></label>
+              <input value={owner} onChange={e => setOwner(e.target.value)} className={fieldCls} />
             </div>
-
-            {/* Section 3: Ownership */}
-            <div className="space-y-3">
-              <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Ownership</h3>
-              <div>
-                <label className={labelCls}>RACM Owner <span className="text-red-400">*</span></label>
-                <input value={owner} onChange={e => setOwner(e.target.value)} className={fieldCls} />
+            <div>
+              <label className={labelCls}>Description <span className="font-normal text-ink-400">(optional)</span></label>
+              <textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} placeholder="Brief description..." className={fieldCls + ' resize-none'} />
+            </div>
+            {/* Business Process — auto-filled, read-only */}
+            <div>
+              <label className={labelCls}>Business Process</label>
+              <div className="px-3 py-2.5 border border-border rounded-lg text-[13px] text-text bg-gray-50/80 cursor-not-allowed flex items-center gap-2">
+                <Building2 size={13} className="text-gray-400 shrink-0" />
+                <span>{bpAbbr}</span>
+                <span className="ml-auto text-[10px] text-gray-400">Auto-filled</span>
               </div>
             </div>
           </div>
 
-          <div className="px-6 py-4 border-t border-canvas-border flex items-center justify-end gap-3">
+          {/* ─── Source Type Selection ─── */}
+          <div className="space-y-3">
+            <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Source Type</h3>
+            <div className="grid grid-cols-3 gap-2">
+              {([
+                { id: 'blank' as const, label: 'Start Blank', desc: 'Add risks & controls manually', icon: Plus, disabled: false },
+                { id: 'upload' as const, label: 'Upload RACM File', desc: 'Import from Excel, CSV, PDF', icon: Upload, disabled: false },
+                { id: 'sop' as const, label: 'Generate from SOP', desc: hasSopSource ? 'Extract from uploaded SOP' : 'Coming soon', icon: Sparkles, disabled: !hasSopSource },
+              ] as const).map(opt => (
+                <button key={opt.id} onClick={() => { if (!opt.disabled) setSource(opt.id); }}
+                  disabled={opt.disabled}
+                  className={`text-left p-3 rounded-xl border-2 transition-all ${
+                    source === opt.id
+                      ? 'border-primary bg-primary/5'
+                      : opt.disabled
+                        ? 'border-border-light bg-gray-50/50 opacity-50 cursor-not-allowed'
+                        : 'border-border-light hover:border-primary/30 hover:bg-primary/5 cursor-pointer'
+                  }`}>
+                  <opt.icon size={16} className={`mb-1.5 ${source === opt.id ? 'text-primary' : 'text-gray-400'}`} />
+                  <div className={`text-[12px] font-semibold ${source === opt.id ? 'text-primary' : 'text-text'}`}>{opt.label}</div>
+                  <div className="text-[10px] text-text-muted mt-0.5 leading-snug">{opt.desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* ─── Upload Section (only when source is upload) ─── */}
+          {source === 'upload' && (
+            <div className="space-y-3">
+              <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Upload File</h3>
+              {!uploadedFile ? (
+                <div onClick={() => {
+                    const input = document.createElement('input'); input.type = 'file'; input.accept = '.xlsx,.xls,.csv,.pdf';
+                    input.onchange = (ev) => { const f = (ev.target as HTMLInputElement).files?.[0]; if (f) handleFileUpload(f.name); };
+                    input.click();
+                  }}
+                  className="border-2 border-dashed border-border-light rounded-xl p-6 text-center cursor-pointer hover:border-primary/30 hover:bg-gray-50/50 transition-all">
+                  <Upload size={22} className="mx-auto text-gray-300 mb-2" />
+                  <div className="text-[13px] font-semibold text-text">Drop file here or click to browse</div>
+                  <div className="text-[11px] text-text-muted mt-1">Supported: Excel (.xlsx, .xls), CSV (.csv), PDF (.pdf)</div>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-border-light bg-surface-2/30 p-4 space-y-3">
+                  {/* File info */}
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                      <FileText size={16} className="text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-semibold text-text truncate">{uploadedFile}</p>
+                      <p className="text-[10px] text-text-muted mt-0.5">
+                        {uploadParsing ? 'Parsing file…' : uploadParsed && extractedStats ? `${extractedStats.rows} rows · ${extractedStats.risks} risks · ${extractedStats.controls} controls extracted` : 'Ready'}
+                      </p>
+                    </div>
+                    {uploadParsing ? (
+                      <Loader2 size={16} className="text-primary animate-spin shrink-0" />
+                    ) : (
+                      <button onClick={handleRemoveFile} className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 cursor-pointer transition-colors" title="Remove file"><X size={14} /></button>
+                    )}
+                  </div>
+
+                  {/* Extracted summary */}
+                  {uploadParsed && extractedStats && (
+                    <div className="flex items-center gap-2 p-2.5 bg-emerald-50/40 rounded-lg border border-emerald-100/60">
+                      <CheckCircle2 size={12} className="text-emerald-600 shrink-0" />
+                      <span className="text-[11px] text-emerald-700">File parsed successfully. Review the imported structure in the next step to validate and finalize.</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+        </div>
+
+        {/* Footer — shown once a source type is selected */}
+        {source && (
+          <div className="px-6 py-4 border-t border-canvas-border flex items-center justify-end gap-3 shrink-0">
             <button onClick={onClose} className="px-4 py-2.5 rounded-lg border border-canvas-border text-[13px] font-medium text-ink-600 hover:bg-canvas transition-colors cursor-pointer">Cancel</button>
-            <button onClick={() => { if (isValid) onCreate(name.trim(), framework || auditType); }} disabled={!isValid}
-              className="px-5 py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-white text-[13px] font-semibold transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
-              Create RACM
+            <button onClick={() => {
+                if (!isFormValid) return;
+                if (isUploadReview && onStartReview) {
+                  onStartReview(name.trim(), uploadedFile!);
+                  onClose();
+                } else {
+                  onCreate(name.trim(), framework || 'Internal Policy');
+                }
+              }} disabled={ctaDisabled}
+              className="px-5 py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-white text-[13px] font-semibold transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5">
+              {isUploadReview && <Eye size={14} />}
+              {ctaLabel}
             </button>
           </div>
-        </motion.div>
-      </motion.div>
+        )}
+      </motion.aside>
     </>
   );
 }
 
 // ─── SOP Tab Content Component ────────────────────────────────────────────
 
-function SOPTabContent({ bpId, bpAbbr, existingSops, existingRacms, onGoToRacm, onRacmCreated }: {
+function SOPTabContent({ bpId, bpAbbr, existingSops, existingRacms, onGoToRacm, onRacmCreated, onViewRacm }: {
   bpId: string;
   bpAbbr: string;
   existingSops: typeof SOPS;
   existingRacms: typeof RACMS;
   onGoToRacm: () => void;
   onRacmCreated?: (racmId: string, racmName: string, process: string, framework: string) => void;
+  onViewRacm?: (racmId: string) => void;
 }) {
   const { addToast } = useToast();
 
@@ -1225,11 +1331,13 @@ function SOPTabContent({ bpId, bpAbbr, existingSops, existingRacms, onGoToRacm, 
 
   // Action click handlers — derived from status via getSOPAction
   const handleSOPActionClick = (sop: LocalSOP) => {
-    const action = getSOPAction(sop.status, !!sop.racmId);
+    const action = getSOPAction(sop.status, !!sop.racmId, false);
     switch (action.label) {
       case 'Start Processing':  handleStartProcessing(sop.id); break;
       case 'View Progress':     addToast({ message: `"${sop.name}" is currently being processed...`, type: 'info' }); break;
       case 'Create RACM':       setShowCreateRacmForSopId(sop.id); break;
+      case 'Edit RACM Draft':   if (sop.racmId && onViewRacm) onViewRacm(sop.racmId); break;
+      case 'Configure RACM':    if (sop.racmId && onViewRacm) onViewRacm(sop.racmId); break;
       case 'Retry':             handleStartProcessing(sop.id); break;
       case 'View SOP':          setPreviewingSopId(sop.id); break;
     }
@@ -1311,7 +1419,7 @@ function SOPTabContent({ bpId, bpAbbr, existingSops, existingRacms, onGoToRacm, 
                 <tbody>
                   {sortedSops.map((sop, i) => {
                     const isProcessing = sop.status === 'Processing';
-                    const action = getSOPAction(sop.status, !!sop.racmId);
+                    const action = getSOPAction(sop.status, !!sop.racmId, false);
                     const showCounts = sop.status !== 'Uploaded' && sop.status !== 'Processing';
                     return (<React.Fragment key={sop.id}>
                       <motion.tr initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.015 }}
@@ -1491,12 +1599,1049 @@ function SOPTabContent({ bpId, bpAbbr, existingSops, existingRacms, onGoToRacm, 
   );
 }
 
+// ─── Control Design Tab ──────────────────────────────────────────────────────
+
+interface BoundWorkflow { name: string; type: 'Automated' | 'Manual'; status: 'Ready' | 'Draft' | 'Completed'; lastRun: string; runs: number; }
+interface DesignControl {
+  id: string; name: string; description: string; classification: 'Key' | 'Non-Key';
+  nature: string; automation: string; frequency: string;
+  mappedRisks: string[]; workflows: BoundWorkflow[];
+  usedInRACMs: number; assertions: string[];
+}
+
+const SEED_DESIGN_CONTROLS: DesignControl[] = [
+  { id: 'C-001', name: 'Three-Way PO/GRN/Invoice Matching', description: 'System-enforced three-way matching before payment release.', classification: 'Key', nature: 'Preventive', automation: 'Automated', frequency: 'Per transaction', mappedRisks: ['RSK-001', 'RSK-002'], workflows: [
+    { name: 'PO Validation Workflow', type: 'Automated', status: 'Completed', lastRun: 'Apr 28, 2026', runs: 14 },
+    { name: 'GRN Matching Workflow', type: 'Automated', status: 'Completed', lastRun: 'Apr 28, 2026', runs: 12 },
+    { name: 'Invoice Match Workflow', type: 'Automated', status: 'Ready', lastRun: 'Apr 26, 2026', runs: 10 },
+  ], usedInRACMs: 4, assertions: ['Completeness', 'Accuracy', 'Authorization'] },
+  { id: 'C-002', name: 'Vendor Master Change Approval', description: 'Multi-level approval for vendor master data changes.', classification: 'Key', nature: 'Preventive', automation: 'Manual', frequency: 'Per transaction', mappedRisks: ['RSK-003', 'RSK-004'], workflows: [
+    { name: 'Vendor Change Monitor', type: 'Automated', status: 'Ready', lastRun: 'Apr 20, 2026', runs: 8 },
+  ], usedInRACMs: 2, assertions: ['Authorization', 'Occurrence'] },
+  { id: 'C-003', name: 'Duplicate Invoice Detection', description: 'Automated scanning to flag potential duplicate invoices.', classification: 'Key', nature: 'Detective', automation: 'Automated', frequency: 'Per transaction', mappedRisks: ['RSK-002'], workflows: [
+    { name: 'Duplicate Invoice Detector', type: 'Automated', status: 'Completed', lastRun: 'Apr 26, 2026', runs: 12 },
+    { name: 'Invoice Reconciliation Check', type: 'Manual', status: 'Draft', lastRun: '—', runs: 0 },
+  ], usedInRACMs: 3, assertions: ['Accuracy', 'Occurrence'] },
+  { id: 'C-004', name: 'High-Value Payment Review', description: 'Additional approval for payments above threshold.', classification: 'Key', nature: 'Preventive', automation: 'IT-dependent', frequency: 'Per transaction', mappedRisks: ['RSK-001'], workflows: [
+    { name: 'Payment Approval Review', type: 'Manual', status: 'Ready', lastRun: 'Apr 10, 2026', runs: 3 },
+  ], usedInRACMs: 2, assertions: ['Authorization', 'Accuracy'] },
+  { id: 'C-014', name: 'Purchase Order Dual Sign-Off', description: 'Dual authorization for all POs above threshold.', classification: 'Non-Key', nature: 'Preventive', automation: 'Manual', frequency: 'Per transaction', mappedRisks: ['RSK-005'], workflows: [], usedInRACMs: 1, assertions: ['Authorization'] },
+];
+
+function ControlDesignTab({ bpAbbr }: { bpAbbr: string }) {
+  const { addToast } = useToast();
+  const [controls, setControls] = useState<DesignControl[]>(SEED_DESIGN_CONTROLS);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const handleAttachWorkflow = (ctrlId: string) => {
+    setControls(prev => prev.map(c => c.id === ctrlId ? { ...c, workflows: [...c.workflows, { name: 'New Workflow', type: 'Manual', status: 'Draft', lastRun: '—', runs: 0 }] } : c));
+    addToast({ message: 'Workflow attached.', type: 'success' });
+  };
+
+  const getDesignStatus = (ctrl: DesignControl): 'Complete' | 'Incomplete' => {
+    return ctrl.workflows.length > 0 && ctrl.mappedRisks.length > 0 ? 'Complete' : 'Incomplete';
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <span className="text-[12px] text-gray-500">{controls.length} control{controls.length !== 1 ? 's' : ''}</span>
+      </div>
+
+      <div className="bg-white rounded-xl border border-border-light overflow-hidden">
+        <table className="w-full text-[12px]">
+          <thead>
+            <tr className="border-b border-border bg-gray-50/50">
+              {['Control', 'Classification', 'Nature', 'Workflows', 'Mapped Risks', 'RACMs', 'Design Status', ''].map(h => (
+                <th key={h || 'act'} className="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {controls.map((ctrl, i) => {
+              const isExpanded = expandedId === ctrl.id;
+              const hasBound = ctrl.workflows.length > 0;
+              return (
+                <React.Fragment key={ctrl.id}>
+                  <motion.tr initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.015 }}
+                    className="border-b border-border/40 hover:bg-gray-50/50 transition-colors cursor-pointer" onClick={() => setExpandedId(isExpanded ? null : ctrl.id)}>
+                    <td className="px-3 py-3">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-mono text-[10px] text-gray-400">{ctrl.id}</span>
+                        <span className="text-[12px] font-medium text-text">{ctrl.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-3 py-3">
+                      <span className={`px-1.5 h-4 rounded text-[8px] font-bold inline-flex items-center ${ctrl.classification === 'Key' ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-500'}`}>{ctrl.classification}</span>
+                    </td>
+                    <td className="px-3 py-3"><span className="text-[11px] text-gray-500">{ctrl.nature}</span></td>
+                    <td className="px-3 py-3">
+                      {ctrl.workflows.length === 0 ? (
+                        <span className="text-[11px] text-amber-600 font-medium">Not Bound</span>
+                      ) : ctrl.workflows.length === 1 ? (
+                        <span className="text-[11px] text-emerald-700 font-medium">{ctrl.workflows[0].name}</span>
+                      ) : ctrl.workflows.length <= 2 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {ctrl.workflows.map((w, wi) => (<span key={wi} className="px-1.5 h-4 rounded text-[8px] font-medium bg-emerald-50 text-emerald-700">{w.name.length > 15 ? w.name.slice(0, 14) + '…' : w.name}</span>))}
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1">
+                          {ctrl.workflows.slice(0, 2).map((w, wi) => (<span key={wi} className="px-1.5 h-4 rounded text-[8px] font-medium bg-emerald-50 text-emerald-700">{w.name.length > 12 ? w.name.slice(0, 11) + '…' : w.name}</span>))}
+                          <span className="px-1.5 h-4 rounded text-[8px] font-medium bg-gray-100 text-gray-500">+{ctrl.workflows.length - 2}</span>
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-3 py-3"><span className="text-[12px] text-text tabular-nums">{ctrl.mappedRisks.length}</span></td>
+                    <td className="px-3 py-3"><span className="text-[12px] text-text tabular-nums">{ctrl.usedInRACMs}</span></td>
+                    <td className="px-3 py-3">
+                      {(() => { const ds = getDesignStatus(ctrl); return <span className={`px-2 h-5 rounded-full text-[9px] font-semibold inline-flex items-center ${ds === 'Complete' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-600'}`}>{ds}</span>; })()}
+                    </td>
+                    <td className="px-3 py-3 text-right" onClick={e => e.stopPropagation()}>
+                      <div className="flex items-center gap-1 justify-end">
+                        {ctrl.workflows.length === 0 && <button onClick={() => handleAttachWorkflow(ctrl.id)} className="px-2 py-1 rounded text-[9px] font-semibold bg-amber-50 text-amber-700 hover:bg-amber-100 cursor-pointer">Attach</button>}
+                        <button onClick={() => setExpandedId(isExpanded ? null : ctrl.id)} className="px-2 py-1 rounded text-[9px] font-bold bg-gray-100 text-gray-600 hover:bg-gray-200/70 cursor-pointer">{isExpanded ? 'Close' : 'View'}</button>
+                      </div>
+                    </td>
+                  </motion.tr>
+
+                  {isExpanded && (
+                    <tr>
+                      <td colSpan={8} className="p-0">
+                        <div className="px-5 py-4 bg-surface-2/20 border-t border-border/30 space-y-3">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div><span className="text-[9px] text-gray-400 uppercase block">Description</span><p className="text-[11px] text-text mt-0.5">{ctrl.description}</p></div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <div><span className="text-[9px] text-gray-400 uppercase block">Automation</span><p className="text-[11px] text-text">{ctrl.automation}</p></div>
+                              <div><span className="text-[9px] text-gray-400 uppercase block">Frequency</span><p className="text-[11px] text-text">{ctrl.frequency}</p></div>
+                            </div>
+                          </div>
+                          {ctrl.assertions.length > 0 && (
+                            <div><span className="text-[9px] text-gray-400 uppercase block mb-1">Assertions</span>
+                              <div className="flex flex-wrap gap-1">{ctrl.assertions.map(a => (<span key={a} className="px-2 py-0.5 rounded text-[9px] font-medium bg-gray-50 text-gray-600 border border-gray-200/60">{a}</span>))}</div>
+                            </div>
+                          )}
+                          <div className="grid grid-cols-2 gap-3">
+                            <div><span className="text-[9px] text-gray-400 uppercase block mb-1">Linked Risks</span>
+                              {ctrl.mappedRisks.length > 0 ? ctrl.mappedRisks.map(r => (<div key={r} className="text-[10px] font-mono text-gray-500">{r}</div>)) : <span className="text-[10px] text-gray-300">None</span>}
+                            </div>
+                            <div><span className="text-[9px] text-gray-400 uppercase block mb-1">Used in RACMs</span>
+                              <span className="text-[10px] text-text">{ctrl.usedInRACMs} RACM{ctrl.usedInRACMs !== 1 ? 's' : ''}</span>
+                            </div>
+                          </div>
+
+                          {/* Workflow bindings detail */}
+                          <div>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="text-[9px] text-gray-400 uppercase font-bold">Workflows ({ctrl.workflows.length})</span>
+                              <button onClick={e => { e.stopPropagation(); handleAttachWorkflow(ctrl.id); }} className="text-[9px] font-semibold text-primary hover:underline cursor-pointer">+ Attach</button>
+                            </div>
+                            {ctrl.workflows.length === 0 ? (
+                              <div className="text-[10px] text-amber-600 py-2">No workflows bound. Attach a workflow to enable testing.</div>
+                            ) : (
+                              <div className="bg-white rounded-lg border border-border/50 overflow-hidden">
+                                <table className="w-full text-[11px]">
+                                  <thead><tr className="border-b border-border/30 bg-gray-50/30">
+                                    <th className="px-3 py-1.5 text-left text-[9px] font-semibold text-gray-400 uppercase">Workflow</th>
+                                    <th className="px-3 py-1.5 text-center text-[9px] font-semibold text-gray-400 uppercase">Type</th>
+                                    <th className="px-3 py-1.5 text-center text-[9px] font-semibold text-gray-400 uppercase">Status</th>
+                                    <th className="px-3 py-1.5 text-right text-[9px] font-semibold text-gray-400 uppercase">Runs</th>
+                                    <th className="px-3 py-1.5 text-right text-[9px] font-semibold text-gray-400 uppercase">Last Run</th>
+                                    <th className="px-3 py-1.5 text-right text-[9px] font-semibold text-gray-400 uppercase">Actions</th>
+                                  </tr></thead>
+                                  <tbody>{ctrl.workflows.map((w, wi) => (
+                                    <tr key={wi} className="border-b border-border/20">
+                                      <td className="px-3 py-1.5 text-text font-medium">{w.name}</td>
+                                      <td className="px-3 py-1.5 text-center"><span className={`px-1.5 h-4 rounded text-[8px] font-bold inline-flex items-center ${w.type === 'Automated' ? 'bg-evidence-50 text-evidence-700' : 'bg-gray-100 text-gray-600'}`}>{w.type}</span></td>
+                                      <td className="px-3 py-1.5 text-center"><span className={`px-1.5 h-4 rounded text-[8px] font-bold inline-flex items-center ${w.status === 'Completed' ? 'bg-emerald-50 text-emerald-700' : w.status === 'Ready' ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-500'}`}>{w.status}</span></td>
+                                      <td className="px-3 py-1.5 text-right tabular-nums text-gray-500">{w.runs}</td>
+                                      <td className="px-3 py-1.5 text-right text-gray-400">{w.lastRun}</td>
+                                      <td className="px-3 py-1.5 text-right">
+                                        <div className="flex items-center gap-1 justify-end">
+                                          <button onClick={e => { e.stopPropagation(); addToast({ message: `Viewing "${w.name}"`, type: 'info' }); }} className="text-[9px] font-medium text-primary hover:underline cursor-pointer">View</button>
+                                          {w.type === 'Automated' && <button onClick={e => { e.stopPropagation(); addToast({ message: `Running "${w.name}"...`, type: 'info' }); }} className="text-[9px] font-medium text-primary hover:underline cursor-pointer">Run</button>}
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  ))}</tbody>
+                                </table>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ─── Workflow Cockpit Tab ────────────────────────────────────────────────────
+
+interface WfRun { id: string; date: string; status: 'Completed' | 'Failed' | 'Running'; records: number; duration: string; }
+interface CockpitWorkflow {
+  id: string; name: string; description: string; type: 'Automated' | 'Manual';
+  linkedControl: string | null; attributeCount: number;
+  status: 'Draft' | 'Ready' | 'Needs Mapping' | 'Running' | 'Completed' | 'Failed' | 'Manual Required';
+  runs: number; lastRunDate: string; lastRunStatus: string; successRate: number;
+  recentRuns: WfRun[];
+}
+
+const SEED_WF: CockpitWorkflow[] = [
+  { id: 'wf-c1', name: 'Three-Way PO Match', description: 'Automated matching of PO, GRN, and Invoice before payment release.', type: 'Automated', linkedControl: 'C-001', attributeCount: 5, status: 'Completed', runs: 14, lastRunDate: 'Apr 28, 2026', lastRunStatus: 'Completed', successRate: 93, recentRuns: [
+    { id: 'run-001', date: 'Apr 28, 2026', status: 'Completed', records: 1245, duration: '2m 14s' },
+    { id: 'run-002', date: 'Apr 21, 2026', status: 'Completed', records: 1102, duration: '1m 58s' },
+    { id: 'run-003', date: 'Apr 14, 2026', status: 'Failed', records: 980, duration: '0m 45s' },
+  ]},
+  { id: 'wf-c2', name: 'Vendor Change Monitor', description: 'Monitors vendor master data changes and validates approval chain.', type: 'Automated', linkedControl: 'C-002', attributeCount: 3, status: 'Ready', runs: 8, lastRunDate: 'Apr 20, 2026', lastRunStatus: 'Completed', successRate: 100, recentRuns: [
+    { id: 'run-004', date: 'Apr 20, 2026', status: 'Completed', records: 45, duration: '0m 32s' },
+  ]},
+  { id: 'wf-c3', name: 'Duplicate Invoice Detector', description: 'Scans invoices against historical data to flag duplicates.', type: 'Automated', linkedControl: 'C-003', attributeCount: 2, status: 'Completed', runs: 12, lastRunDate: 'Apr 26, 2026', lastRunStatus: 'Completed', successRate: 100, recentRuns: [
+    { id: 'run-005', date: 'Apr 26, 2026', status: 'Completed', records: 3200, duration: '4m 10s' },
+  ]},
+  { id: 'wf-c4', name: 'Payment Approval Review', description: 'Manual review of high-value payment approvals.', type: 'Manual', linkedControl: 'C-004', attributeCount: 2, status: 'Manual Required', runs: 3, lastRunDate: 'Apr 10, 2026', lastRunStatus: 'Completed', successRate: 100, recentRuns: [] },
+  { id: 'wf-c5', name: 'PO Dual Sign-Off Check', description: 'Validates dual authorization for purchase orders above threshold.', type: 'Automated', linkedControl: null, attributeCount: 0, status: 'Needs Mapping', runs: 0, lastRunDate: '—', lastRunStatus: '—', successRate: 0, recentRuns: [] },
+];
+
+const WF_STATUS_CLS: Record<string, string> = {
+  Draft: 'bg-gray-100 text-gray-600', Ready: 'bg-emerald-50 text-emerald-700', 'Needs Mapping': 'bg-amber-50 text-amber-600',
+  Running: 'bg-blue-50 text-blue-600', Completed: 'bg-emerald-50 text-emerald-700', Failed: 'bg-red-50 text-red-600', 'Manual Required': 'bg-gray-100 text-gray-500',
+};
+
+function WorkflowGovernanceTab({ bpAbbr }: { bpAbbr: string }) {
+  const { addToast } = useToast();
+  const [workflows, setWorkflows] = useState<CockpitWorkflow[]>(SEED_WF);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [bulkMode, setBulkMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showCreateDrawer, setShowCreateDrawer] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<string>('All');
+
+  const filtered = statusFilter === 'All' ? workflows : workflows.filter(w => w.status === statusFilter);
+
+  const toggleSelect = (id: string) => setSelectedIds(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+
+  const handleRun = (wfId: string) => {
+    const wf = workflows.find(w => w.id === wfId);
+    if (!wf) return;
+    if (wf.type === 'Manual') { addToast({ message: `"${wf.name}" is a manual workflow — start manual execution.`, type: 'info' }); return; }
+    if (!wf.linkedControl) { addToast({ message: `"${wf.name}" has no linked control. Map it first.`, type: 'warning' }); return; }
+    // Set running
+    setWorkflows(prev => prev.map(w => w.id === wfId ? { ...w, status: 'Running' as const } : w));
+    addToast({ message: `Running "${wf.name}"...`, type: 'info' });
+    // Simulate completion
+    setTimeout(() => {
+      const success = Math.random() > 0.15;
+      const newRun: WfRun = { id: `run-${Date.now()}`, date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }), status: success ? 'Completed' : 'Failed', records: Math.floor(Math.random() * 3000) + 500, duration: `${Math.floor(Math.random() * 5)}m ${Math.floor(Math.random() * 59)}s` };
+      setWorkflows(prev => prev.map(w => w.id === wfId ? { ...w, status: success ? 'Completed' : 'Failed', runs: w.runs + 1, lastRunDate: newRun.date, lastRunStatus: newRun.status, recentRuns: [newRun, ...w.recentRuns].slice(0, 5) } : w));
+      addToast({ message: success ? `"${wf.name}" completed successfully.` : `"${wf.name}" failed — check results.`, type: success ? 'success' : 'error' });
+    }, 2000);
+  };
+
+  const handleBulkRun = () => {
+    const selected = workflows.filter(w => selectedIds.has(w.id));
+    const runnable = selected.filter(w => w.type === 'Automated' && w.linkedControl && w.status !== 'Running');
+    const skipped = selected.length - runnable.length;
+    if (runnable.length === 0) { addToast({ message: 'No runnable workflows selected.', type: 'warning' }); return; }
+    runnable.forEach(w => handleRun(w.id));
+    if (skipped > 0) addToast({ message: `${skipped} workflow${skipped !== 1 ? 's' : ''} skipped (manual or unmapped).`, type: 'info' });
+    setBulkMode(false); setSelectedIds(new Set());
+  };
+
+  const handleMapControl = (wfId: string, controlId: string) => {
+    setWorkflows(prev => prev.map(w => w.id === wfId ? { ...w, linkedControl: controlId, status: 'Ready' as const } : w));
+    addToast({ message: `Workflow mapped to ${controlId}.`, type: 'success' });
+  };
+
+  const handleCreate = (data: { name: string; type: 'Automated' | 'Manual'; desc: string }) => {
+    setWorkflows(prev => [{ id: `wf-${Date.now()}`, name: data.name, description: data.desc, type: data.type, linkedControl: null, attributeCount: 0, status: 'Draft', runs: 0, lastRunDate: '—', lastRunStatus: '—', successRate: 0, recentRuns: [] }, ...prev]);
+    setShowCreateDrawer(false);
+    addToast({ message: `Workflow "${data.name}" created.`, type: 'success' });
+  };
+
+  const statuses = ['All', 'Ready', 'Completed', 'Failed', 'Needs Mapping', 'Draft', 'Manual Required'];
+
+  return (
+    <div className="space-y-4">
+      {/* Toolbar */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-1.5">
+          {statuses.map(s => (
+            <button key={s} onClick={() => setStatusFilter(s)} className={`px-2 py-1 rounded-full text-[10px] font-semibold cursor-pointer transition-all ${statusFilter === s ? 'bg-primary text-white' : 'bg-surface-2 text-text-muted hover:bg-primary/10'}`}>{s}</button>
+          ))}
+        </div>
+        <div className="flex items-center gap-2">
+          {bulkMode ? (
+            <>
+              <button onClick={handleBulkRun} disabled={selectedIds.size === 0} className="px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-primary text-white hover:bg-primary/90 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">Run Selected ({selectedIds.size})</button>
+              <button onClick={() => { setBulkMode(false); setSelectedIds(new Set()); }} className="px-3 py-1.5 rounded-lg text-[11px] font-medium border border-border text-text-muted hover:bg-gray-50 cursor-pointer">Cancel</button>
+            </>
+          ) : (
+            <>
+              <button onClick={() => setBulkMode(true)} className="px-3 py-1.5 rounded-lg text-[11px] font-medium border border-border text-text-muted hover:bg-gray-50 cursor-pointer">Bulk Run</button>
+              <button onClick={() => setShowCreateDrawer(true)} className="px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-primary text-white hover:bg-primary/90 cursor-pointer flex items-center gap-1"><Plus size={11} />Create Workflow</button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Table */}
+      {filtered.length === 0 ? (
+        <div className="bg-white rounded-xl border border-border-light p-10 text-center">
+          <FileText size={28} className="mx-auto text-gray-200 mb-3" />
+          <p className="text-[13px] font-medium text-text-muted">No workflows match the current filter.</p>
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl border border-border-light overflow-hidden">
+          <table className="w-full text-[12px]">
+            <thead>
+              <tr className="border-b border-border bg-gray-50/50">
+                {bulkMode && <th className="px-3 py-2.5 w-8"></th>}
+                {['Workflow', 'Type', 'Control', 'Attrs', 'Status', 'Runs', 'Last Run', 'Last Status', ''].map(h => (
+                  <th key={h || 'act'} className="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((wf, i) => {
+                const isExpanded = expandedId === wf.id;
+                const isRunning = wf.status === 'Running';
+                return (
+                  <React.Fragment key={wf.id}>
+                    <motion.tr initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.015 }}
+                      className={`border-b border-border/40 transition-colors ${isRunning ? 'bg-blue-50/20' : 'hover:bg-gray-50/50'} cursor-pointer`}
+                      onClick={() => setExpandedId(isExpanded ? null : wf.id)}>
+                      {bulkMode && <td className="px-3 py-2.5" onClick={e => e.stopPropagation()}><input type="checkbox" checked={selectedIds.has(wf.id)} onChange={() => toggleSelect(wf.id)} className="w-3.5 h-3.5 rounded accent-primary cursor-pointer" /></td>}
+                      <td className="px-3 py-2.5"><span className="text-[12px] font-medium text-text">{wf.name}</span></td>
+                      <td className="px-3 py-2.5"><span className={`px-1.5 h-4 rounded text-[8px] font-bold inline-flex items-center ${wf.type === 'Automated' ? 'bg-evidence-50 text-evidence-700' : 'bg-gray-100 text-gray-600'}`}>{wf.type}</span></td>
+                      <td className="px-3 py-2.5"><span className="text-[11px] text-gray-500">{wf.linkedControl || '—'}</span></td>
+                      <td className="px-3 py-2.5"><span className="text-[12px] text-text tabular-nums">{wf.attributeCount}</span></td>
+                      <td className="px-3 py-2.5"><span className={`px-2 h-5 rounded-full text-[9px] font-semibold inline-flex items-center ${WF_STATUS_CLS[wf.status] || WF_STATUS_CLS.Draft}`}>{isRunning && <Loader2 size={9} className="animate-spin mr-1" />}{wf.status}</span></td>
+                      <td className="px-3 py-2.5"><span className="text-[12px] text-text tabular-nums">{wf.runs}</span></td>
+                      <td className="px-3 py-2.5"><span className="text-[11px] text-gray-400">{wf.lastRunDate}</span></td>
+                      <td className="px-3 py-2.5"><span className="text-[11px] text-gray-500">{wf.lastRunStatus}</span></td>
+                      <td className="px-3 py-2.5 text-right" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center gap-1 justify-end">
+                          {!wf.linkedControl && <button onClick={() => handleMapControl(wf.id, 'C-001')} className="px-2 py-1 rounded text-[9px] font-semibold bg-amber-50 text-amber-700 hover:bg-amber-100 cursor-pointer">Map</button>}
+                          {wf.type === 'Automated' && wf.linkedControl && !isRunning && <button onClick={() => handleRun(wf.id)} className="px-2 py-1 rounded text-[9px] font-semibold bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer">Run</button>}
+                          <button onClick={() => setExpandedId(isExpanded ? null : wf.id)} className="px-2 py-1 rounded text-[9px] font-bold bg-gray-100 text-gray-600 hover:bg-gray-200/70 cursor-pointer">{isExpanded ? 'Close' : 'View'}</button>
+                        </div>
+                      </td>
+                    </motion.tr>
+
+                    {/* Expanded detail */}
+                    {isExpanded && (
+                      <tr>
+                        <td colSpan={bulkMode ? 10 : 9} className="p-0">
+                          <div className="px-5 py-4 bg-surface-2/20 border-t border-border/30 space-y-4">
+                            {/* Overview */}
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <span className="text-[9px] text-gray-400 uppercase block">Description</span>
+                                <p className="text-[11px] text-text mt-0.5">{wf.description}</p>
+                              </div>
+                              <div className="grid grid-cols-3 gap-2">
+                                <div><span className="text-[9px] text-gray-400 uppercase block">Runs</span><p className="text-[12px] font-bold text-text tabular-nums">{wf.runs}</p></div>
+                                <div><span className="text-[9px] text-gray-400 uppercase block">Success Rate</span><p className="text-[12px] font-bold text-text tabular-nums">{wf.runs > 0 ? `${wf.successRate}%` : '—'}</p></div>
+                                <div><span className="text-[9px] text-gray-400 uppercase block">Attributes</span><p className="text-[12px] font-bold text-text tabular-nums">{wf.attributeCount}</p></div>
+                              </div>
+                            </div>
+
+                            {/* Recent Runs */}
+                            {wf.recentRuns.length > 0 ? (
+                              <div>
+                                <h5 className="text-[10px] font-bold text-gray-400 uppercase mb-1.5">Recent Runs</h5>
+                                <div className="bg-white rounded-lg border border-border/50 overflow-hidden">
+                                  <table className="w-full text-[11px]">
+                                    <thead><tr className="border-b border-border/30 bg-gray-50/30">
+                                      <th className="px-3 py-1.5 text-left text-[9px] font-semibold text-gray-400 uppercase">Run</th>
+                                      <th className="px-3 py-1.5 text-left text-[9px] font-semibold text-gray-400 uppercase">Date</th>
+                                      <th className="px-3 py-1.5 text-center text-[9px] font-semibold text-gray-400 uppercase">Status</th>
+                                      <th className="px-3 py-1.5 text-right text-[9px] font-semibold text-gray-400 uppercase">Records</th>
+                                      <th className="px-3 py-1.5 text-right text-[9px] font-semibold text-gray-400 uppercase">Duration</th>
+                                    </tr></thead>
+                                    <tbody>{wf.recentRuns.map(r => (
+                                      <tr key={r.id} className="border-b border-border/20">
+                                        <td className="px-3 py-1.5 font-mono text-gray-400">{r.id.slice(-3)}</td>
+                                        <td className="px-3 py-1.5 text-text">{r.date}</td>
+                                        <td className="px-3 py-1.5 text-center"><span className={`px-1.5 h-4 rounded text-[8px] font-bold inline-flex items-center ${r.status === 'Completed' ? 'bg-emerald-50 text-emerald-700' : r.status === 'Failed' ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'}`}>{r.status}</span></td>
+                                        <td className="px-3 py-1.5 text-right tabular-nums text-gray-500">{r.records.toLocaleString()}</td>
+                                        <td className="px-3 py-1.5 text-right text-gray-400">{r.duration}</td>
+                                      </tr>
+                                    ))}</tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="text-[11px] text-gray-400 py-2">No runs recorded yet.</div>
+                            )}
+
+                            {/* Actions */}
+                            <div className="flex items-center gap-2 pt-1">
+                              {wf.type === 'Automated' && wf.linkedControl && !isRunning && (
+                                <button onClick={() => handleRun(wf.id)} className="px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer flex items-center gap-1"><Play size={10} />Run Now</button>
+                              )}
+                              {wf.type === 'Manual' && (
+                                <button onClick={() => addToast({ message: 'Opening manual execution checklist...', type: 'info' })} className="px-3 py-1.5 rounded-lg text-[11px] font-semibold border border-border text-text-secondary hover:bg-gray-50 cursor-pointer">Start Manual Execution</button>
+                              )}
+                              {!wf.linkedControl && (
+                                <button onClick={() => handleMapControl(wf.id, 'C-001')} className="px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-amber-50 text-amber-700 hover:bg-amber-100 cursor-pointer">Map to Control</button>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Create Workflow Drawer */}
+      <AnimatePresence>
+        {showCreateDrawer && (() => {
+          const D = () => {
+            const [n, setN] = useState(''); const [t, setT] = useState<'Automated' | 'Manual'>('Automated'); const [d, setD] = useState('');
+            const fCls = 'w-full px-3 py-2.5 border border-border rounded-lg text-[13px] text-text bg-white outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/10 transition-all';
+            return (<>
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-ink-900/20 backdrop-blur-sm" onClick={() => setShowCreateDrawer(false)} />
+              <motion.aside initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+                className="fixed top-0 right-0 z-50 w-full max-w-[480px] h-full bg-white border-l border-canvas-border shadow-2xl flex flex-col">
+                <div className="px-6 pt-5 pb-4 border-b border-canvas-border flex items-start justify-between shrink-0">
+                  <div><h2 className="font-display text-[18px] font-semibold text-ink-900">Create Workflow</h2><p className="text-[12px] text-ink-500 mt-0.5">Define a new workflow for control testing.</p></div>
+                  <button onClick={() => setShowCreateDrawer(false)} className="w-8 h-8 rounded-full text-ink-500 hover:text-ink-800 hover:bg-[#F4F2F7] flex items-center justify-center cursor-pointer"><X size={16} /></button>
+                </div>
+                <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+                  <div><label className="text-[12px] font-semibold text-text-muted block mb-1.5">Name <span className="text-red-400">*</span></label><input value={n} onChange={e => setN(e.target.value)} placeholder="e.g. Three-Way PO Match" className={fCls} autoFocus /></div>
+                  <div><label className="text-[12px] font-semibold text-text-muted block mb-1.5">Type</label>
+                    <div className="flex gap-2">{(['Automated', 'Manual'] as const).map(v => (<button key={v} onClick={() => setT(v)} className={`px-3 py-2 rounded-lg text-[12px] font-medium border cursor-pointer transition-all ${t === v ? 'border-primary bg-primary/5 text-primary' : 'border-border text-text-muted'}`}>{v}</button>))}</div>
+                  </div>
+                  <div><label className="text-[12px] font-semibold text-text-muted block mb-1.5">Description</label><textarea value={d} onChange={e => setD(e.target.value)} rows={3} placeholder="Describe..." className={fCls + ' resize-none'} /></div>
+                </div>
+                <div className="px-6 py-4 border-t border-canvas-border flex justify-end gap-3 shrink-0">
+                  <button onClick={() => setShowCreateDrawer(false)} className="px-4 py-2.5 rounded-lg border border-border text-[13px] font-medium text-ink-600 hover:bg-canvas cursor-pointer">Cancel</button>
+                  <button onClick={() => { if (n.trim()) handleCreate({ name: n.trim(), type: t, desc: d }); }} disabled={!n.trim()} className="px-5 py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-white text-[13px] font-semibold cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">Create</button>
+                </div>
+              </motion.aside>
+            </>);
+          };
+          return <D />;
+        })()}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// ─── Review Imported RACM Workspace ──────────────────────────────────────────
+
+interface ImportedRow {
+  id: string; sourceRow: number; process: string; subProcess: string;
+  riskId: string; riskName: string; riskDesc: string; riskRating: string;
+  controlId: string; controlName: string; controlDesc: string; controlObjective: string;
+  controlOwner: string; frequency: string; controlType: string; keyControl: boolean;
+  assertion: string; attribute: string; framework: string;
+  reviewStatus: 'Needs Review' | 'Reviewed' | 'Flagged';
+  validationIssues: string[];
+}
+
+// ─── Required-field validation ────────────────────────────────────────────
+const REQUIRED_FIELDS: { field: keyof ImportedRow; label: string }[] = [
+  { field: 'process', label: 'Missing process' },
+  { field: 'riskName', label: 'Missing risk name' },
+  { field: 'controlName', label: 'Missing control name' },
+  { field: 'assertion', label: 'Missing assertion' },
+  { field: 'attribute', label: 'Missing attribute' },
+];
+
+const VALIDATION_FIELD_MAP: Record<string, keyof ImportedRow> = Object.fromEntries(
+  REQUIRED_FIELDS.map(f => [f.label, f.field]),
+);
+
+function validateRow(row: ImportedRow, allRows: ImportedRow[]): string[] {
+  const issues: string[] = [];
+  for (const { field, label } of REQUIRED_FIELDS) {
+    if (!(row[field] as string).trim()) issues.push(label);
+  }
+  const dupeRisk = allRows.filter(r => r.id !== row.id && r.riskId === row.riskId && r.controlId === row.controlId && r.attribute === row.attribute);
+  if (dupeRisk.length > 0 && row.riskId.trim() && row.controlId.trim()) issues.push('Duplicate row');
+  return issues;
+}
+
+function getIssueFields(row: ImportedRow): Set<string> {
+  const fields = new Set<string>();
+  for (const issue of row.validationIssues) {
+    const field = VALIDATION_FIELD_MAP[issue];
+    if (field) fields.add(field);
+  }
+  return fields;
+}
+
+// ─── Column definitions for grid ──────────────────────────────────────────
+type ColType = 'text' | 'dropdown' | 'checkbox' | 'readonly' | 'status';
+interface GridColumn {
+  key: keyof ImportedRow;
+  label: string;
+  minW: number;       // px min-width
+  type: ColType;
+  options?: string[];  // for dropdowns
+  required?: boolean;
+}
+
+const RISK_RATINGS = ['Low', 'Medium', 'High', 'Critical'];
+const CONTROL_TYPES = ['Preventive', 'Detective', 'Corrective'];
+const FREQUENCY_OPTIONS = ['Per transaction', 'Daily', 'Weekly', 'Monthly', 'Quarterly', 'Annually'];
+
+const GRID_COLUMNS: GridColumn[] = [
+  { key: 'sourceRow',    label: 'Row',              minW: 42,  type: 'readonly' },
+  { key: 'process',      label: 'Process',          minW: 72,  type: 'text', required: true },
+  { key: 'subProcess',   label: 'Sub-process',      minW: 100, type: 'text' },
+  { key: 'riskId',       label: 'Risk ID',          minW: 62,  type: 'text' },
+  { key: 'riskName',     label: 'Risk Name',        minW: 140, type: 'text', required: true },
+  { key: 'riskDesc',     label: 'Risk Description', minW: 150, type: 'text' },
+  { key: 'riskRating',   label: 'Risk Rating',      minW: 80,  type: 'dropdown', options: RISK_RATINGS },
+  { key: 'controlId',    label: 'Ctrl ID',          minW: 62,  type: 'text' },
+  { key: 'controlName',  label: 'Control Name',     minW: 140, type: 'text', required: true },
+  { key: 'controlDesc',  label: 'Control Description', minW: 150, type: 'text' },
+  { key: 'controlType',  label: 'Control Type',     minW: 90,  type: 'dropdown', options: CONTROL_TYPES },
+  { key: 'controlOwner', label: 'Control Owner',    minW: 100, type: 'text' },
+  { key: 'assertion',    label: 'Assertion',        minW: 90,  type: 'text', required: true },
+  { key: 'attribute',    label: 'Attribute',        minW: 100, type: 'text', required: true },
+  { key: 'frequency',    label: 'Frequency',        minW: 95,  type: 'dropdown', options: FREQUENCY_OPTIONS },
+  { key: 'keyControl',   label: 'Key',              minW: 38,  type: 'checkbox' },
+  { key: 'reviewStatus', label: 'Status',           minW: 70,  type: 'status' },
+];
+
+const MOCK_IMPORT_ROWS: ImportedRow[] = [
+  { id: 'ir-1', sourceRow: 2, process: 'P2P', subProcess: 'Invoice Processing', riskId: 'R-001', riskName: 'Unauthorized vendor payments', riskDesc: 'Payments without approved PO', riskRating: 'High', controlId: 'C-001', controlName: 'Three-way PO match', controlDesc: 'System-enforced matching', controlObjective: 'Prevent unauthorized payments', controlOwner: 'Rajiv Sharma', frequency: 'Per transaction', controlType: 'Preventive', keyControl: true, assertion: 'Accuracy', attribute: 'PO Existence', framework: 'SOX ICFR', reviewStatus: 'Needs Review', validationIssues: [] },
+  { id: 'ir-2', sourceRow: 3, process: 'P2P', subProcess: 'Invoice Processing', riskId: 'R-001', riskName: 'Unauthorized vendor payments', riskDesc: 'Payments without approved PO', riskRating: 'High', controlId: 'C-001', controlName: 'Three-way PO match', controlDesc: 'System-enforced matching', controlObjective: 'Prevent unauthorized payments', controlOwner: 'Rajiv Sharma', frequency: 'Per transaction', controlType: 'Preventive', keyControl: true, assertion: 'Accuracy', attribute: 'Payment Approval', framework: 'SOX ICFR', reviewStatus: 'Needs Review', validationIssues: [] },
+  { id: 'ir-3', sourceRow: 4, process: 'P2P', subProcess: 'Invoice Processing', riskId: 'R-002', riskName: 'Duplicate invoices processed', riskDesc: 'Same invoice paid twice', riskRating: 'Medium', controlId: 'C-003', controlName: 'Duplicate invoice detection', controlDesc: 'Automated scan against historical data', controlObjective: 'Prevent duplicate payments', controlOwner: 'Rajiv Sharma', frequency: 'Per transaction', controlType: 'Detective', keyControl: true, assertion: 'Occurrence', attribute: 'Scan Executed', framework: 'SOX ICFR', reviewStatus: 'Needs Review', validationIssues: [] },
+  { id: 'ir-4', sourceRow: 5, process: 'P2P', subProcess: 'Vendor Management', riskId: 'R-003', riskName: 'Fictitious vendor registration', riskDesc: 'Vendor created without verification', riskRating: 'Critical', controlId: 'C-002', controlName: 'Vendor change approval', controlDesc: 'Multi-level approval workflow', controlObjective: 'Prevent unauthorized vendor changes', controlOwner: 'Deepak Bansal', frequency: 'Per transaction', controlType: 'Preventive', keyControl: true, assertion: 'Authorization', attribute: 'Tax ID Verified', framework: 'SOX ICFR', reviewStatus: 'Needs Review', validationIssues: [] },
+  { id: 'ir-5', sourceRow: 6, process: 'P2P', subProcess: 'Accounts Payable', riskId: 'R-005', riskName: 'SOD violation in AP', riskDesc: 'Same user creates and approves', riskRating: 'High', controlId: 'C-009', controlName: 'SOD conflict detection', controlDesc: 'Real-time detection', controlObjective: 'Prevent SOD violations', controlOwner: 'IT Security', frequency: 'Daily', controlType: 'Detective', keyControl: true, assertion: 'Authorization', attribute: 'Conflict Detected', framework: 'SOX ICFR', reviewStatus: 'Needs Review', validationIssues: [] },
+  // Rows with validation issues for demo
+  { id: 'ir-6', sourceRow: 7, process: '', subProcess: '', riskId: 'R-006', riskName: '', riskDesc: '', riskRating: '', controlId: 'C-010', controlName: 'Threshold check', controlDesc: 'Checks payment thresholds', controlObjective: '', controlOwner: '', frequency: 'Per transaction', controlType: 'Preventive', keyControl: false, assertion: '', attribute: '', framework: '', reviewStatus: 'Needs Review', validationIssues: [] },
+  { id: 'ir-7', sourceRow: 8, process: 'P2P', subProcess: 'Payments', riskId: 'R-007', riskName: 'Late payment penalties', riskDesc: 'Payments delayed beyond terms', riskRating: 'Low', controlId: '', controlName: '', controlDesc: '', controlObjective: '', controlOwner: 'Karan Mehta', frequency: '', controlType: '', keyControl: false, assertion: 'Completeness', attribute: 'Payment Timeliness', framework: 'SOX ICFR', reviewStatus: 'Needs Review', validationIssues: [] },
+];
+
+/** Summary stats computed from imported rows for the freeze confirmation modal */
+interface FreezeStats {
+  totalRows: number;
+  uniqueRisks: number;
+  uniqueControls: number;
+  riskControlMappings: number;
+  needsReview: number;
+  validationWarnings: number;
+}
+
+function computeFreezeStats(rows: ImportedRow[]): FreezeStats {
+  const riskIds = new Set(rows.filter(r => r.riskId.trim()).map(r => r.riskId));
+  const controlIds = new Set(rows.filter(r => r.controlId.trim()).map(r => r.controlId));
+  const mappings = new Set(rows.filter(r => r.riskId.trim() && r.controlId.trim()).map(r => `${r.riskId}::${r.controlId}`));
+  return {
+    totalRows: rows.length,
+    uniqueRisks: riskIds.size,
+    uniqueControls: controlIds.size,
+    riskControlMappings: mappings.size,
+    needsReview: rows.filter(r => r.reviewStatus !== 'Reviewed').length,
+    validationWarnings: rows.filter(r => r.validationIssues.length > 0).length,
+  };
+}
+
+function ReviewImportWorkspace({ racmName, bpAbbr, fileName, onBack, onFreeze }: {
+  racmName: string; bpAbbr: string; fileName: string;
+  onBack: () => void; onFreeze: (rows: ImportedRow[]) => void;
+}) {
+  const { addToast } = useToast();
+  const [rows, setRows] = useState<ImportedRow[]>(() => {
+    const validated = MOCK_IMPORT_ROWS.map(r => ({ ...r, validationIssues: validateRow(r, MOCK_IMPORT_ROWS) }));
+    return validated;
+  });
+  const [filter, setFilter] = useState<'All' | 'Needs Review' | 'Reviewed' | 'Flagged' | 'Has Issues'>('All');
+  const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
+  const [editingCell, setEditingCell] = useState<{ rowId: string; field: string } | null>(null);
+  const [editValue, setEditValue] = useState('');
+  const [showFreezeModal, setShowFreezeModal] = useState(false);
+  const [freezeConfirmed, setFreezeConfirmed] = useState(false);
+
+  const filtered = filter === 'All' ? rows : filter === 'Has Issues' ? rows.filter(r => r.validationIssues.length > 0) : rows.filter(r => r.reviewStatus === filter);
+  const selectedRow = selectedRowId ? rows.find(r => r.id === selectedRowId) : null;
+  const reviewedCount = rows.filter(r => r.reviewStatus === 'Reviewed').length;
+  const issueCount = rows.filter(r => r.validationIssues.length > 0).length;
+
+  // ─── Row helpers ─────────────────────────────────────────────────────────
+  const revalidate = (updated: ImportedRow[]) =>
+    updated.map(r => ({ ...r, validationIssues: validateRow(r, updated) }));
+
+  const handleMarkReviewed = (id: string) => {
+    setRows(prev => prev.map(r => r.id === id ? { ...r, reviewStatus: 'Reviewed' as const } : r));
+  };
+  const handleBulkMarkReviewed = () => {
+    setRows(prev => prev.map(r => ({ ...r, reviewStatus: 'Reviewed' as const })));
+    addToast({ message: 'All rows marked as reviewed.', type: 'success' });
+  };
+  const handleDeleteRow = (id: string) => {
+    setRows(prev => revalidate(prev.filter(r => r.id !== id)));
+    if (selectedRowId === id) setSelectedRowId(null);
+    addToast({ message: 'Row removed.', type: 'info' });
+  };
+  const handleAddRow = () => {
+    const newRow: ImportedRow = {
+      id: `ir-${Date.now()}`, sourceRow: rows.length + 2, process: bpAbbr, subProcess: '',
+      riskId: '', riskName: '', riskDesc: '', riskRating: '',
+      controlId: '', controlName: '', controlDesc: '', controlObjective: '',
+      controlOwner: '', frequency: '', controlType: '', keyControl: false,
+      assertion: '', attribute: '', framework: '', reviewStatus: 'Needs Review', validationIssues: [],
+    };
+    setRows(prev => revalidate([...prev, newRow]));
+    addToast({ message: 'New row added.', type: 'success' });
+  };
+
+  // ─── Cell editing ────────────────────────────────────────────────────────
+  const commitEdit = useCallback((rowId: string, field: string, value: string) => {
+    setRows(prev => revalidate(prev.map(r => r.id === rowId ? { ...r, [field]: value } : r)));
+    setEditingCell(null);
+  }, []);
+
+  const startEdit = useCallback((rowId: string, field: string, currentValue: string) => {
+    setEditingCell({ rowId, field });
+    setEditValue(currentValue);
+  }, []);
+
+  /** Move to next editable cell (Tab) or previous (Shift+Tab) */
+  const moveToAdjacentCell = useCallback((rowId: string, field: string, forward: boolean) => {
+    const editableCols = GRID_COLUMNS.filter(c => c.type !== 'readonly' && c.type !== 'status');
+    const colIdx = editableCols.findIndex(c => c.key === field);
+    const rowIdx = filtered.findIndex(r => r.id === rowId);
+    if (colIdx === -1 || rowIdx === -1) return;
+
+    let nextCol = colIdx + (forward ? 1 : -1);
+    let nextRowIdx = rowIdx;
+    if (nextCol >= editableCols.length) { nextCol = 0; nextRowIdx++; }
+    if (nextCol < 0) { nextCol = editableCols.length - 1; nextRowIdx--; }
+    if (nextRowIdx < 0 || nextRowIdx >= filtered.length) return;
+
+    const nextRow = filtered[nextRowIdx];
+    const col = editableCols[nextCol];
+    if (col.type === 'checkbox') {
+      // Skip checkbox — toggle is instant, keep moving
+      setEditingCell(null);
+      return;
+    }
+    const val = String(nextRow[col.key] ?? '');
+    startEdit(nextRow.id, col.key, val === 'undefined' ? '' : val);
+  }, [filtered, startEdit]);
+
+  const toggleKeyControl = useCallback((rowId: string) => {
+    setRows(prev => prev.map(r => r.id === rowId ? { ...r, keyControl: !r.keyControl } : r));
+  }, []);
+
+  // Total min-width for horizontal scroll
+  const totalMinW = GRID_COLUMNS.reduce((a, c) => a + c.minW, 0) + 56; // +56 for actions col
+
+  // ─── Risk Rating badge colors ────────────────────────────────────────────
+  const ratingColor = (r: string) => {
+    switch (r) {
+      case 'Critical': return 'bg-red-50 text-red-700';
+      case 'High':     return 'bg-orange-50 text-orange-700';
+      case 'Medium':   return 'bg-amber-50 text-amber-700';
+      case 'Low':      return 'bg-emerald-50 text-emerald-700';
+      default:         return 'bg-gray-50 text-gray-500';
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div>
+        <button onClick={onBack} className="flex items-center gap-1.5 text-[12px] text-text-muted hover:text-primary font-medium cursor-pointer transition-colors mb-3">
+          <ArrowLeft size={14} />Back to RACM List
+        </button>
+        <div className="bg-white rounded-xl border border-border-light p-5">
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-[16px] font-bold text-text">{racmName}</h2>
+                <span className="px-2 h-5 rounded-full text-[9px] font-semibold inline-flex items-center bg-amber-50 text-amber-600">Draft Review</span>
+              </div>
+              <div className="flex items-center gap-3 mt-1 text-[11px] text-gray-500">
+                <span>{bpAbbr}</span>
+                <span>Source: {fileName}</span>
+                <span>{reviewedCount}/{rows.length} reviewed</span>
+                {issueCount > 0 && <span className="text-amber-600 font-medium">{issueCount} with issues</span>}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={() => addToast({ message: 'Draft saved.', type: 'success' })}
+                className="px-3 py-2 rounded-lg border border-border text-[12px] font-medium text-text-secondary hover:bg-gray-50 cursor-pointer">Save Draft</button>
+              <button onClick={() => { setFreezeConfirmed(false); setShowFreezeModal(true); }}
+                className="px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white text-[12px] font-semibold cursor-pointer flex items-center gap-1.5"><Lock size={12} />Freeze RACM</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Toolbar */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-1.5">
+          {(['All', 'Needs Review', 'Reviewed', 'Flagged', 'Has Issues'] as const).map(f => (
+            <button key={f} onClick={() => setFilter(f)} className={`px-2 py-1 rounded-full text-[10px] font-semibold cursor-pointer transition-all ${filter === f ? 'bg-primary text-white' : 'bg-surface-2 text-text-muted hover:bg-primary/10'}`}>
+              {f}{f === 'Has Issues' && issueCount > 0 ? ` (${issueCount})` : ''}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={handleBulkMarkReviewed} className="px-3 py-1.5 rounded-lg text-[10px] font-semibold border border-border text-text-muted hover:bg-gray-50 cursor-pointer">Mark All Reviewed</button>
+          <button onClick={handleAddRow} className="px-3 py-1.5 rounded-lg text-[10px] font-semibold bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer flex items-center gap-1"><Plus size={9} />Add Row</button>
+        </div>
+      </div>
+
+      {/* Grid + Detail panel */}
+      <div className="flex gap-4">
+        {/* Grid */}
+        <div className={`${selectedRow ? 'flex-1' : 'w-full'} bg-white rounded-xl border border-border-light overflow-hidden`}>
+          <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: 520 }}>
+            <table className="w-full text-[11px] border-collapse" style={{ minWidth: totalMinW }}>
+              <thead className="sticky top-0 z-10">
+                <tr className="border-b border-border bg-gray-50/80">
+                  {GRID_COLUMNS.map(c => (
+                    <th key={c.key} className="px-1.5 py-2 text-left text-[9px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap"
+                      style={{ minWidth: c.minW }}>
+                      {c.label}
+                      {c.required && <span className="text-red-400 ml-0.5">*</span>}
+                    </th>
+                  ))}
+                  <th className="px-1.5 py-2 w-14 sticky right-0 bg-gray-50/80"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map(row => {
+                  const issueFields = getIssueFields(row);
+                  return (
+                  <tr key={row.id}
+                    onClick={() => setSelectedRowId(row.id)}
+                    className={`border-b border-border/30 transition-colors cursor-pointer ${selectedRowId === row.id ? 'bg-primary/5' : row.validationIssues.length > 0 ? 'bg-amber-50/20 hover:bg-amber-50/40' : 'hover:bg-gray-50/50'}`}>
+                    {GRID_COLUMNS.map(col => {
+                      const rawVal = row[col.key];
+                      const val = rawVal === undefined || rawVal === null ? '' : String(rawVal);
+                      const isEditing = editingCell?.rowId === row.id && editingCell.field === col.key;
+                      const hasIssue = issueFields.has(col.key);
+                      const isEmpty = !val || val === 'undefined' || val === 'false';
+
+                      // ── Read-only Row # ──
+                      if (col.type === 'readonly') {
+                        return (
+                          <td key={col.key} className="px-1.5 py-1 text-[10px] text-gray-400 font-mono" style={{ minWidth: col.minW }}>
+                            {val}
+                          </td>
+                        );
+                      }
+
+                      // ── Status badge ──
+                      if (col.type === 'status') {
+                        return (
+                          <td key={col.key} className="px-1.5 py-1" style={{ minWidth: col.minW }}>
+                            <span className={`px-1.5 h-4 rounded text-[8px] font-bold inline-flex items-center ${row.reviewStatus === 'Reviewed' ? 'bg-emerald-50 text-emerald-700' : row.reviewStatus === 'Flagged' ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-600'}`}>
+                              {row.reviewStatus}
+                            </span>
+                          </td>
+                        );
+                      }
+
+                      // ── Checkbox (Key Control) ──
+                      if (col.type === 'checkbox') {
+                        return (
+                          <td key={col.key} className="px-1.5 py-1 text-center" style={{ minWidth: col.minW }}
+                            onClick={e => { e.stopPropagation(); toggleKeyControl(row.id); }}>
+                            <input type="checkbox" checked={row.keyControl} readOnly
+                              className="w-3.5 h-3.5 rounded border-gray-300 text-primary accent-primary cursor-pointer" />
+                          </td>
+                        );
+                      }
+
+                      // ── Dropdown cell ──
+                      if (col.type === 'dropdown') {
+                        if (isEditing) {
+                          return (
+                            <td key={col.key} className="px-0.5 py-0.5" style={{ minWidth: col.minW }}>
+                              <select value={editValue}
+                                onChange={e => { commitEdit(row.id, col.key, e.target.value); }}
+                                onBlur={() => commitEdit(row.id, col.key, editValue)}
+                                onKeyDown={e => {
+                                  if (e.key === 'Escape') setEditingCell(null);
+                                  if (e.key === 'Tab') { e.preventDefault(); commitEdit(row.id, col.key, editValue); moveToAdjacentCell(row.id, col.key, !e.shiftKey); }
+                                }}
+                                className="w-full px-1 py-0.5 border border-primary/40 rounded text-[11px] outline-none bg-white cursor-pointer" autoFocus>
+                                <option value="">—</option>
+                                {col.options!.map(o => <option key={o} value={o}>{o}</option>)}
+                              </select>
+                            </td>
+                          );
+                        }
+                        // Display mode — show value or "Required" for required empty, single-click to edit
+                        return (
+                          <td key={col.key}
+                            className={`px-1.5 py-1 ${hasIssue ? 'relative' : ''}`}
+                            style={{ minWidth: col.minW }}
+                            onClick={e => { e.stopPropagation(); setSelectedRowId(row.id); startEdit(row.id, col.key, val === 'undefined' ? '' : val); }}>
+                            {col.key === 'riskRating' && val && val !== 'undefined' ? (
+                              <span className={`px-1.5 h-4 rounded text-[9px] font-bold inline-flex items-center ${ratingColor(val)}`}>{val}</span>
+                            ) : (
+                              <span className={`text-[11px] ${hasIssue && isEmpty ? 'text-amber-500' : isEmpty ? 'text-gray-300' : 'text-text'} truncate block`}>
+                                {hasIssue && isEmpty ? (
+                                  <span className="inline-flex items-center gap-0.5"><AlertTriangle size={9} className="shrink-0" />Required</span>
+                                ) : val && val !== 'undefined' ? val : '—'}
+                              </span>
+                            )}
+                            {hasIssue && <span className="absolute left-0 top-1 bottom-1 w-[2px] bg-amber-400 rounded-full" />}
+                          </td>
+                        );
+                      }
+
+                      // ── Text cell (single-click to edit) ──
+                      if (isEditing) {
+                        return (
+                          <td key={col.key} className="px-0.5 py-0.5" style={{ minWidth: col.minW }}>
+                            <input value={editValue}
+                              onChange={e => setEditValue(e.target.value)}
+                              onBlur={() => commitEdit(row.id, col.key, editValue)}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') commitEdit(row.id, col.key, editValue);
+                                if (e.key === 'Escape') setEditingCell(null);
+                                if (e.key === 'Tab') { e.preventDefault(); commitEdit(row.id, col.key, editValue); moveToAdjacentCell(row.id, col.key, !e.shiftKey); }
+                              }}
+                              className="w-full px-1 py-0.5 border border-primary/40 rounded text-[11px] outline-none" autoFocus />
+                          </td>
+                        );
+                      }
+                      return (
+                        <td key={col.key}
+                          className={`px-1.5 py-1 ${hasIssue ? 'relative' : ''}`}
+                          style={{ minWidth: col.minW }}
+                          onClick={e => { e.stopPropagation(); setSelectedRowId(row.id); startEdit(row.id, col.key, val === 'undefined' ? '' : val); }}>
+                          <span className={`text-[11px] ${hasIssue && isEmpty ? 'text-amber-500' : isEmpty ? 'text-gray-300' : 'text-text'} truncate block`}
+                            title={hasIssue && isEmpty ? 'Required field' : val}>
+                            {hasIssue && isEmpty ? (
+                              <span className="inline-flex items-center gap-0.5"><AlertTriangle size={9} className="shrink-0" />Required</span>
+                            ) : val && val !== 'undefined' ? val : '—'}
+                          </span>
+                          {hasIssue && <span className="absolute left-0 top-1 bottom-1 w-[2px] bg-amber-400 rounded-full" />}
+                        </td>
+                      );
+                    })}
+                    {/* Actions — sticky right */}
+                    <td className="px-1.5 py-1 text-right sticky right-0 bg-inherit" onClick={e => e.stopPropagation()}>
+                      <div className="flex items-center gap-0.5 justify-end">
+                        {row.reviewStatus !== 'Reviewed' && (
+                          <button onClick={() => handleMarkReviewed(row.id)} className="p-1 rounded hover:bg-emerald-50 text-gray-400 hover:text-emerald-600 cursor-pointer" title="Mark Reviewed"><CheckCircle2 size={11} /></button>
+                        )}
+                        <button onClick={() => handleDeleteRow(row.id)} className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500 cursor-pointer" title="Delete"><X size={11} /></button>
+                      </div>
+                    </td>
+                  </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="px-3 py-2 border-t border-border bg-surface-2/30 text-[10px] text-text-muted">
+            {filtered.length} row{filtered.length !== 1 ? 's' : ''} · Click any cell to edit. Press Enter to save, Tab to move.
+          </div>
+        </div>
+
+        {/* Detail panel */}
+        {selectedRow && (
+          <div className="w-[280px] shrink-0 bg-white rounded-xl border border-border-light p-4 space-y-3.5 overflow-y-auto" style={{ maxHeight: 560 }}>
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-text-muted uppercase">Row {selectedRow.sourceRow}</span>
+              <button onClick={() => setSelectedRowId(null)} className="text-gray-400 hover:text-gray-600 cursor-pointer"><X size={12} /></button>
+            </div>
+
+            {/* Process */}
+            <div>
+              <span className="text-[9px] text-gray-400 uppercase block">Process</span>
+              <p className="text-[12px] font-medium text-text">{selectedRow.process || '—'}</p>
+              {selectedRow.subProcess && <p className="text-[10px] text-gray-500 mt-0.5">{selectedRow.subProcess}</p>}
+            </div>
+
+            {/* Risk */}
+            <div>
+              <span className="text-[9px] text-gray-400 uppercase block">Risk</span>
+              <p className="text-[12px] font-medium text-text">{selectedRow.riskName || '—'}</p>
+              <p className="text-[10px] text-gray-500 mt-0.5">{selectedRow.riskDesc || '—'}</p>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-[9px] font-mono text-gray-400">{selectedRow.riskId || '—'}</span>
+                {selectedRow.riskRating && (
+                  <span className={`px-1.5 h-4 rounded text-[8px] font-bold inline-flex items-center ${ratingColor(selectedRow.riskRating)}`}>{selectedRow.riskRating}</span>
+                )}
+              </div>
+            </div>
+
+            {/* Control */}
+            <div>
+              <span className="text-[9px] text-gray-400 uppercase block">Control</span>
+              <p className="text-[12px] font-medium text-text">{selectedRow.controlName || '—'}</p>
+              <p className="text-[10px] text-gray-500 mt-0.5">{selectedRow.controlDesc || '—'}</p>
+              <div className="grid grid-cols-2 gap-1 mt-1.5 text-[10px]">
+                <div><span className="text-gray-400">ID:</span> <span className="text-text font-mono">{selectedRow.controlId || '���'}</span></div>
+                <div><span className="text-gray-400">Owner:</span> <span className="text-text">{selectedRow.controlOwner || '—'}</span></div>
+                <div><span className="text-gray-400">Type:</span> <span className="text-text">{selectedRow.controlType || '—'}</span></div>
+                <div><span className="text-gray-400">Frequency:</span> <span className="text-text">{selectedRow.frequency || '—'}</span></div>
+                <div><span className="text-gray-400">Key:</span> <span className="text-text">{selectedRow.keyControl ? 'Yes' : 'No'}</span></div>
+              </div>
+            </div>
+
+            {/* Assertion / Attribute */}
+            <div>
+              <span className="text-[9px] text-gray-400 uppercase block">Assertion / Attribute</span>
+              <p className="text-[11px] text-text">{selectedRow.assertion || '—'} / {selectedRow.attribute || '—'}</p>
+            </div>
+
+            {/* Source */}
+            <div>
+              <span className="text-[9px] text-gray-400 uppercase block">Source</span>
+              <p className="text-[10px] text-gray-500">Row {selectedRow.sourceRow} · {selectedRow.framework || '—'}</p>
+            </div>
+
+            {/* Validation Issues */}
+            {selectedRow.validationIssues.length > 0 && (
+              <div className="bg-amber-50/60 rounded-lg p-2.5 space-y-1">
+                <span className="text-[9px] font-bold text-amber-700 uppercase flex items-center gap-1"><AlertTriangle size={10} />Validation Issues ({selectedRow.validationIssues.length})</span>
+                {selectedRow.validationIssues.map((issue, i) => (
+                  <p key={i} className="text-[10px] text-amber-700 flex items-center gap-1.5">
+                    <span className="w-1 h-1 rounded-full bg-amber-500 shrink-0" />{issue}
+                  </p>
+                ))}
+              </div>
+            )}
+
+            <div className="flex gap-1.5 pt-2">
+              {selectedRow.reviewStatus !== 'Reviewed' && (
+                <button onClick={() => handleMarkReviewed(selectedRow.id)} className="flex-1 py-1.5 rounded-lg text-[10px] font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 cursor-pointer text-center">Mark Reviewed</button>
+              )}
+              <button onClick={() => { setRows(prev => prev.map(r => r.id === selectedRow.id ? { ...r, reviewStatus: 'Flagged' as const } : r)); }}
+                className="flex-1 py-1.5 rounded-lg text-[10px] font-semibold bg-red-50 text-red-600 hover:bg-red-100 cursor-pointer text-center">Flag</button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Freeze RACM Structure Modal */}
+      <AnimatePresence>
+        {showFreezeModal && (() => {
+          const stats = computeFreezeStats(rows);
+          return (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-[2px]"
+            onClick={() => setShowFreezeModal(false)}>
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl shadow-2xl border border-border-light w-[480px] overflow-hidden"
+              onClick={e => e.stopPropagation()}>
+              <div className="p-6">
+                {/* Header */}
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <ShieldCheck size={22} className="text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="text-[16px] font-bold text-text">Freeze RACM Structure</h3>
+                    <p className="text-[11px] text-text-muted mt-0.5">{racmName}</p>
+                  </div>
+                </div>
+
+                {/* Message */}
+                <p className="text-[12px] text-text-secondary leading-relaxed mb-5">
+                  You are about to finalize this imported RACM structure. After freezing, structural edits will be restricted and the RACM will move into system mapping mode.
+                </p>
+
+                {/* Stats Grid */}
+                <div className="bg-surface-2/60 rounded-xl p-4 mb-4">
+                  <span className="text-[9px] font-bold text-text-muted uppercase tracking-wide block mb-3">Import Summary</span>
+                  <div className="grid grid-cols-3 gap-3">
+                    {[
+                      { label: 'Total Rows', value: stats.totalRows, color: 'text-text' },
+                      { label: 'Unique Risks', value: stats.uniqueRisks, color: 'text-primary' },
+                      { label: 'Unique Controls', value: stats.uniqueControls, color: 'text-primary' },
+                      { label: 'Risk-Control Mappings', value: stats.riskControlMappings, color: 'text-text' },
+                      { label: 'Needs Review', value: stats.needsReview, color: stats.needsReview > 0 ? 'text-amber-600' : 'text-emerald-600' },
+                      { label: 'Validation Warnings', value: stats.validationWarnings, color: stats.validationWarnings > 0 ? 'text-amber-600' : 'text-emerald-600' },
+                    ].map(s => (
+                      <div key={s.label} className="bg-white rounded-lg px-3 py-2 border border-border-light">
+                        <span className={`text-[18px] font-bold ${s.color} block`}>{s.value}</span>
+                        <span className="text-[9px] text-gray-400 font-medium">{s.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Validation warnings detail */}
+                {stats.validationWarnings > 0 && (
+                  <div className="bg-amber-50/60 rounded-lg p-3 mb-4 space-y-1">
+                    <span className="text-[9px] font-bold text-amber-700 uppercase flex items-center gap-1"><AlertTriangle size={10} />Rows with issues</span>
+                    {rows.filter(r => r.validationIssues.length > 0).slice(0, 3).map(r => (
+                      <div key={r.id} className="flex items-start gap-2 text-[10px]">
+                        <span className="text-amber-700 font-semibold shrink-0">Row {r.sourceRow}:</span>
+                        <span className="text-amber-600">{r.validationIssues.join(', ')}</span>
+                      </div>
+                    ))}
+                    {stats.validationWarnings > 3 && (
+                      <p className="text-[10px] text-amber-500 font-medium">+{stats.validationWarnings - 3} more…</p>
+                    )}
+                    <p className="text-[10px] text-amber-600/70 mt-1">These rows will be imported as-is. You can fix them in the RACM mapping workspace after freeze.</p>
+                  </div>
+                )}
+
+                {/* Needs review warning */}
+                {stats.needsReview > 0 && (
+                  <div className="bg-blue-50/60 rounded-lg p-3 mb-4">
+                    <p className="text-[10px] text-blue-700">{stats.needsReview} row{stats.needsReview !== 1 ? 's' : ''} not yet marked as reviewed. You can still freeze — unreviewed rows will be imported.</p>
+                  </div>
+                )}
+
+                {/* Confirmation checkbox */}
+                <label className="flex items-start gap-2.5 p-3 rounded-lg bg-surface-2/40 border border-border-light mb-5 cursor-pointer select-none hover:bg-surface-2/70 transition-colors">
+                  <input type="checkbox" checked={freezeConfirmed} onChange={e => setFreezeConfirmed(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary/30 accent-primary cursor-pointer" />
+                  <span className="text-[12px] text-text leading-snug">I confirm this RACM structure has been reviewed and is correct.</span>
+                </label>
+
+                {/* Actions */}
+                <div className="flex gap-2">
+                  <button onClick={() => setShowFreezeModal(false)}
+                    className="flex-1 py-2.5 rounded-xl border border-border text-[12px] font-semibold text-text-secondary hover:bg-gray-50 cursor-pointer">Cancel</button>
+                  <button onClick={() => { setShowFreezeModal(false); onFreeze(rows); }}
+                    disabled={!freezeConfirmed}
+                    className="flex-1 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white text-[12px] font-semibold cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed">
+                    <Lock size={13} />Freeze &amp; Create RACM
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+          );
+        })()}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 /* ─── BP Detail View ─── */
 function BPDetailView({ bp, onBack }: {
   bp: typeof BUSINESS_PROCESSES[0]; onBack: () => void;
 }) {
+  const { addToast } = useToast();
   const [tab, setTab] = useState<'sop' | 'racm' | 'risks' | 'controls' | 'workflows'>('sop');
   const [createdRacms, setCreatedRacms] = useState<import('./RacmListTable').RacmEntry[]>([]);
+  const [showCreateRacm, setShowCreateRacm] = useState(false);
+  /** Tracks which RACM is open in the Excel review editor. Stores the racmId. */
+  const [reviewingRacmId, setReviewingRacmId] = useState<string | null>(null);
+  const reviewingRacm = reviewingRacmId ? createdRacms.find(r => r.id === reviewingRacmId) : null;
 
   // ─── Data: single query per entity, filtered by business_process_id ───
   const bpRacms = RACMS.filter(r => r.bpId === bp.id);
@@ -1597,14 +2742,115 @@ function BPDetailView({ bp, onBack }: {
                 id: racmId, name: racmName, version: 'v1.0', process, framework,
                 risks: 0, controls: 0, mappedRisks: 0, unmappedRisks: 0, keyControls: 0,
                 workflowCoverage: 0, attributesCoverage: 0, isValidated: false, linkedToEngagement: false,
+                isFrozen: false,
               }]);
+            }}
+            onViewRacm={(racmId) => {
+              // Ensure the RACM exists in createdRacms for the editor
+              const exists = createdRacms.some(r => r.id === racmId);
+              if (!exists) {
+                // Check seed data or mock — create a draft entry so the editor can open
+                setCreatedRacms(prev => [...prev, {
+                  id: racmId, name: `RACM ${racmId}`, version: 'v1.0', process: bp.abbr, framework: 'SOX ICFR',
+                  risks: 0, controls: 0, mappedRisks: 0, unmappedRisks: 0, keyControls: 0,
+                  workflowCoverage: 0, attributesCoverage: 0, isValidated: false, linkedToEngagement: false,
+                  isFrozen: false,
+                }]);
+              }
+              setTab('racm');
+              setReviewingRacmId(racmId);
             }}
           />
         )}
 
         {/* RACM Tab — filtered RACM list table */}
-        {tab === 'racm' && (
-          <RacmListTable processFilter={bp.abbr} extraRacms={createdRacms} />
+        {tab === 'racm' && reviewingRacm && (
+          <ReviewImportWorkspace
+            racmName={reviewingRacm.name}
+            bpAbbr={bp.abbr}
+            fileName={reviewingRacm.sourceFileName || 'imported.xlsx'}
+            onBack={() => setReviewingRacmId(null)}
+            onFreeze={(importedRows) => {
+              // Compute real stats from imported rows
+              const uniqueRisks = new Set(importedRows.filter(r => r.riskId.trim()).map(r => r.riskId));
+              const uniqueControls = new Set(importedRows.filter(r => r.controlId.trim()).map(r => r.controlId));
+              const keyControlIds = new Set(importedRows.filter(r => r.keyControl && r.controlId.trim()).map(r => r.controlId));
+              const mappings = new Set(importedRows.filter(r => r.riskId.trim() && r.controlId.trim()).map(r => `${r.riskId}::${r.controlId}`));
+              const framework = importedRows.find(r => r.framework.trim())?.framework || reviewingRacm.framework;
+
+              // Update the existing draft RACM to frozen with real stats
+              setCreatedRacms(prev => prev.map(r => r.id === reviewingRacm.id ? {
+                ...r,
+                isFrozen: true,
+                risks: uniqueRisks.size, controls: uniqueControls.size,
+                mappedRisks: uniqueRisks.size, unmappedRisks: 0,
+                keyControls: keyControlIds.size,
+                framework,
+                workflowCoverage: 0, attributesCoverage: 0,
+                isValidated: true,
+              } : r));
+              setReviewingRacmId(null);
+              addToast({
+                message: `RACM "${reviewingRacm.name}" frozen — ${uniqueRisks.size} risks, ${uniqueControls.size} controls, ${mappings.size} mappings created.`,
+                type: 'success',
+              });
+            }}
+          />
+        )}
+        {tab === 'racm' && !reviewingRacm && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-[12px] text-gray-500">{bpRacms.length + createdRacms.length} RACM{bpRacms.length + createdRacms.length !== 1 ? 's' : ''}</span>
+              <button onClick={() => setShowCreateRacm(true)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-[12px] font-semibold transition-colors cursor-pointer">
+                <Plus size={13} />Create RACM
+              </button>
+            </div>
+            <RacmListTable
+              processFilter={bp.abbr}
+              extraRacms={createdRacms}
+              onEditDraft={(racm) => {
+                // Ensure the RACM exists in createdRacms so we can track it for the editor
+                const exists = createdRacms.some(r => r.id === racm.id);
+                if (!exists) {
+                  setCreatedRacms(prev => [...prev, { ...racm, isFrozen: false }]);
+                }
+                setReviewingRacmId(racm.id);
+              }}
+            />
+
+            <AnimatePresence>
+              {showCreateRacm && (
+                <CreateRacmFromSOPModal
+                  sopName=""
+                  bpAbbr={bp.abbr}
+                  onClose={() => setShowCreateRacm(false)}
+                  onStartReview={(racmName, fileName) => {
+                    // Create a draft (not-frozen) RACM entry immediately, then open the editor
+                    const racmId = `racm-${Date.now()}`;
+                    setCreatedRacms(prev => [...prev, {
+                      id: racmId, name: racmName, version: 'v1.0', process: bp.abbr, framework: 'SOX ICFR',
+                      risks: 0, controls: 0, mappedRisks: 0, unmappedRisks: 0, keyControls: 0,
+                      workflowCoverage: 0, attributesCoverage: 0, isValidated: false, linkedToEngagement: false,
+                      isFrozen: false, sourceFileName: fileName,
+                    }]);
+                    setReviewingRacmId(racmId);
+                    setShowCreateRacm(false);
+                  }}
+                  onCreate={(racmName, framework) => {
+                    const racmId = `racm-${Date.now()}`;
+                    setCreatedRacms(prev => [...prev, {
+                      id: racmId, name: racmName, version: 'v1.0', process: bp.abbr, framework,
+                      risks: 0, controls: 0, mappedRisks: 0, unmappedRisks: 0, keyControls: 0,
+                      workflowCoverage: 0, attributesCoverage: 0, isValidated: false, linkedToEngagement: false,
+                      isFrozen: true,
+                    }]);
+                    setShowCreateRacm(false);
+                  }}
+                />
+              )}
+            </AnimatePresence>
+          </div>
         )}
 
         {/* Risk Register Tab — embedded RiskRegister filtered by process */}
@@ -1614,18 +2860,14 @@ function BPDetailView({ bp, onBack }: {
           </div>
         )}
 
-        {/* Control Library Tab — embedded ControlLibraryView filtered by process */}
+        {/* Control Library Tab — inline design + readiness view */}
         {tab === 'controls' && (
-          <div className="-mx-10 -mb-6">
-            <ControlLibraryView processFilter={bp.abbr} />
-          </div>
+          <ControlDesignTab bpAbbr={bp.abbr} />
         )}
 
-        {/* Workflows Tab — embedded WorkflowLibraryView filtered by process */}
+        {/* Workflows Tab — governance view */}
         {tab === 'workflows' && (
-          <div className="-mx-10 -mb-6">
-            <WorkflowLibraryView processFilter={bp.abbr} />
-          </div>
+          <WorkflowGovernanceTab bpAbbr={bp.abbr} />
         )}
 
       </div>

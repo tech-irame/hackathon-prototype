@@ -1433,18 +1433,32 @@ function AttributeTestingStep({ ctrl }: { ctrl: ControlDetail }) {
   const workflows = getLinkedWorkflows(ctrl);
 
   if (ctrl.samples.length === 0) {
-    return <div className="text-center py-12 text-text-muted text-[13px]">No samples generated yet. Complete sampling configuration first.</div>;
+    return (
+      <div className="text-center py-14">
+        <Lock size={28} className="text-text-muted mx-auto mb-3" />
+        <p className="text-[14px] font-semibold text-text mb-1">Select transactions before testing</p>
+        <p className="text-[12px] text-text-muted">Choose an execution mode and generate test items first.</p>
+      </div>
+    );
   }
 
-  // Group attributes by workflow
-  const attrsByWorkflow = workflows.map(wf => ({
-    workflow: wf,
-    attributes: wf.id === 'lw-legacy'
-      ? ctrl.workflowAttributes
-      : ctrl.workflowAttributes.filter(a => a.workflowId === wf.id),
-  })).filter(g => g.attributes.length > 0);
+  // Group attributes by assertion
+  const groupByAssertion = () => {
+    const groups: Record<string, typeof ctrl.workflowAttributes> = {};
+    ctrl.workflowAttributes.forEach(attr => {
+      const assertionList = attr.assertions && attr.assertions.length > 0 ? attr.assertions : ['General'];
+      assertionList.forEach(a => {
+        const key = a.charAt(0).toUpperCase() + a.slice(1);
+        if (!groups[key]) groups[key] = [];
+        if (!groups[key].some(x => x.id === attr.id)) groups[key].push(attr);
+      });
+    });
+    return groups;
+  };
+  const assertionGroups = groupByAssertion();
+  const assertionKeys = Object.keys(assertionGroups);
 
-  // Derive sample-level result from all attributes
+  // Derive sample-level result
   const getSampleResult = (s: SampleItem): 'pass' | 'fail' | 'pending' => {
     const results = ctrl.workflowAttributes.map(a => s.attributes[a.id] || 'pending');
     if (results.some(r => r === 'fail')) return 'fail';
@@ -1452,20 +1466,47 @@ function AttributeTestingStep({ ctrl }: { ctrl: ControlDetail }) {
     return 'pending';
   };
 
-  const testedCount = ctrl.samples.filter(s => getSampleResult(s) !== 'pending').length;
+  // Progress
+  const totalAttrs = ctrl.workflowAttributes.length;
+  const totalSamples = ctrl.samples.length;
+  const testedSamples = ctrl.samples.filter(s => getSampleResult(s) !== 'pending').length;
+  const totalCells = totalAttrs * totalSamples;
+  const completedCells = ctrl.samples.reduce((sum, s) => sum + Object.values(s.attributes).filter(v => v !== 'pending').length, 0);
+  const progressPct = totalCells > 0 ? Math.round((completedCells / totalCells) * 100) : 0;
+
+  // Find workflow for an attribute
+  const getAttrWorkflow = (attr: typeof ctrl.workflowAttributes[0]) => {
+    if (attr.workflowId) {
+      const wf = workflows.find(w => w.id === attr.workflowId);
+      return wf?.name || '';
+    }
+    return workflows[0]?.name || '';
+  };
+
+  // Is automated
+  const isAutoAttr = (attr: typeof ctrl.workflowAttributes[0]) => {
+    const wfName = getAttrWorkflow(attr).toLowerCase();
+    return wfName.includes('automat') || wfName.includes('detector') || wfName.includes('scanner');
+  };
 
   return (
     <div className="space-y-4">
+      {/* Header + progress */}
       <div className="flex items-center justify-between">
-        <h4 className="text-[11px] font-bold text-text-muted uppercase">Attribute Testing</h4>
-        <span className="text-[10px] text-text-muted">{workflows.length} workflow{workflows.length !== 1 ? 's' : ''} · {ctrl.workflowAttributes.length} attributes per sample</span>
+        <h4 className="text-[14px] font-bold text-text">Attribute Testing</h4>
+        <span className="text-[10px] text-text-muted">{completedCells}/{totalCells} attributes tested · {progressPct}%</span>
+      </div>
+
+      {/* Progress bar */}
+      <div className="h-1.5 bg-surface-3 rounded-full overflow-hidden">
+        <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${progressPct}%` }} />
       </div>
 
       <div className="flex gap-4">
         {/* Sample sidebar */}
         <div className="w-44 shrink-0">
-          <div className="text-[10px] font-bold text-text-muted uppercase mb-2">Samples ({testedCount}/{ctrl.samples.length})</div>
-          <div className="space-y-1 max-h-[400px] overflow-y-auto">
+          <div className="text-[10px] font-bold text-text-muted uppercase mb-2">Samples ({testedSamples}/{totalSamples})</div>
+          <div className="space-y-1 max-h-[450px] overflow-y-auto">
             {ctrl.samples.map(s => {
               const result = getSampleResult(s);
               return (
@@ -1481,55 +1522,108 @@ function AttributeTestingStep({ ctrl }: { ctrl: ControlDetail }) {
           </div>
         </div>
 
-        {/* Attribute testing panel — grouped by workflow */}
+        {/* Attribute testing panel — grouped by assertion */}
         <div className="flex-1 min-w-0">
           {sample ? (
             <div>
-              <div className="flex items-center justify-between mb-3">
-                <div><span className="text-[13px] font-semibold text-text">{sample.label}</span><span className="text-[11px] text-text-muted ml-2">{sample.referenceId} · {sample.amount}</span></div>
-                <span className="text-[10px] font-bold text-text-muted">{sample.evidenceFiles.length} evidence files</span>
+              {/* Sample header */}
+              <div className="flex items-center justify-between mb-3 pb-2 border-b border-border-light">
+                <div>
+                  <span className="text-[13px] font-semibold text-text">{sample.label}</span>
+                  <span className="text-[11px] text-text-muted ml-2">{sample.referenceId} · {sample.amount}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-text-muted">{sample.evidenceFiles.length} evidence</span>
+                  {(() => {
+                    const r = getSampleResult(sample);
+                    return <span className={`px-2 h-5 rounded-full text-[9px] font-bold inline-flex items-center ${r === 'pass' ? 'bg-compliant-50 text-compliant-700' : r === 'fail' ? 'bg-risk-50 text-risk-700' : 'bg-gray-100 text-gray-500'}`}>
+                      {r === 'pass' ? 'Passed' : r === 'fail' ? 'Failed' : 'Pending'}
+                    </span>;
+                  })()}
+                </div>
               </div>
 
-              {attrsByWorkflow.map(({ workflow, attributes }) => (
-                <div key={workflow.id} className="mb-4">
-                  {/* Workflow header */}
-                  {workflows.length > 1 && (
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-surface-2/50 rounded-lg mb-2">
-                      <Workflow size={10} className="text-brand-600" />
-                      <span className="text-[10px] font-semibold text-brand-700">{workflow.name}</span>
-                      <span className="text-[9px] text-text-muted">· {attributes.length} attributes</span>
+              {/* Assertion groups */}
+              {assertionKeys.map(assertion => {
+                const attrs = assertionGroups[assertion];
+                const completedInGroup = attrs.filter(a => (sample.attributes[a.id] || 'pending') !== 'pending').length;
+                return (
+                  <div key={assertion} className="mb-4">
+                    {/* Assertion header */}
+                    <div className="flex items-center justify-between px-3 py-2 bg-surface-2/50 rounded-lg mb-2">
+                      <div className="flex items-center gap-2">
+                        <Shield size={11} className="text-brand-600" />
+                        <span className="text-[11px] font-bold text-text">{assertion}</span>
+                        <span className="text-[9px] text-text-muted">({attrs.length} attribute{attrs.length !== 1 ? 's' : ''})</span>
+                      </div>
+                      <span className="text-[9px] text-text-muted">{completedInGroup}/{attrs.length} done</span>
                     </div>
-                  )}
 
-                  {/* Attribute cards */}
-                  <div className="space-y-2">
-                    {attributes.map(attr => {
-                      const result = sample.attributes[attr.id] || 'pending';
-                      return (
-                        <div key={attr.id} className="glass-card rounded-lg p-3">
-                          <div className="flex items-center justify-between mb-1">
-                            <div className="flex items-center gap-2">
-                              <span className="text-[12px] font-medium text-text">{attr.name}</span>
-                              {attr.assertions && attr.assertions.length > 0 && (
-                                <span className="text-[9px] text-gray-400">{attr.assertions.join(', ')}</span>
-                              )}
+                    {/* Attribute rows */}
+                    <div className="space-y-1.5">
+                      {attrs.map(attr => {
+                        const result = sample.attributes[attr.id] || 'pending';
+                        const isAuto = isAutoAttr(attr);
+                        const wfName = getAttrWorkflow(attr);
+                        const evCount = sample.evidenceFiles.length;
+                        return (
+                          <div key={attr.id} className="glass-card rounded-lg p-3">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5 mb-0.5">
+                                  <span className="text-[12px] font-medium text-text">{attr.name}</span>
+                                  <span className={`px-1.5 h-4 rounded text-[8px] font-bold inline-flex items-center ${isAuto ? 'bg-evidence-50 text-evidence-700' : 'bg-gray-100 text-gray-500'}`}>
+                                    {isAuto ? 'Auto' : 'Manual'}
+                                  </span>
+                                </div>
+                                {wfName && <div className="text-[9px] text-text-muted flex items-center gap-1"><Workflow size={8} />{wfName}</div>}
+                                <p className="text-[10px] text-text-muted mt-1">{attr.description}</p>
+                                {evCount > 0 && (
+                                  <div className="text-[9px] text-brand-600 mt-1 flex items-center gap-1"><Paperclip size={8} />{evCount} evidence file{evCount !== 1 ? 's' : ''}</div>
+                                )}
+                              </div>
+
+                              {/* Result selector */}
+                              <div className="shrink-0 flex flex-col items-end gap-1">
+                                <AttrResultChip result={result} />
+                                {!isAuto ? (
+                                  <div className="flex gap-0.5">
+                                    {(['pass', 'fail', 'na'] as const).map(r => (
+                                      <button key={r} className={`w-6 h-6 rounded text-[9px] font-bold cursor-pointer transition-all flex items-center justify-center ${
+                                        result === r ? (r === 'pass' ? 'bg-compliant text-white' : r === 'fail' ? 'bg-risk text-white' : 'bg-ink-500 text-white') : 'bg-surface-2 text-text-muted hover:bg-primary/10'
+                                      }`}>{r === 'pass' ? '✓' : r === 'fail' ? '✗' : '—'}</button>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <span className="text-[8px] text-evidence-600">Auto-evaluated</span>
+                                )}
+                              </div>
                             </div>
-                            <AttrResultChip result={result} />
                           </div>
-                          <p className="text-[10px] text-text-muted mb-2">{attr.description}</p>
-                          <div className="flex gap-1">
-                            {['pass', 'fail', 'na'].map(r => (
-                              <button key={r} className={`px-2.5 py-1 rounded text-[10px] font-bold cursor-pointer transition-all ${
-                                result === r ? (r === 'pass' ? 'bg-compliant text-white' : r === 'fail' ? 'bg-risk text-white' : 'bg-ink-500 text-white') : 'bg-surface-2 text-text-muted hover:bg-primary/10'
-                              }`}>{r.toUpperCase()}</button>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
+
+              {/* Sample result summary */}
+              {(() => {
+                const r = getSampleResult(sample);
+                const failedAttrs = ctrl.workflowAttributes.filter(a => sample.attributes[a.id] === 'fail');
+                return (
+                  <div className={`rounded-lg p-3 mt-2 ${r === 'pass' ? 'bg-compliant-50/30 border border-compliant/20' : r === 'fail' ? 'bg-risk-50/30 border border-risk/20' : 'bg-surface-2/50 border border-border-light'}`}>
+                    <div className="flex items-center gap-2">
+                      {r === 'pass' && <CheckCircle2 size={13} className="text-compliant-700" />}
+                      {r === 'fail' && <XCircle size={13} className="text-risk-700" />}
+                      {r === 'pending' && <Clock size={13} className="text-text-muted" />}
+                      <span className={`text-[12px] font-semibold ${r === 'pass' ? 'text-compliant-700' : r === 'fail' ? 'text-risk-700' : 'text-text-muted'}`}>
+                        Sample Result: {r === 'pass' ? 'Passed' : r === 'fail' ? `Failed (${failedAttrs.length} attribute${failedAttrs.length !== 1 ? 's' : ''} failed)` : 'Pending'}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           ) : <div className="text-center py-12 text-text-muted text-[13px]">Select a sample</div>}
         </div>
