@@ -26,7 +26,6 @@ import {
 } from '../../data/mockData';
 import ExceptionStatusTracker from './ExceptionStatusTracker';
 import ExceptionListDrawer from './ExceptionListDrawer';
-import GenerateATRModal from './GenerateATRModal';
 
 type DrillPreset = {
   key: string;
@@ -182,7 +181,7 @@ function CollapsibleSection({
   );
 }
 
-function CircularProgress({ pct, size = 64, stroke = 5, label }: { pct: number; size?: number; stroke?: number; label?: React.ReactNode }) {
+export function CircularProgress({ pct, size = 64, stroke = 5, label }: { pct: number; size?: number; stroke?: number; label?: React.ReactNode }) {
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   const dash = (pct / 100) * c;
@@ -414,7 +413,6 @@ export default function ActionHubView() {
   const timeline = ACTION_HUB_TIMELINE;
 
   const [openPresetKey, setOpenPresetKey] = useState<string | null>(null);
-  const [atrModalOpen, setAtrModalOpen] = useState(false);
   const openPreset = openPresetKey ? resolvePreset(openPresetKey) : null;
   const presetExceptions = useMemo(
     () => (openPreset ? openPreset.ids.map(id => GRC_EXCEPTIONS.find(e => e.id === id)).filter(Boolean) as GrcException[] : []),
@@ -453,35 +451,6 @@ export default function ActionHubView() {
       className="flex-1 overflow-auto"
     >
       <div className="px-10 py-10 max-w-[1440px] mx-auto">
-        {/* Editorial header */}
-        <header className="mb-8">
-          <div className="flex items-start justify-between gap-10">
-            <div className="max-w-[60ch]">
-              <div className="text-[10.5px] uppercase tracking-[0.14em] text-ink-500 font-medium mb-3">Engagement briefing</div>
-              <h1 className="font-display text-[44px] leading-[1.05] text-ink-900 tracking-[-0.01em] font-normal">Action Hub</h1>
-              <p className="mt-3 text-[14px] text-ink-500 leading-relaxed">
-                Where this engagement stands today — readiness, in-flight cases, and outcomes for the audit-to-record cycle.
-              </p>
-            </div>
-            <div className="flex items-center gap-6 shrink-0 pt-1">
-              <div className="flex items-center gap-3">
-                <CircularProgress pct={s.reportHealthPct} size={44} stroke={3} label={`${s.reportHealthPct}%`} />
-                <div className="leading-tight">
-                  <div className="text-[10.5px] uppercase tracking-wider text-ink-500">Report health</div>
-                  <div className="text-[14px] text-ink-900 font-medium tabular-nums">{s.reportHealthLabel}</div>
-                </div>
-              </div>
-              <div className="h-8 w-px bg-canvas-border" aria-hidden="true" />
-              <button
-                onClick={() => setAtrModalOpen(true)}
-                className="h-10 px-4 inline-flex items-center gap-2 text-[13px] font-semibold text-white bg-brand-600 hover:bg-brand-500 rounded-[8px] cursor-pointer transition-colors"
-              >
-                <FileText size={15} />
-                Generate ATR
-              </button>
-            </div>
-          </div>
-        </header>
 
         {/* ATR Readiness — centerpiece, in canvas card */}
         <section className="mb-6 bg-canvas-elevated border border-canvas-border rounded-[12px] p-8">
@@ -644,12 +613,6 @@ export default function ActionHubView() {
             subtitle={openPreset.subtitle}
             exceptions={presetExceptions}
             onClose={() => setOpenPresetKey(null)}
-          />
-        )}
-        {atrModalOpen && (
-          <GenerateATRModal
-            key="atr-modal"
-            onClose={() => setAtrModalOpen(false)}
           />
         )}
       </AnimatePresence>

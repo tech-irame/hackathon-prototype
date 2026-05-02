@@ -1,55 +1,47 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  Search, Plus, X, MessageSquare, Star, Upload, Layers, FileText, Database,
+  Search, Plus, MessageSquare, Star, Upload, Layers, FileText, Database,
   CloudUpload, Check,
 } from 'lucide-react';
-import { SEED, TYPE_META, formatDate } from '../data-sources/sources';
-
-// ─── Data ────────────────────────────────────────────────────────────────────
-
-const QUERY_SESSIONS = [
-  { group: 'TODAY', items: [
-    'What are the top 5 performing categories?',
-    'Compare year-over-year growth across all states',
-  ]},
-  { group: 'YESTERDAY', items: [
-    'Show customer acquisition cost by channel',
-    'What is the average order value by product category?',
-  ]},
-  { group: 'LAST 7 DAYS', items: [
-    'Analyze revenue trends for the last 12 months',
-    'Which sales person has the highest conversion rate?',
-    'Show me the distribution of products across different regions',
-    'What is the total revenue by country?',
-    'Compare Q1 vs Q2 performance metrics',
-  ]},
-];
-
-const FAVOURITES = [
-  { group: '', items: [
-    'Monthly revenue breakdown by region',
-    'Top 10 vendors by invoice volume',
-    'Compliance score trends Q1–Q4',
-    'Duplicate invoice detection summary',
-    'Department-wise spend analysis',
-    'Year-over-year procurement savings',
-  ]},
-];
+import { SEED, TYPE_META, formatDate, type DataSource } from '../data-sources/sources';
+import { QUERY_SESSIONS, FAVOURITES } from '../../data/queryHistory';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type AddDataTab = 'recent' | 'saved' | 'upload' | 'all' | 'files' | 'db';
 
+/** A source attached to the dashboard. May be a SEED entry (id matches) or a
+ *  synthetic entry for an uploaded file or chat-derived query (no id in SEED). */
+export interface AttachedSource {
+  /** SEED id when known; falsy for uploaded files / chat queries. */
+  id?: string;
+  name: string;
+  type: DataSource['type'] | 'query';
+  subtype?: string;
+}
+
 interface AddDataModalProps {
   open: boolean;
   onClose: () => void;
   onOpenChat?: () => void;
+  /** Fired when the user clicks Attach on a tab. The caller is responsible
+   *  for appending the source to the dashboard's `dataSourceNames` and
+   *  flipping `dataSource.type` to 'combo' if needed. */
+  onAttach?: (source: AttachedSource) => void;
+  /** Sources already connected to the dashboard. When provided, the modal
+   *  renders a "Connected sources" section above the tabs with a Set Primary
+   *  radio next to each entry. */
+  connectedSources?: AttachedSource[];
+  /** id of the source currently marked as the dashboard's primary. */
+  primarySourceId?: string;
+  /** Fired when the user clicks the Set Primary radio. */
+  onSetPrimary?: (source: AttachedSource) => void;
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export function AddDataModal({ open, onClose, onOpenChat }: AddDataModalProps) {
+export function AddDataModal({ open, onClose, onOpenChat, onAttach, connectedSources, primarySourceId, onSetPrimary }: AddDataModalProps) {
   const [activeTab, setActiveTab] = useState<AddDataTab>('recent');
   const [querySearch, setQuerySearch] = useState('');
   const [selectedQuery, setSelectedQuery] = useState<string | null>(null);
@@ -144,6 +136,51 @@ export function AddDataModal({ open, onClose, onOpenChat }: AddDataModalProps) {
 
           {/* Content */}
           <div className="flex-1 overflow-y-auto px-7 py-6">
+            {/* Connected sources — only when caller passed connectedSources (dashboard-management mode) */}
+            {connectedSources && connectedSources.length > 0 && (
+              <div className="mb-5 pb-5 border-b border-canvas-border">
+                <div className="text-[11px] font-bold text-ink-500 uppercase tracking-wider mb-2">Connected sources ({connectedSources.length})</div>
+                <div className="space-y-1.5">
+                  {connectedSources.map(src => {
+                    const meta = src.type !== 'query' ? TYPE_META[src.type as DataSource['type']] : undefined;
+                    const Icon = meta?.icon ?? MessageSquare;
+                    const tone = meta?.tone ?? 'bg-amber-50 text-amber-700';
+                    const isPrimary = !!src.id && src.id === primarySourceId;
+                    return (
+                      <div
+                        key={src.id || src.name}
+                        className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl border transition-all text-left ${
+                          isPrimary ? 'border-brand-500 bg-brand-50' : 'border-canvas-border bg-canvas-elevated'
+                        }`}
+                      >
+                        <div className={`size-7 rounded-md flex items-center justify-center shrink-0 ${tone}`}>
+                          <Icon size={12} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[13px] font-medium text-ink-900 truncate">{src.name}</div>
+                          {src.subtype && <div className="text-[11px] text-ink-400 truncate">{src.subtype}</div>}
+                        </div>
+                        {onSetPrimary && (
+                          <button
+                            type="button"
+                            onClick={() => onSetPrimary(src)}
+                            className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors cursor-pointer shrink-0 ${
+                              isPrimary ? 'text-brand-700 bg-brand-100' : 'text-ink-500 hover:text-brand-600 hover:bg-brand-50'
+                            }`}
+                            title={isPrimary ? 'Primary source' : 'Set as primary'}
+                          >
+                            <span className={`size-[10px] rounded-full border-2 ${isPrimary ? 'border-brand-600 bg-brand-600' : 'border-ink-300 bg-white'}`}>
+                              {isPrimary && <span className="block size-full rounded-full ring-2 ring-inset ring-white" />}
+                            </span>
+                            {isPrimary ? 'Primary' : 'Set primary'}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             <AnimatePresence mode="wait">
               {/* Recent Chats / Favourites */}
               {(activeTab === 'recent' || activeTab === 'saved') && (() => {
@@ -317,6 +354,12 @@ export function AddDataModal({ open, onClose, onOpenChat }: AddDataModalProps) {
             {activeTab === 'upload' && (
               <button
                 disabled={!uploadedFile}
+                onClick={() => {
+                  if (!uploadedFile) return;
+                  const isCsv = uploadedFile.name.toLowerCase().endsWith('.csv');
+                  onAttach?.({ name: uploadedFile.name, type: 'file', subtype: isCsv ? 'CSV' : 'XLSX' });
+                  handleClose();
+                }}
                 className={`flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-[13px] font-semibold transition-colors cursor-pointer ${
                   uploadedFile ? 'bg-brand-600 hover:bg-brand-500 text-white' : 'bg-ink-100 text-ink-400 cursor-not-allowed'
                 }`}
@@ -328,6 +371,12 @@ export function AddDataModal({ open, onClose, onOpenChat }: AddDataModalProps) {
             {(activeTab === 'all' || activeTab === 'files' || activeTab === 'db') && (
               <button
                 disabled={!selectedSource}
+                onClick={() => {
+                  const src = allSources.find(s => s.id === selectedSource);
+                  if (!src) return;
+                  onAttach?.({ id: src.id, name: src.name, type: src.type, subtype: src.subtype });
+                  handleClose();
+                }}
                 className={`flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-[13px] font-semibold transition-colors cursor-pointer ${
                   selectedSource ? 'bg-brand-600 hover:bg-brand-500 text-white' : 'bg-ink-100 text-ink-400 cursor-not-allowed'
                 }`}

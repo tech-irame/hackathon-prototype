@@ -294,24 +294,6 @@ function RiskDetailDrawer({ risk, onClose, onUpdate }: { risk: RiskEntry; onClos
             </div>
           </div>
 
-          {/* Status Actions */}
-          {availableActions.length > 0 && (
-            <div>
-              <h3 className="text-[11px] font-bold text-text-muted uppercase tracking-wider mb-2">Actions</h3>
-              <div className="flex flex-wrap gap-2">
-                <button onClick={() => setEditing(true)}
-                  className="px-3 py-2 rounded-lg text-[12px] font-medium border border-border text-text hover:bg-gray-50 transition-colors cursor-pointer inline-flex items-center gap-1.5">
-                  <Edit3 size={12} />Edit Risk
-                </button>
-                {availableActions.map(a => (
-                  <button key={a.status} onClick={() => handleStatusChange(a.status)}
-                    className={`px-3 py-2 rounded-lg text-[12px] font-medium transition-colors cursor-pointer ${a.cls}`}>
-                    {a.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
         <footer className="shrink-0 px-6 py-4 border-t border-canvas-border">
@@ -411,12 +393,8 @@ export default function RiskRegister({ onNavigate, processFilter }: Props) {
     setDetailRisk(updated);
   };
 
-  const kpis = [
-    { label: 'Total Risks', value: totalRisks, color: 'text-text' },
-    { label: 'Active', value: activeCount, color: 'text-emerald-700' },
-    { label: 'High Priority', value: highPriorityCount, color: highPriorityCount > 0 ? 'text-red-600' : 'text-gray-400' },
-    { label: 'Unreviewed', value: unreviewedCount, color: unreviewedCount > 0 ? 'text-amber-600' : 'text-gray-400' },
-  ];
+  // Count risks with no mapped controls (draft status = unmapped)
+  const unmappedCount = baseRisks.filter(r => r.status === 'Draft').length;
 
   return (
     <div className="relative h-full overflow-y-auto">
@@ -435,16 +413,15 @@ export default function RiskRegister({ onNavigate, processFilter }: Props) {
           </button>
         </div>
 
-        {/* KPI Cards */}
-        <div className="grid grid-cols-4 gap-3">
-          {kpis.map((kpi, i) => (
-            <motion.div key={kpi.label} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
-              className="glass-card rounded-xl p-4 text-center">
-              <div className={`text-2xl font-bold tabular-nums ${kpi.color}`}>{kpi.value}</div>
-              <div className="text-[11px] text-text-muted mt-0.5">{kpi.label}</div>
-            </motion.div>
-          ))}
-        </div>
+        {/* Insight banner */}
+        {unmappedCount > 0 && (
+          <div className="rounded-lg border border-amber-200/50 bg-amber-50/30 px-4 py-3 flex items-center gap-3">
+            <AlertTriangle size={14} className="text-amber-500 shrink-0" />
+            <span className="text-[12px] text-amber-800 flex-1">
+              <span className="font-semibold">{unmappedCount} risk{unmappedCount !== 1 ? 's' : ''}</span> {unmappedCount !== 1 ? 'are' : 'is'} not yet mapped to controls.
+            </span>
+          </div>
+        )}
 
         {/* Filters + Search */}
         <div className="flex items-center justify-between gap-4">
@@ -473,58 +450,46 @@ export default function RiskRegister({ onNavigate, processFilter }: Props) {
             <table className="w-full text-[12px]">
               <thead>
                 <tr className="border-b border-border bg-surface-2/50">
-                  {['Risk ID', 'Risk Name', 'Process', 'Category', 'Priority', 'Owner', 'Status', 'Last Reviewed', 'Action'].map(h => (
-                    <th key={h} className="px-3 py-2.5 text-left text-[10px] font-semibold text-text-muted uppercase tracking-wide whitespace-nowrap">{h}</th>
+                  {['Risk ID', 'Risk Name', 'Sub-process', 'Category', 'Priority', ''].map(h => (
+                    <th key={h || 'action'} className="px-3 py-2.5 text-left text-[10px] font-semibold text-text-muted uppercase tracking-wide whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {filteredRisks.length === 0 ? (
-                  <tr><td colSpan={9} className="px-4 py-10 text-center text-[12px] text-text-muted">No risks match your search or filters</td></tr>
-                ) : filteredRisks.map((risk, i) => {
-                  const action = getRiskRegisterAction(risk.status);
-                  return (
-                    <motion.tr key={risk.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.015 }}
-                      onClick={() => setDetailRisk(risk)}
-                      className="border-b border-border/50 hover:bg-gray-50/60 transition-colors cursor-pointer group">
-                      <td className="px-3 py-2.5">
-                        <span className="font-mono text-[10px] text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded">{risk.id}</span>
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <span className="text-[12px] font-medium text-text">{risk.name}</span>
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <span className="inline-flex items-center px-2 h-5 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-600 border border-gray-200/60">{risk.businessProcess}</span>
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <span className="text-[11px] text-gray-500">{risk.category}</span>
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <span className={`text-[11px] ${PRIORITY_STYLES[risk.priority]}`}>{risk.priority}</span>
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <span className="text-[11px] text-gray-500">{risk.owner || '—'}</span>
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <span className={`px-2 h-5 rounded-full text-[9px] font-semibold inline-flex items-center ${STATUS_STYLES[risk.status]}`}>{risk.status}</span>
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <span className="text-[11px] text-gray-400">{risk.lastReviewed}</span>
-                      </td>
-                      <td className="px-3 py-2.5" onClick={e => e.stopPropagation()}>
-                        <button onClick={() => setDetailRisk(risk)}
-                          className={`px-2 py-1 rounded-lg text-[10px] font-bold cursor-pointer transition-colors inline-flex items-center gap-1 ${action.cls}`}>
-                          {action.label}<ChevronRight size={8} />
-                        </button>
-                      </td>
-                    </motion.tr>
-                  );
-                })}
+                  <tr><td colSpan={6} className="px-4 py-10 text-center text-[12px] text-text-muted">No risks match your search or filters</td></tr>
+                ) : filteredRisks.map((risk, i) => (
+                  <motion.tr key={risk.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.015 }}
+                    onClick={() => setDetailRisk(risk)}
+                    className="border-b border-border/50 hover:bg-gray-50/60 transition-colors cursor-pointer">
+                    <td className="px-3 py-2.5">
+                      <span className="font-mono text-[10px] text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded">{risk.id}</span>
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <span className="text-[12px] font-medium text-text">{risk.name}</span>
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <span className="text-[11px] text-gray-500">{risk.subProcess || '—'}</span>
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <span className="text-[11px] text-gray-500">{risk.category}</span>
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <span className={`text-[11px] ${PRIORITY_STYLES[risk.priority]}`}>{risk.priority}</span>
+                    </td>
+                    <td className="px-3 py-2.5 text-right" onClick={e => e.stopPropagation()}>
+                      <button onClick={() => setDetailRisk(risk)}
+                        className="px-2 py-1 rounded-lg text-[10px] font-bold cursor-pointer transition-colors inline-flex items-center gap-1 bg-gray-100 text-gray-600 hover:bg-gray-200/70">
+                        View<ChevronRight size={8} />
+                      </button>
+                    </td>
+                  </motion.tr>
+                ))}
               </tbody>
             </table>
           </div>
           <div className="flex items-center justify-between px-4 py-2.5 border-t border-border bg-surface-2/30">
-            <span className="text-[11px] text-text-muted">{filteredRisks.length} of {risks.length} risks</span>
+            <span className="text-[11px] text-text-muted">{filteredRisks.length} of {baseRisks.length} risks</span>
           </div>
         </div>
       </div>

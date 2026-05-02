@@ -23,6 +23,7 @@ interface Props {
   onBack: () => void;
   initialTitle?: string;
   onSaveAsTemplate?: (template: SavedTemplate) => void;
+  existingTemplateNames?: string[];
 }
 
 interface ReportSection {
@@ -60,7 +61,7 @@ const SECTION_TYPE_ICON: Record<ReportSection['type'], string> = {
   'action-taken': 'check-circle',
 };
 
-export default function ReportBuilder({ context, onBack, initialTitle, onSaveAsTemplate }: Props) {
+export default function ReportBuilder({ context, onBack, initialTitle, onSaveAsTemplate, existingTemplateNames = [] }: Props) {
   const { addToast } = useToast();
   const [title, setTitle] = useState(initialTitle ?? (context === 'action-report' ? 'Action Taken Report — Duplicate Invoice Detection' : 'Untitled Audit Report'));
   const [sections, setSections] = useState<ReportSection[]>(getInitialSections(context));
@@ -324,15 +325,24 @@ export default function ReportBuilder({ context, onBack, initialTitle, onSaveAsT
               </div>
               <button
                 onClick={() => {
+                  const trimmed = title.trim();
+                  if (!trimmed) {
+                    addToast({ type: 'error', message: 'Template name cannot be empty.' });
+                    return;
+                  }
+                  if (existingTemplateNames.some(n => n.toLowerCase() === trimmed.toLowerCase())) {
+                    addToast({ type: 'error', message: `A template named "${trimmed}" already exists. Choose a different name.` });
+                    return;
+                  }
                   onSaveAsTemplate?.({
                     id: `ct-saved-${Date.now()}`,
-                    name: title,
+                    name: trimmed,
                     desc: 'User-saved template',
                     category: 'Audit',
                     icon: 'file-text',
                     sections: sections.map(s => ({ name: s.title, icon: SECTION_TYPE_ICON[s.type] })),
                   });
-                  addToast({ type: 'success', message: `${title} has been saved to custom templates` });
+                  addToast({ type: 'success', message: `${trimmed} has been saved to custom templates` });
                 }}
                 className="mt-3 w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-dashed border-border text-[12px] font-medium text-text-secondary hover:bg-paper-50 hover:border-primary/30 transition-colors cursor-pointer"
               >

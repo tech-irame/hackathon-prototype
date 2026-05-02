@@ -6,14 +6,14 @@ import {
   Tag,
   Clock,
   CheckCircle2,
-  Bell,
-  Activity,
   FlaskConical,
   FileBarChart,
   Layers,
   ChevronDown,
+  FileText,
+  History,
 } from 'lucide-react';
-import { GRC_EXCEPTIONS } from '../../data/mockData';
+import { GRC_EXCEPTIONS, ACTION_HUB_SUMMARY } from '../../data/mockData';
 import { REPORT_QUERIES_ATR } from '../../data/reportQueries';
 import type { ExceptionRole } from '../../hooks/useAppState';
 import {
@@ -22,7 +22,8 @@ import {
   BulkActionGroupModal,
   ClassifyExceptionDrawer,
 } from './ReviewDrawers';
-import ActionHubView from './ActionHubView';
+import ActionHubView, { CircularProgress } from './ActionHubView';
+import GenerateATRModal from './GenerateATRModal';
 import ExceptionsTable from './ExceptionsTable';
 import SampleDataModal, { type SampleDataPayload } from './SampleDataModal';
 import BulkClassifyModal from './BulkClassifyModal';
@@ -154,6 +155,7 @@ function RoleToggle({ role, setRole }: { role: ExceptionRole; setRole: (r: Excep
 
 export default function ManageExceptionsView({ role, setRole, onBack, embedded = false }: ManageExceptionsViewProps) {
   const [activeNav, setActiveNav] = useState<'exceptions' | 'action-hub'>('exceptions');
+  const [atrModalOpen, setAtrModalOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [drawer, setDrawer] = useState<DrawerState>(null);
   const [bulkModalId, setBulkModalId] = useState<string | null>(null);
@@ -237,13 +239,11 @@ export default function ManageExceptionsView({ role, setRole, onBack, embedded =
   };
 
 
-  const notificationCount = role === 'risk-owner' ? 5 : 3;
-
   return (
     <div className="h-full w-full flex flex-col overflow-hidden bg-canvas">
-      {/* Top chrome — own header for Case Mgmt sub-app */}
-      <header className="shrink-0 h-[60px] px-6 flex items-center gap-4 bg-canvas-elevated border-b border-canvas-border">
-        {!embedded && (
+      {/* Top chrome — only shown when standalone (Back button); hidden when embedded */}
+      {!embedded && (
+        <header className="shrink-0 h-[60px] px-6 flex items-center gap-4 bg-canvas-elevated border-b border-canvas-border">
           <button
             onClick={onBack}
             className="flex items-center gap-1.5 text-[12px] text-ink-500 hover:text-brand-700 transition-colors cursor-pointer pr-2 border-r border-canvas-border mr-1"
@@ -252,48 +252,96 @@ export default function ManageExceptionsView({ role, setRole, onBack, embedded =
             <ArrowLeft size={14} />
             Back
           </button>
-        )}
+          <div className="flex-1" />
+        </header>
+      )}
 
-        <nav className="flex items-center gap-1">
-          <button
-            onClick={() => setActiveNav('exceptions')}
-            className={`flex items-center gap-2 h-9 px-3.5 text-[13px] font-medium rounded-[8px] transition-colors cursor-pointer ${
-              activeNav === 'exceptions' ? 'bg-brand-50 text-brand-700' : 'text-ink-500 hover:text-ink-700 hover:bg-[#F4F2F7]'
-            }`}
-          >
-            <Layers size={15} />
-            Exceptions
-          </button>
-          <button
-            onClick={() => setActiveNav('action-hub')}
-            className={`flex items-center gap-2 h-9 px-3.5 text-[13px] font-medium rounded-[8px] transition-colors cursor-pointer ${
-              activeNav === 'action-hub' ? 'bg-brand-50 text-brand-700' : 'text-ink-500 hover:text-ink-700 hover:bg-[#F4F2F7]'
-            }`}
-          >
-            <FileBarChart size={15} />
-            Action Hub
-          </button>
-        </nav>
+      {/* Page header — title + subtitle + tabs (Knowledge Hub pattern) */}
+      <div className="border-b border-canvas-border bg-canvas-elevated">
+        <div className="max-w-[1600px] mx-auto px-8 pt-8 pb-0">
+          <div className="flex items-start justify-between gap-6">
+            <div className="min-w-0">
+              <div className="font-mono text-[11px] text-ink-500 mb-2 tracking-tight">
+                Exceptions · {activeNav === 'action-hub' ? 'Action Hub' : 'Manage'}
+              </div>
+              <h1 className="font-display text-[34px] font-[420] tracking-tight text-ink-900 leading-[1.15]">Manage Exceptions</h1>
+              <p className="text-[14px] text-ink-500 mt-1 mb-6">Triage and resolve exceptions surfaced from audit queries.</p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => setActivityDrawerOpen(true)}
+                title="View activity timeline"
+                aria-label="View activity timeline"
+                className="w-9 h-9 rounded-[10px] flex items-center justify-center text-brand-700 bg-brand-50/60 border border-brand-100 hover:bg-brand-50 hover:border-brand-200 transition-colors cursor-pointer"
+              >
+                <History size={15} />
+              </button>
+              <RoleToggle role={role} setRole={setRole} />
+            </div>
+          </div>
 
-        <div className="flex-1" />
+          {/* Tabs row — left: tab buttons; right (Action Hub only): Report Health + Generate ATR */}
+          <div className="flex items-center justify-between gap-6 -mb-px">
+            <div className="flex items-center gap-0 border-b border-transparent">
+              {[
+                { id: 'exceptions' as const, label: 'Exceptions', icon: Layers },
+                { id: 'action-hub' as const, label: 'Action Hub', icon: FileBarChart },
+              ].map(t => {
+                const Icon = t.icon;
+                const isActive = activeNav === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => setActiveNav(t.id)}
+                    className={`relative flex items-center gap-2 px-4 h-11 text-[13px] font-medium transition-colors cursor-pointer ${
+                      isActive ? 'text-brand-700' : 'text-ink-500 hover:text-ink-700'
+                    }`}
+                  >
+                    <Icon size={14} />
+                    {t.label}
+                    {isActive && (
+                      <motion.div
+                        layoutId="exceptions-tab-bar"
+                        className="absolute left-0 right-0 -bottom-px h-[2px] bg-brand-600"
+                        transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                      />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setActivityDrawerOpen(true)}
-            className="w-9 h-9 rounded-full flex items-center justify-center text-ink-500 hover:text-brand-700 hover:bg-brand-50 cursor-pointer"
-            aria-label="Activity timeline"
-          >
-            <Activity size={16} />
-          </button>
-          <button className="relative w-9 h-9 rounded-full flex items-center justify-center text-ink-500 hover:text-brand-700 hover:bg-brand-50 cursor-pointer" aria-label="Notifications">
-            <Bell size={16} />
-            <span className="absolute top-1 right-1 min-w-[16px] h-4 px-1 rounded-full bg-risk text-white text-[10px] font-semibold flex items-center justify-center tabular-nums">
-              {notificationCount}
-            </span>
-          </button>
-          <RoleToggle role={role} setRole={setRole} />
+            {activeNav === 'action-hub' && (
+              <div className="flex items-center gap-4 shrink-0 pb-2">
+                <div className="flex items-center gap-3">
+                  <CircularProgress
+                    pct={ACTION_HUB_SUMMARY.reportHealthPct}
+                    size={42}
+                    stroke={4}
+                    label={
+                      <span className="text-[11px] font-semibold text-brand-700 tabular-nums tracking-tight">
+                        {ACTION_HUB_SUMMARY.reportHealthPct}%
+                      </span>
+                    }
+                  />
+                  <div className="leading-tight">
+                    <div className="text-[10px] uppercase tracking-wider text-ink-500">Report Health</div>
+                    <div className="text-[13px] text-ink-900 font-medium tabular-nums">{ACTION_HUB_SUMMARY.reportHealthLabel}</div>
+                  </div>
+                </div>
+                <div className="h-7 w-px bg-canvas-border" aria-hidden="true" />
+                <button
+                  onClick={() => setAtrModalOpen(true)}
+                  className="h-9 px-4 inline-flex items-center gap-1.5 text-[13px] font-semibold text-white bg-brand-600 hover:bg-brand-500 rounded-[8px] cursor-pointer transition-colors"
+                >
+                  <FileText size={14} />
+                  Generate ATR
+                </button>
+              </div>
+            )}
+          </div>
         </div>
-      </header>
+      </div>
 
       {activeNav === 'action-hub' ? (
         <ActionHubView />
@@ -305,10 +353,6 @@ export default function ManageExceptionsView({ role, setRole, onBack, embedded =
           className="flex-1 overflow-auto"
         >
           <div className="px-8 py-6 max-w-[1600px] mx-auto min-h-full flex flex-col">
-            {/* Title row */}
-            <div className="flex items-center justify-between mb-5">
-              <h1 className="font-display text-[26px] text-ink-900 font-semibold tracking-tight">Manage Exceptions</h1>
-            </div>
 
             {sourceQuery ? (
               <div className="mb-6 bg-canvas-elevated border border-canvas-border rounded-[10px] overflow-hidden">
@@ -528,6 +572,12 @@ export default function ManageExceptionsView({ role, setRole, onBack, embedded =
           <ActivityTimelineDrawer
             key="activity-timeline-drawer"
             onClose={() => setActivityDrawerOpen(false)}
+          />
+        )}
+        {atrModalOpen && (
+          <GenerateATRModal
+            key="atr-modal"
+            onClose={() => setAtrModalOpen(false)}
           />
         )}
       </AnimatePresence>

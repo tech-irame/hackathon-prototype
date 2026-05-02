@@ -16,9 +16,19 @@ interface Props {
   running: boolean;
   onSave?: () => void;
   saved?: boolean;
+  saveLabel?: string;
+  savedLabel?: string;
 }
 
-export default function StepOutputView({ workflow, result, running, onSave, saved }: Props) {
+export default function StepOutputView({
+  workflow,
+  result,
+  running,
+  onSave,
+  saved,
+  saveLabel = 'Save Workflow',
+  savedLabel = 'Workflow saved',
+}: Props) {
   if (running && !result) {
     return (
       <div className="flex items-center gap-2 rounded-xl border border-canvas-border bg-canvas-elevated px-3 py-2.5">
@@ -162,7 +172,7 @@ export default function StepOutputView({ workflow, result, running, onSave, save
             className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[12px] font-semibold text-white bg-gradient-to-br from-brand-600 to-fuchsia-600 hover:from-brand-500 hover:to-fuchsia-500 shadow-[0_8px_16px_-10px_rgba(106,18,205,0.5)] disabled:opacity-60 disabled:cursor-not-allowed transition-all cursor-pointer"
           >
             {saved ? <Check size={13} /> : <Save size={13} />}
-            {saved ? 'Workflow saved' : 'Save Workflow'}
+            {saved ? savedLabel : saveLabel}
           </button>
         </div>
       )}

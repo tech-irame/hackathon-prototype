@@ -18,6 +18,7 @@ import AuditExecution from './components/audit/AuditExecution';
 import DashboardView from './components/dashboard/DashboardView';
 import DashboardListPage from './components/dashboard/DashboardListPage';
 import ReportsView, { CUSTOM_TEMPLATES } from './components/reports/ReportsView';
+import { REPORT_TEMPLATES } from './data/mockData';
 import HomeView from './components/home/HomeView';
 import RecentsView from './components/recents/RecentsView';
 import KnowledgeHubView from './components/knowledge/KnowledgeHubView';
@@ -39,6 +40,7 @@ import WorkflowBuilderJourney from './components/concierge-workflow-builder/Work
 import AdminView from './components/admin/AdminView';
 import FindingsView from './components/execution/FindingsView';
 import WorkflowExecutor from './components/workflow/WorkflowExecutor';
+import WorkflowEditInChatJourney from './components/workflow-edit-in-chat/WorkflowEditInChatJourney';
 import EngagementDetailView from './components/engagement/EngagementDetailView';
 import ControlDetailDrawer from './components/engagement/ControlDetailDrawer';
 import ManageExceptionsView from './components/exceptions/ManageExceptionsView';
@@ -95,6 +97,8 @@ export default function App() {
     saveDashboardWidgets,
     addCreatedDashboard,
     deleteCreatedDashboard,
+    updateDashboardSource,
+    openKnowledgeHub,
     setPendingDashboard,
     openExecutionPanel,
     closeExecutionPanel,
@@ -106,9 +110,23 @@ export default function App() {
   const mainScrollRef = useRef<HTMLDivElement>(null);
   const [viewLoading, setViewLoading] = useState(false);
   const [controlDrawerId, setControlDrawerId] = useState<string | null>(null);
+  const [controlDrawerData, setControlDrawerData] = useState<any>(null);
   const [engagementBackView, setEngagementBackView] = useState<'programs' | 'audit-planning' | 'business-processes'>('programs');
   type CustomTemplate = typeof CUSTOM_TEMPLATES[number];
-  const [customTemplates, setCustomTemplates] = useState<CustomTemplate[]>(CUSTOM_TEMPLATES);
+  const CUSTOM_TEMPLATES_KEY = 'irame.reports.customTemplates.v1';
+  const [customTemplates, setCustomTemplates] = useState<CustomTemplate[]>(() => {
+    try {
+      const raw = localStorage.getItem(CUSTOM_TEMPLATES_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed as CustomTemplate[];
+      }
+    } catch { /* ignore */ }
+    return CUSTOM_TEMPLATES;
+  });
+  useEffect(() => {
+    try { localStorage.setItem(CUSTOM_TEMPLATES_KEY, JSON.stringify(customTemplates)); } catch { /* ignore */ }
+  }, [customTemplates]);
   const addCustomTemplate = (t: CustomTemplate) => setCustomTemplates(prev => [t, ...prev]);
 
   useEffect(() => {
@@ -310,6 +328,14 @@ export default function App() {
           />
         );
 
+      case 'workflow-edit-in-chat':
+        return (
+          <WorkflowEditInChatJourney
+            workflowId={state.selectedWorkflowId!}
+            onBack={() => setView('workflow-detail')}
+          />
+        );
+
       case 'programs':
         return (
           <ProgramsView
@@ -352,7 +378,7 @@ export default function App() {
           <EngagementDetailView
             engagementId={state.selectedEngagementId ?? undefined}
             onBack={() => setView(engagementBackView)}
-            onOpenControl={(controlId) => setControlDrawerId(controlId)}
+            onOpenControl={(controlId, controlData) => { setControlDrawerId(controlId); setControlDrawerData(controlData || null); }}
           />
         );
 
@@ -364,6 +390,7 @@ export default function App() {
             createdDashboards={state.createdDashboards}
             onCreateDashboard={addCreatedDashboard}
             onDeleteDashboard={deleteCreatedDashboard}
+            onUpdateDashboardSource={updateDashboardSource}
             onOpenChat={(pending) => {
               if (pending) setPendingDashboard(pending);
               setView('chat');
@@ -371,19 +398,31 @@ export default function App() {
           />
         );
 
-      case 'dashboard-detail':
+      case 'dashboard-detail': {
+        const created = state.createdDashboards.find(d => d.id === state.selectedDashboardId);
         return (
           <DashboardView
             initialDashboardId={state.selectedDashboardId}
-            initialDashboardName={state.createdDashboards.find(d => d.id === state.selectedDashboardId)?.name}
+            initialDashboardName={created?.name}
             initialCustomFields={state.dashboardCustomFields}
+            initialDataSource={created?.dataSource ? {
+              type: created.dataSource,
+              sourceId: created.sourceId,
+              sourceName: created.dataSourceNames?.[0],
+            } : undefined}
+            initialDataSourceNames={created?.dataSourceNames}
             savedWidgets={state.dashboardWidgets[state.selectedDashboardId || ''] || []}
             onSaveWidgets={(widgets) => saveDashboardWidgets(state.selectedDashboardId || '', widgets)}
+            onUpdateDashboardSource={(patch) => {
+              if (state.selectedDashboardId) updateDashboardSource(state.selectedDashboardId, patch);
+            }}
+            onOpenKnowledgeHub={openKnowledgeHub}
             onBack={() => setView('dashboards')}
             onImportPowerBI={() => setShowPowerBIWizard(true)}
             onShare={() => setShowShareModal(true, { type: 'dashboard', id: state.selectedDashboardId || 'dash-1' })}
           />
         );
+      }
 
       case 'reports':
       case 'report-history':
@@ -393,7 +432,7 @@ export default function App() {
             onShare={(id) => setShowShareModal(true, { type: 'report', id })}
             onManageExceptions={() => setView('manage-exceptions')}
             onOpenQuery={(q) => {
-              setChatInitialQuery(`Open the ${q.id} duplicate invoice query`);
+              setChatInitialQuery(`Open ${q.id}: ${q.title}`);
               setView('chat');
             }}
             customTemplates={customTemplates}
@@ -417,6 +456,7 @@ export default function App() {
             context={state.reportBuilderContext}
             onBack={() => setView('reports')}
             onSaveAsTemplate={addCustomTemplate}
+            existingTemplateNames={[...REPORT_TEMPLATES.map(t => t.name), ...customTemplates.map(t => t.name)]}
           />
         );
 
@@ -599,7 +639,8 @@ export default function App() {
           {controlDrawerId && (
             <ControlDetailDrawer
               controlId={controlDrawerId}
-              onClose={() => setControlDrawerId(null)}
+              controlData={controlDrawerData}
+              onClose={() => { setControlDrawerId(null); setControlDrawerData(null); }}
             />
           )}
         </AnimatePresence>

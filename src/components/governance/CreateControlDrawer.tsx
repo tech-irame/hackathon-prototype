@@ -7,10 +7,10 @@ import {
   Search,
   Check,
   Link2,
-  Plus,
+  Sparkles,
+  Wrench,
   Clock,
   Shield,
-  AlertTriangle,
 } from 'lucide-react';
 import { RISKS, WORKFLOWS } from '../../data/mockData';
 
@@ -27,7 +27,7 @@ export interface NewControlData {
   frequency: string;
   assertions: string[];
   mappedRisks: string[];
-  workflowChoice: 'link' | 'later' | 'skip';
+  workflowChoice: 'link' | 'ask-ira' | 'manual' | 'skip';
   linkedWorkflowId: string | null;
 }
 
@@ -100,7 +100,7 @@ export default function CreateControlDrawer({ onClose, onSave, defaultProcess, d
   const [assertions, setAssertions] = useState<string[]>([]);
   const [mappedRisks, setMappedRisks] = useState<string[]>(defaultRiskIds || []);
   const [riskSearch, setRiskSearch] = useState('');
-  const [workflowChoice, setWorkflowChoice] = useState<'link' | 'later' | 'skip'>('skip');
+  const [workflowChoice, setWorkflowChoice] = useState<'link' | 'ask-ira' | 'manual' | 'skip'>('skip');
   const [linkedWorkflowId, setLinkedWorkflowId] = useState<string | null>(null);
   const [workflowSearch, setWorkflowSearch] = useState('');
 
@@ -111,7 +111,7 @@ export default function CreateControlDrawer({ onClose, onSave, defaultProcess, d
       case 1: return frequency !== '';
       case 2: return true; // assertions optional
       case 3: return true; // risk mapping optional
-      case 4: return workflowChoice === 'link' ? linkedWorkflowId !== null : true;
+      case 4: return workflowChoice === 'link' ? linkedWorkflowId !== null : true; // ask-ira, manual, skip always valid
       default: return true;
     }
   }, [step, name, businessProcess, owner, frequency, workflowChoice, linkedWorkflowId]);
@@ -380,15 +380,16 @@ export default function CreateControlDrawer({ onClose, onSave, defaultProcess, d
       case 4: return (
         <div className="space-y-5">
           <p className="text-[12.5px] text-ink-500">
-            A workflow defines how this control is tested during engagements. You can link one now or set it up later.
+            Choose how this control will get its workflow. A workflow defines how the control is tested during engagements.
           </p>
 
           {/* Choice cards */}
           <div className="space-y-2">
             {[
               { value: 'link' as const, icon: Link2, title: 'Link existing workflow', desc: 'Choose from the Workflow Library' },
-              { value: 'later' as const, icon: Plus, title: 'Create new workflow later', desc: 'Control saved as Draft — workflow pending' },
-              { value: 'skip' as const, icon: Clock, title: 'Skip for now', desc: 'Control will show "Missing Workflow" status' },
+              { value: 'ask-ira' as const, icon: Sparkles, title: 'Create new workflow with Ask IRA', desc: 'Use AI-guided Q&A to build a workflow for this control' },
+              { value: 'manual' as const, icon: Wrench, title: 'Create workflow manually', desc: 'Open the standard Workflow Builder' },
+              { value: 'skip' as const, icon: Clock, title: 'Skip for now', desc: 'Save control without workflow; can be linked later' },
             ].map(opt => (
               <button
                 key={opt.value}
@@ -408,7 +409,7 @@ export default function CreateControlDrawer({ onClose, onSave, defaultProcess, d
             ))}
           </div>
 
-          {/* Workflow picker */}
+          {/* Workflow picker — only for Link option */}
           {workflowChoice === 'link' && (
             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-3 overflow-hidden">
               <div className="relative">
@@ -449,30 +450,6 @@ export default function CreateControlDrawer({ onClose, onSave, defaultProcess, d
               </div>
             </motion.div>
           )}
-
-          {/* Status preview */}
-          <div className="rounded-lg border border-canvas-border bg-canvas p-3">
-            <div className="text-[11.5px] font-semibold text-ink-600 mb-1">Control status after save:</div>
-            {workflowChoice === 'link' && linkedWorkflowId ? (
-              <div className="flex items-center gap-2 text-[12.5px]">
-                <span className="w-2 h-2 rounded-full bg-compliant" />
-                <span className="text-compliant-700 font-semibold">Active</span>
-                <span className="text-ink-500">— Workflow linked, ready for use in engagements</span>
-              </div>
-            ) : workflowChoice === 'later' ? (
-              <div className="flex items-center gap-2 text-[12.5px]">
-                <span className="w-2 h-2 rounded-full bg-gray-400" />
-                <span className="text-gray-600 font-semibold">Draft</span>
-                <span className="text-ink-500">— Pending workflow creation</span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 text-[12.5px]">
-                <AlertTriangle size={12} className="text-risk" />
-                <span className="text-risk-700 font-semibold">Missing Workflow</span>
-                <span className="text-ink-500">— Cannot be marked Ready until linked</span>
-              </div>
-            )}
-          </div>
         </div>
       );
 
@@ -522,7 +499,7 @@ export default function CreateControlDrawer({ onClose, onSave, defaultProcess, d
           </div>
 
           {/* Step indicator */}
-          <div className="flex items-center gap-1 -mb-px">
+          <div className="flex items-center gap-1 -mb-px overflow-x-auto">
             {STEPS.map((s, i) => {
               const active = i === step;
               const done = i < step;
@@ -585,7 +562,12 @@ export default function CreateControlDrawer({ onClose, onSave, defaultProcess, d
               disabled={!stepValid}
               className="flex items-center gap-1.5 px-5 py-2 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-[13px] font-semibold transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              {isLastStep ? 'Create Control' : 'Continue'}
+              {isLastStep
+                ? workflowChoice === 'link' ? 'Link Workflow & Create Control'
+                : workflowChoice === 'ask-ira' ? 'Continue in Ask IRA'
+                : workflowChoice === 'manual' ? 'Open Workflow Builder'
+                : 'Create Control'
+                : 'Continue'}
               {!isLastStep && <ChevronRight size={14} />}
             </button>
           </div>

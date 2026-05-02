@@ -1041,13 +1041,13 @@ function CreateRacmFromSOPModal({ sopName, bpAbbr, onClose, onCreate }: {
 
 // ─── SOP Tab Content Component ────────────────────────────────────────────
 
-function SOPTabContent({ bpId, bpAbbr, existingSops, existingRacms, onGoToRacm, onOpenRacmMapping }: {
+function SOPTabContent({ bpId, bpAbbr, existingSops, existingRacms, onGoToRacm, onRacmCreated }: {
   bpId: string;
   bpAbbr: string;
   existingSops: typeof SOPS;
   existingRacms: typeof RACMS;
   onGoToRacm: () => void;
-  onOpenRacmMapping?: (racmId: string, racmName: string, process: string) => void;
+  onRacmCreated?: (racmId: string, racmName: string, process: string, framework: string) => void;
 }) {
   const { addToast } = useToast();
 
@@ -1412,6 +1412,7 @@ function SOPTabContent({ bpId, bpAbbr, existingSops, existingRacms, onGoToRacm, 
                 ...s, racmId, racmName,
               } : s));
               setShowCreateRacmForSopId(null);
+              onRacmCreated?.(racmId, racmName, bpAbbr, framework);
               addToast({ message: `RACM "${racmName}" created. Open the RACM tab to start mapping.`, type: 'success' });
             }}
           />;
@@ -1495,6 +1496,7 @@ function BPDetailView({ bp, onBack }: {
   bp: typeof BUSINESS_PROCESSES[0]; onBack: () => void;
 }) {
   const [tab, setTab] = useState<'sop' | 'racm' | 'risks' | 'controls' | 'workflows'>('sop');
+  const [createdRacms, setCreatedRacms] = useState<import('./RacmListTable').RacmEntry[]>([]);
 
   // ─── Data: single query per entity, filtered by business_process_id ───
   const bpRacms = RACMS.filter(r => r.bpId === bp.id);
@@ -1590,12 +1592,19 @@ function BPDetailView({ bp, onBack }: {
             existingSops={bpSops}
             existingRacms={bpRacms}
             onGoToRacm={() => setTab('racm')}
+            onRacmCreated={(racmId, racmName, process, framework) => {
+              setCreatedRacms(prev => [...prev, {
+                id: racmId, name: racmName, version: 'v1.0', process, framework,
+                risks: 0, controls: 0, mappedRisks: 0, unmappedRisks: 0, keyControls: 0,
+                workflowCoverage: 0, attributesCoverage: 0, isValidated: false, linkedToEngagement: false,
+              }]);
+            }}
           />
         )}
 
         {/* RACM Tab — filtered RACM list table */}
         {tab === 'racm' && (
-          <RacmListTable processFilter={bp.abbr} />
+          <RacmListTable processFilter={bp.abbr} extraRacms={createdRacms} />
         )}
 
         {/* Risk Register Tab — embedded RiskRegister filtered by process */}

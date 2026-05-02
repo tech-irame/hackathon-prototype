@@ -217,6 +217,8 @@ export default function RacmMappingWorkspace({ onBack, onGoToExecution, racmId, 
   const [createWorkflowControlId, setCreateWorkflowControlId] = useState<string | null>(null);
   const [showValidateModal, setShowValidateModal] = useState(false);
   const [racmValidated, setRacmValidated] = useState(false);
+  const [showNewRiskDrawer, setShowNewRiskDrawer] = useState(false);
+  const [duplicateRiskWarning, setDuplicateRiskWarning] = useState<{ name: string; existingRisk: RiskItem; pendingRisk: Omit<RiskItem, 'id'> } | null>(null);
 
   // Simulate loading RACM data based on racmId
   useEffect(() => {
@@ -393,6 +395,47 @@ export default function RacmMappingWorkspace({ onBack, onGoToExecution, racmId, 
     addToast({ message: 'RACM validated — status Active, ready for execution', type: 'success' });
   };
 
+  // Create new risk and add to RACM
+  const handleCreateRisk = (data: { name: string; description: string; process: string; subProcess: string; category: string; owner: string; priority: string }) => {
+    // Duplicate check
+    const similar = risks.find(r => r.name.toLowerCase() === data.name.trim().toLowerCase());
+    const newRiskData: Omit<RiskItem, 'id'> = {
+      name: data.name.trim(), description: data.description.trim(), process: data.process || racmProcess || 'P2P',
+      sourceRef: 'Manual', controls: [], validationStatus: 'Unvalidated', freshness: 'Needs Re-execution',
+    };
+
+    if (similar) {
+      setDuplicateRiskWarning({ name: data.name.trim(), existingRisk: similar, pendingRisk: newRiskData });
+      return;
+    }
+
+    addRiskToRacm(newRiskData);
+  };
+
+  const addRiskToRacm = (data: Omit<RiskItem, 'id'>) => {
+    const newId = `rsk-new-${Date.now()}`;
+    const newRisk: RiskItem = { id: newId, ...data };
+    setRisks(prev => [...prev, newRisk]);
+    setSelectedRiskId(newId);
+    setShowNewRiskDrawer(false);
+    setDuplicateRiskWarning(null);
+    if (racmValidated) setRacmValidated(false);
+    addToast({ message: `Risk created and added to this RACM.`, type: 'success' });
+  };
+
+  const addExistingRiskToRacm = (risk: RiskItem) => {
+    if (risks.some(r => r.id === risk.id)) {
+      addToast({ message: 'This risk is already in the RACM.', type: 'warning' });
+      return;
+    }
+    setRisks(prev => [...prev, risk]);
+    setSelectedRiskId(risk.id);
+    setShowNewRiskDrawer(false);
+    setDuplicateRiskWarning(null);
+    if (racmValidated) setRacmValidated(false);
+    addToast({ message: `Existing risk added to this RACM.`, type: 'success' });
+  };
+
   // Fallback guard — no RACM context
   if (!racmId && !isLoading && risks.length === 0) {
     return (
@@ -492,6 +535,7 @@ export default function RacmMappingWorkspace({ onBack, onGoToExecution, racmId, 
           onCreateControl={(riskId) => { setSelectedRiskId(riskId); setShowCreateDrawer(true); }}
           onLinkWorkflow={(ctrlId) => { setLinkWorkflowControlId(ctrlId); }}
           onCreateWorkflow={(ctrlId) => { setCreateWorkflowControlId(ctrlId); }}
+          onAddRisk={() => setShowNewRiskDrawer(true)}
         />
       )}
 
@@ -635,6 +679,54 @@ export default function RacmMappingWorkspace({ onBack, onGoToExecution, racmId, 
           </>
         )}
       </AnimatePresence>
+
+      {/* ── New Risk Drawer ── */}
+      <AnimatePresence>
+        {showNewRiskDrawer && (
+          <NewRiskDrawer
+            defaultProcess={racmProcess || ''}
+            onClose={() => setShowNewRiskDrawer(false)}
+            onSave={handleCreateRisk}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ── Duplicate Risk Warning ── */}
+      <AnimatePresence>
+        {duplicateRiskWarning && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}
+              className="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/30 backdrop-blur-sm" onClick={() => setDuplicateRiskWarning(null)}>
+              <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                transition={{ duration: 0.2 }} className="bg-white rounded-2xl shadow-xl border border-canvas-border w-full max-w-[420px] p-6" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center gap-2 mb-3">
+                  <AlertTriangle size={16} className="text-amber-500" />
+                  <h2 className="text-[16px] font-bold text-text">Similar risk exists</h2>
+                </div>
+                <p className="text-[12px] text-text-muted mb-3">A risk with a similar name already exists in this RACM:</p>
+                <div className="rounded-lg border border-border bg-gray-50 px-4 py-3 mb-4">
+                  <div className="text-[12px] font-medium text-text">{duplicateRiskWarning.existingRisk.name}</div>
+                  <div className="text-[10px] text-gray-500 mt-0.5">{duplicateRiskWarning.existingRisk.id} · {duplicateRiskWarning.existingRisk.process}</div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button onClick={() => addExistingRiskToRacm(duplicateRiskWarning.existingRisk)}
+                    className="flex-1 px-4 py-2.5 bg-primary hover:bg-primary/90 text-white rounded-lg text-[13px] font-semibold transition-colors cursor-pointer">
+                    Use Existing Risk
+                  </button>
+                  <button onClick={() => addRiskToRacm(duplicateRiskWarning.pendingRisk)}
+                    className="px-4 py-2.5 border border-border rounded-lg text-[13px] text-text-secondary hover:bg-gray-50 transition-colors cursor-pointer">
+                    Create Anyway
+                  </button>
+                  <button onClick={() => setDuplicateRiskWarning(null)}
+                    className="px-3 py-2.5 text-[13px] text-gray-400 hover:text-gray-600 cursor-pointer">
+                    Cancel
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -668,7 +760,7 @@ function getRowWorkflowStatus(r: RiskItem): string {
   return 'Ready';
 }
 
-function RacmGridView({ risks, onSelectRisk, onUpdateRisks, onLinkControl, onCreateControl, onLinkWorkflow, onCreateWorkflow }: {
+function RacmGridView({ risks, onSelectRisk, onUpdateRisks, onLinkControl, onCreateControl, onLinkWorkflow, onCreateWorkflow, onAddRisk }: {
   risks: RiskItem[];
   onSelectRisk: (id: string) => void;
   onUpdateRisks: (updater: (prev: RiskItem[]) => RiskItem[]) => void;
@@ -676,6 +768,7 @@ function RacmGridView({ risks, onSelectRisk, onUpdateRisks, onLinkControl, onCre
   onCreateControl: (riskId: string) => void;
   onLinkWorkflow?: (controlId: string) => void;
   onCreateWorkflow?: (controlId: string) => void;
+  onAddRisk?: () => void;
 }) {
   const { addToast } = useToast();
   const [gridSearch, setGridSearch] = useState('');
@@ -826,6 +919,12 @@ function RacmGridView({ risks, onSelectRisk, onUpdateRisks, onLinkControl, onCre
               </button>
               <button onClick={() => setSelectedIds(new Set())} className="px-1.5 py-1 rounded text-[10px] text-ink-400 hover:text-ink-700 cursor-pointer"><X size={10} /></button>
             </div>
+          )}
+          {onAddRisk && (
+            <button onClick={onAddRisk}
+              className="px-2 py-1 rounded-lg text-[10px] font-semibold text-primary bg-primary/10 hover:bg-primary/15 cursor-pointer transition-colors inline-flex items-center gap-1">
+              <Plus size={9} />New Risk
+            </button>
           )}
           <span className="text-[10px] text-text-muted">{filteredRisks.length} risk{filteredRisks.length !== 1 ? 's' : ''}</span>
         </div>
@@ -1025,14 +1124,10 @@ function RacmGridView({ risks, onSelectRisk, onUpdateRisks, onLinkControl, onCre
                                     <FileText size={10} className="text-gray-400" />
                                     <span className="text-[9px] font-bold text-ink-400 uppercase tracking-wider">SOP Source</span>
                                   </div>
-                                  <div className="grid grid-cols-4 gap-3">
+                                  <div className="grid grid-cols-3 gap-3">
                                     <div>
                                       <span className="text-[9px] text-gray-400 block">SOP</span>
                                       <span className="text-[11px] text-text font-medium">{risk.sourceSopName}</span>
-                                    </div>
-                                    <div>
-                                      <span className="text-[9px] text-gray-400 block">Version</span>
-                                      <span className="text-[10px] font-mono text-gray-500">{risk.sourceSopVersion}</span>
                                     </div>
                                     <div>
                                       <span className="text-[9px] text-gray-400 block">Section</span>
@@ -1236,6 +1331,96 @@ function WorkflowReadinessDrawer({ risk, onClose, onLinkWorkflow, onCreateWorkfl
         <footer className="shrink-0 px-6 py-4 border-t border-canvas-border bg-canvas">
           <button onClick={onClose} className="w-full px-4 py-2.5 rounded-lg border border-canvas-border text-[13px] font-medium text-ink-600 hover:bg-canvas transition-colors cursor-pointer">Close</button>
         </footer>
+      </motion.aside>
+    </>
+  );
+}
+
+// ─── New Risk Drawer (for creating risk from RACM) ──────────────────────────
+
+const RISK_CATEGORIES = ['Financial', 'Operational', 'Compliance', 'IT', 'Fraud', 'Reporting', 'Other'];
+const RISK_PRIORITIES = ['Critical', 'High', 'Medium', 'Low'];
+const RISK_PROCESSES = ['P2P', 'O2C', 'R2R', 'S2C', 'ITGC'];
+
+function NewRiskDrawer({ defaultProcess, onClose, onSave }: {
+  defaultProcess: string;
+  onClose: () => void;
+  onSave: (data: { name: string; description: string; process: string; subProcess: string; category: string; owner: string; priority: string }) => void;
+}) {
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [process, setProcess] = useState(defaultProcess);
+  const [subProcess, setSubProcess] = useState('');
+  const [category, setCategory] = useState('');
+  const [owner, setOwner] = useState('');
+  const [priority, setPriority] = useState('');
+
+  const isValid = name.trim() && description.trim();
+
+  const fCls = 'w-full px-3 py-2.5 border border-border rounded-lg text-[13px] text-text bg-white outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/10 transition-all';
+  const lCls = 'text-[12px] font-semibold text-text-muted block mb-1.5';
+
+  return (
+    <>
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}
+        className="fixed inset-0 z-50 bg-ink-900/20 backdrop-blur-sm" onClick={onClose} />
+      <motion.aside initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
+        transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+        className="fixed top-0 right-0 z-50 w-full max-w-[480px] h-full bg-white border-l border-canvas-border shadow-2xl flex flex-col">
+        <div className="px-6 pt-5 pb-4 border-b border-canvas-border flex items-start justify-between shrink-0">
+          <div>
+            <h2 className="font-display text-[18px] font-semibold text-ink-900">New Risk</h2>
+            <p className="text-[12px] text-ink-500 mt-0.5">Create a risk and add it to this RACM.</p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-full text-ink-500 hover:text-ink-800 hover:bg-[#F4F2F7] flex items-center justify-center cursor-pointer"><X size={16} /></button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+          <div>
+            <label className={lCls}>Risk Name <span className="text-red-400">*</span></label>
+            <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Unauthorized vendor payments" className={fCls} autoFocus />
+          </div>
+          <div>
+            <label className={lCls}>Description <span className="text-red-400">*</span></label>
+            <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} placeholder="Describe the risk scenario and potential impact..." className={fCls + ' resize-none'} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={lCls}>Business Process</label>
+              <div className="px-3 py-2.5 border border-border rounded-lg text-[13px] text-text bg-gray-50 cursor-not-allowed">{process || '—'}</div>
+            </div>
+            <div>
+              <label className={lCls}>Sub-process</label>
+              <input value={subProcess} onChange={e => setSubProcess(e.target.value)} placeholder="e.g. Accounts Payable" className={fCls} />
+            </div>
+          </div>
+          <div>
+            <label className={lCls}>Risk Category</label>
+            <select value={category} onChange={e => setCategory(e.target.value)} className={fCls + ' cursor-pointer appearance-none'}>
+              <option value="">Select...</option>
+              {RISK_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={lCls}>Risk Owner</label>
+              <input value={owner} onChange={e => setOwner(e.target.value)} placeholder="Name" className={fCls} />
+            </div>
+            <div>
+              <label className={lCls}>Priority</label>
+              <select value={priority} onChange={e => setPriority(e.target.value)} className={fCls + ' cursor-pointer appearance-none'}>
+                <option value="">Select...</option>
+                {RISK_PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </div>
+          </div>
+        </div>
+        <div className="px-6 py-4 border-t border-canvas-border flex items-center justify-end gap-3 shrink-0">
+          <button onClick={onClose} className="px-4 py-2.5 rounded-lg border border-canvas-border text-[13px] font-medium text-ink-600 hover:bg-canvas transition-colors cursor-pointer">Cancel</button>
+          <button onClick={() => { if (isValid) onSave({ name, description, process, subProcess, category, owner, priority }); }} disabled={!isValid}
+            className="px-5 py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-white text-[13px] font-semibold transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
+            Create & Add to RACM
+          </button>
+        </div>
       </motion.aside>
     </>
   );

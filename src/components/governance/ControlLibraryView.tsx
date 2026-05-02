@@ -6,11 +6,8 @@ import {
   Download,
   Star,
   ArrowRight,
-  Shield,
-  Cpu,
   Link2,
   AlertTriangle,
-  LayoutGrid,
   Eye,
   Pencil,
   Workflow,
@@ -100,18 +97,9 @@ export default function ControlLibraryView({ processFilter }: ControlLibraryProp
 
   // KPI computations
   const totalControls = baseControls.length;
-  const readyControls = baseControls.filter(c => c.status === 'Ready').length;
   const keyControls = baseControls.filter(c => c.classification === 'Key').length;
   const automatedControls = baseControls.filter(c => c.automation === 'Automated').length;
   const missingWorkflow = baseControls.filter(c => c.linkedWorkflows.length === 0).length;
-
-  const kpis = [
-    { label: 'Total Controls', value: totalControls, icon: Shield, color: 'border-brand-600 bg-brand-50', textColor: 'text-brand-700', iconColor: 'text-brand-600' },
-    { label: 'Ready', value: readyControls, icon: Eye, color: 'border-compliant bg-compliant-50', textColor: 'text-compliant-700', iconColor: 'text-compliant' },
-    { label: 'Key Controls', value: keyControls, icon: Star, color: 'border-mitigated bg-mitigated-50', textColor: 'text-mitigated-700', iconColor: 'text-mitigated' },
-    { label: 'Automated', value: automatedControls, icon: Cpu, color: 'border-evidence bg-evidence-50', textColor: 'text-evidence-700', iconColor: 'text-evidence' },
-    { label: 'Missing Workflow', value: missingWorkflow, icon: AlertTriangle, color: 'border-risk bg-risk-50', textColor: 'text-risk-700', iconColor: 'text-risk' },
-  ];
 
   const hasActiveFilters = bpFilter !== 'all' || classFilter !== 'all' || automationFilter !== 'all' || workflowStatusFilter !== 'all';
 
@@ -142,7 +130,7 @@ export default function ControlLibraryView({ processFilter }: ControlLibraryProp
     let status: ControlRow['status'];
     if (data.workflowChoice === 'link' && data.linkedWorkflowId) {
       status = 'Active';
-    } else if (data.workflowChoice === 'later') {
+    } else if (data.workflowChoice === 'manual' || data.workflowChoice === 'ask-ira') {
       status = 'Draft';
     } else {
       status = 'Missing Workflow';
@@ -209,40 +197,16 @@ export default function ControlLibraryView({ processFilter }: ControlLibraryProp
           </div>
         </div>
 
-        {/* AI Insight */}
-        <div className="bg-gradient-to-r from-primary-xlight via-white to-primary-xlight rounded-2xl border border-primary/10 p-4 mb-6 flex items-center gap-4">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-primary-medium flex items-center justify-center shrink-0">
-            <Sparkles size={16} className="text-white" />
-          </div>
-          <div className="flex-1">
-            <div className="text-[12.5px] font-semibold text-text">Control Health Summary</div>
-            <div className="text-[12px] text-text-secondary mt-0.5">
-              {missingWorkflow} control{missingWorkflow !== 1 ? 's' : ''} missing workflow linkage. {keyControls} key controls identified across {new Set(controls.map(c => c.businessProcess)).size} business processes.
-              <span className="text-primary font-semibold cursor-pointer hover:underline ml-1">Review recommendations</span>
-            </div>
-          </div>
-        </div>
-
-        {/* KPI Cards */}
-        <div className="grid grid-cols-5 gap-4 mb-6">
-          {kpis.map((kpi, i) => {
-            const Icon = kpi.icon;
-            return (
-              <motion.div
-                key={kpi.label}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.05 }}
-                className={`rounded-xl border p-4 ${kpi.color} transition-all`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <Icon size={16} className={kpi.iconColor} />
-                </div>
-                <div className={`text-2xl font-bold ${kpi.textColor}`}>{kpi.value}</div>
-                <div className="text-[12px] text-text-secondary mt-0.5">{kpi.label}</div>
-              </motion.div>
-            );
-          })}
+        {/* Summary line */}
+        <div className="flex items-center gap-6 text-[12px] text-text-muted mb-5">
+          <span><span className="font-semibold text-text">{totalControls}</span> controls</span>
+          <span><span className="font-semibold text-text">{keyControls}</span> key</span>
+          <span><span className="font-semibold text-text">{automatedControls}</span> automated</span>
+          {missingWorkflow > 0 && (
+            <span className="text-high-700">
+              <span className="font-semibold">{missingWorkflow}</span> missing workflow
+            </span>
+          )}
         </div>
 
         {/* Table */}
