@@ -148,6 +148,7 @@ interface ChatViewProps {
     reportName: string;
     isNew: boolean;
     newName?: string;
+    newDescription?: string;
     selection: import('./AddToDashboardModal').GranularSelection;
   }) => void;
   /** Navigate to a dashboard detail view */
@@ -1219,10 +1220,15 @@ export default function ChatView({ showChatHistory, toggleChatHistory, setShowAr
       }));
     }
     onAddResultToDashboard?.(payload);
+    const undoMsgId = activeAddMsgId;
+    const itemCount = payload.selection.kpis.length + payload.selection.charts.length + payload.selection.columns.length;
     addToast({
       type: 'success',
-      message: `Added to dashboard “${payload.dashboardName}”.`,
+      message: `Added ${itemCount} item${itemCount === 1 ? '' : 's'} to dashboard “${payload.dashboardName}”.`,
       action: { label: 'View Dashboard', onClick: () => onViewDashboard?.(payload.dashboardId) },
+      secondaryAction: undoMsgId
+        ? { label: 'Undo', onClick: () => removeFromDashboard(undoMsgId, payload.dashboardId) }
+        : undefined,
     });
     setActiveAddMsgId(null);
   };
@@ -1243,10 +1249,15 @@ export default function ChatView({ showChatHistory, toggleChatHistory, setShowAr
       }));
     }
     onAddResultToReport?.(payload);
+    const undoMsgId = activeAddMsgId;
+    const itemCount = payload.selection.kpis.length + payload.selection.charts.length + payload.selection.columns.length;
     addToast({
       type: 'success',
-      message: `Added to report “${payload.reportName}”.`,
+      message: `Added ${itemCount} item${itemCount === 1 ? '' : 's'} to report “${payload.reportName}”.`,
       action: { label: 'View Report', onClick: () => onViewReport?.(payload.reportId) },
+      secondaryAction: undoMsgId
+        ? { label: 'Undo', onClick: () => removeFromReport(undoMsgId, payload.reportId) }
+        : undefined,
     });
     setActiveAddMsgId(null);
   };
@@ -2371,6 +2382,7 @@ export default function ChatView({ showChatHistory, toggleChatHistory, setShowAr
           table: { columns: AUDIT_RESULT.table.columns, rows: AUDIT_RESULT.table.rows },
         }}
         onConfirm={handleDashboardConfirm}
+        onView={onViewDashboard}
       />
 
       {/* Add to Report modal */}
@@ -2385,6 +2397,7 @@ export default function ChatView({ showChatHistory, toggleChatHistory, setShowAr
           table: { columns: AUDIT_RESULT.table.columns, rows: AUDIT_RESULT.table.rows },
         }}
         onConfirm={handleReportConfirm}
+        onView={onViewReport}
       />
     </div>
   );
