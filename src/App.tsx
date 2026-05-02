@@ -47,6 +47,8 @@ import ManageExceptionsView from './components/exceptions/ManageExceptionsView';
 import WorkingPaperPanel from './components/execution/WorkingPaperPanel';
 import WorkflowExecutionPanel from './components/execution/WorkflowExecutionPanel';
 import TraceabilityPanel from './components/execution/TraceabilityPanel';
+import NotificationDrawer from './components/notifications/NotificationDrawer';
+import { createNotification, type PlatformNotification } from './data/notifications';
 
 const LAUNCHED_FROM_REPORT =
   typeof window !== 'undefined' &&
@@ -105,7 +107,26 @@ export default function App() {
     setExceptionRole,
     launchWorkflowBuilderWithPrompt,
     setWorkflowBuilderSeedPrompt,
+    openNotificationDrawer,
+    closeNotificationDrawer,
+    markNotificationRead,
+    markAllNotificationsRead,
+    setNotificationActionState,
+    restoreNotification,
+    setFocusedNotificationRefId,
+    addNotification,
   } = useAppState();
+
+  const unreadNotifications = state.notifications.filter(n => !n.read).length;
+
+  const handleNotificationSelect = (n: PlatformNotification) => {
+    markNotificationRead(n.id);
+    closeNotificationDrawer();
+    // Tell the target view which item to focus. Set BEFORE setView so the
+    // view's first render can read it.
+    setFocusedNotificationRefId(n.link?.ref?.id ?? null);
+    if (n.link?.view) setView(n.link.view);
+  };
 
   const mainScrollRef = useRef<HTMLDivElement>(null);
   const [viewLoading, setViewLoading] = useState(false);
@@ -134,6 +155,15 @@ export default function App() {
       mainScrollRef.current.scrollTop = 0;
     }
   }, [state.view]);
+
+  // Auto-clear the deep-link focus a few seconds after the user lands on
+  // the target view. The brief highlight draws the eye; clearing prevents
+  // the row from staying perma-highlighted.
+  useEffect(() => {
+    if (!state.focusedNotificationRefId) return;
+    const t = setTimeout(() => setFocusedNotificationRefId(null), 3000);
+    return () => clearTimeout(t);
+  }, [state.focusedNotificationRefId, setFocusedNotificationRefId]);
 
   useEffect(() => {
     if (state.view === 'chat' || state.view === 'home') return;
@@ -325,6 +355,18 @@ export default function App() {
           <WorkflowExecutor
             workflowId={state.selectedWorkflowId!}
             onBack={() => setSelectedWorkflow(null)}
+            onRunComplete={(workflowId) => {
+              // Phase 3 producer: push a notification when a workflow run
+              // finishes. Same pattern as ShareModal.
+              addNotification(createNotification({
+                category: 'workflow',
+                severity: 'info',
+                title: 'Workflow run completed',
+                message: `Run finished successfully — review the output for any flagged exceptions.`,
+                actor: 'Ira (AI)',
+                link: { view: 'workflow-detail', ref: { kind: 'workflow', id: workflowId } },
+              }));
+            }}
           />
         );
 
@@ -395,6 +437,7 @@ export default function App() {
               if (pending) setPendingDashboard(pending);
               setView('chat');
             }}
+            focusedDashboardId={state.focusedNotificationRefId}
           />
         );
 
@@ -566,6 +609,9 @@ export default function App() {
             expanded={state.sidebarExpanded}
             toggleSidebar={toggleSidebar}
             setSidebarExpanded={setSidebarExpanded}
+            unreadNotifications={unreadNotifications}
+            notificationDrawerOpen={state.notificationDrawerOpen}
+            onOpenNotifications={openNotificationDrawer}
           />
         )}
         <main ref={mainScrollRef} className="flex-1 flex flex-col overflow-hidden">
@@ -599,7 +645,29 @@ export default function App() {
             />
           )}
           {state.showShareModal && (
-            <ShareModal onClose={() => setShowShareModal(false)} />
+            <ShareModal
+              onClose={() => setShowShareModal(false)}
+              onShare={(recipients) => {
+                // Phase 3 producer: push a notification when reports or
+                // dashboards are shared. Single hook, both surfaces.
+                const ctx = state.shareContext;
+                if (!ctx) return;
+                const isReport    = ctx.type === 'report';
+                const isDashboard = ctx.type === 'dashboard';
+                if (!isReport && !isDashboard) return;
+                addNotification(createNotification({
+                  category: 'report',
+                  severity: 'info',
+                  title: isReport ? 'Report shared' : 'Dashboard shared',
+                  message: `Shared with ${recipients.length === 1 ? recipients[0] : `${recipients.length} people`}.`,
+                  actor: 'You',
+                  link: {
+                    view: isReport ? 'reports' : 'dashboards',
+                    ref: { kind: isReport ? 'report' : 'dashboard', id: ctx.id },
+                  },
+                }));
+              }}
+            />
           )}
           {state.showPowerBIWizard && (
             <PowerBIImportWizard onClose={() => setShowPowerBIWizard(false)} />
@@ -641,6 +709,20 @@ export default function App() {
               controlId={controlDrawerId}
               controlData={controlDrawerData}
               onClose={() => { setControlDrawerId(null); setControlDrawerData(null); }}
+            />
+          )}
+        </AnimatePresence>
+
+        {/* Notification Drawer */}
+        <AnimatePresence>
+          {state.notificationDrawerOpen && (
+            <NotificationDrawer
+              notifications={state.notifications}
+              onClose={closeNotificationDrawer}
+              onSelect={handleNotificationSelect}
+              onMarkAllRead={markAllNotificationsRead}
+              onSetActionState={setNotificationActionState}
+              onRestore={restoreNotification}
             />
           )}
         </AnimatePresence>

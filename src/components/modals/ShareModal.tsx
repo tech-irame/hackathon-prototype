@@ -5,6 +5,9 @@ import { useToast } from '../shared/Toast';
 
 interface Props {
   onClose: () => void;
+  /** Called after a successful invite. Used by App.tsx to push a
+   *  notification into the platform feed (Phase 3 producer wiring). */
+  onShare?: (recipients: string[]) => void;
 }
 
 interface SharedUser {
@@ -29,7 +32,7 @@ const INITIAL_SHARED: SharedUser[] = [
   { name: 'Karan Mehta', email: 'karan.mehta@company.com', initials: 'KM', avatarClass: 'bg-primary/15 text-primary', permission: 'view' },
 ];
 
-export default function ShareModal({ onClose }: Props) {
+export default function ShareModal({ onClose, onShare }: Props) {
   const { addToast } = useToast();
   const [email, setEmail] = useState('');
   const [inviteChips, setInviteChips] = useState<string[]>([]);
@@ -79,6 +82,7 @@ export default function ShareModal({ onClose }: Props) {
     addToast({ type: 'success', message: `Invitation sent to ${pending.join(', ')}` });
     setInviteChips([]);
     setEmail('');
+    onShare?.(pending);
   };
 
   const canInvite = inviteChips.length > 0 || email.trim().length > 0;
