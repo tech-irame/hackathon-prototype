@@ -1,5 +1,11 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import type { WorkflowTypeId } from '../data/mockData';
+import {
+  loadPersistedNotifications,
+  persistNotifications,
+  type PlatformNotification,
+  type NotificationActionState,
+} from '../data/notifications';
 
 export type View =
   | 'home'
@@ -123,6 +129,13 @@ export interface AppState {
   // Knowledge Hub view can highlight / scroll to that connection. Cleared
   // when the user navigates away.
   knowledgeHubFocusSourceId: string | null;
+  // Platform notification center
+  notifications: PlatformNotification[];
+  notificationDrawerOpen: boolean;
+  /** Set when the user clicks a notification with a `link.ref.id`. The
+   *  target view reads this on mount and highlights/scrolls the matching
+   *  row. Auto-cleared after the view consumes it (or after a navigation). */
+  focusedNotificationRefId: string | null;
 }
 
 const getInitialView = (): View => {
@@ -169,10 +182,26 @@ const INITIAL_STATE: AppState = {
   executionPanelControlId: null,
   exceptionRole: 'risk-owner',
   knowledgeHubFocusSourceId: null,
+  // Initialised lazily from localStorage in `useAppState` below; the empty
+  // array here is just a type-correct placeholder the lazy init replaces.
+  notifications: [],
+  notificationDrawerOpen: false,
+  focusedNotificationRefId: null,
 };
 
 export function useAppState() {
-  const [state, setState] = useState<AppState>(INITIAL_STATE);
+  // Lazy init: hydrate notifications from localStorage on first mount only.
+  const [state, setState] = useState<AppState>(() => ({
+    ...INITIAL_STATE,
+    notifications: loadPersistedNotifications(),
+  }));
+
+  // Persist notifications to localStorage whenever they change. Read flags,
+  // dismissals, and (Phase 2+) action state / snooze / archive all flow
+  // through here so reload preserves the user's progress.
+  useEffect(() => {
+    persistNotifications(state.notifications);
+  }, [state.notifications]);
 
   const setView = useCallback((view: View) => {
     setState(prev => ({ ...prev, view, showChatHistory: false }));
@@ -366,6 +395,70 @@ export function useAppState() {
     setState(prev => ({ ...prev, workflowBuilderSeedPrompt: prompt }));
   }, []);
 
+  // ── Notifications ──
+  const openNotificationDrawer = useCallback(() => {
+    setState(prev => ({ ...prev, notificationDrawerOpen: true }));
+  }, []);
+
+  const closeNotificationDrawer = useCallback(() => {
+    setState(prev => ({ ...prev, notificationDrawerOpen: false }));
+  }, []);
+
+  const markNotificationRead = useCallback((id: string) => {
+    setState(prev => ({
+      ...prev,
+      notifications: prev.notifications.map(n => n.id === id ? { ...n, read: true } : n),
+    }));
+  }, []);
+
+  const markAllNotificationsRead = useCallback(() => {
+    setState(prev => ({
+      ...prev,
+      notifications: prev.notifications.map(n => n.read ? n : { ...n, read: true }),
+    }));
+  }, []);
+
+  // Extension point: module actions push real events into the feed.
+  // Not wired anywhere in v1 — left intentionally for follow-up PRs.
+  const addNotification = useCallback((n: PlatformNotification) => {
+    setState(prev => ({ ...prev, notifications: [n, ...prev.notifications] }));
+  }, []);
+
+  // ── Phase 2: action lifecycle ──────────────────────────────────────────
+  // Notifications are no longer destructively dismissed on action. Instead
+  // the row records its `actionState` (and gets a confirmation pill in the
+  // UI), or is moved to Snoozed / Archived. Every mutation is reversible
+  // via undoLastAction(id, snapshot).
+
+  /** Record the user's response (Accept / Decline / Comment). The row stays
+   *  in the list but renders a pill instead of action buttons. */
+  const setNotificationActionState = useCallback((id: string, actionState: NotificationActionState | undefined) => {
+    setState(prev => ({
+      ...prev,
+      notifications: prev.notifications.map(n =>
+        n.id === id ? { ...n, actionState, read: true } : n,
+      ),
+    }));
+  }, []);
+
+  /** Restore a notification to a previous snapshot — used by Undo on toasts.
+   *  The snapshot is captured before the mutation; this overwrites the
+   *  current entry with the prior state. */
+  const restoreNotification = useCallback((snapshot: PlatformNotification) => {
+    setState(prev => ({
+      ...prev,
+      notifications: prev.notifications.map(n =>
+        n.id === snapshot.id ? snapshot : n,
+      ),
+    }));
+  }, []);
+
+  /** Set the focused ref id when a user clicks a notification. The matching
+   *  target view reads this on mount and highlights/scrolls the row. */
+  const setFocusedNotificationRefId = useCallback((id: string | null) => {
+    setState(prev => ({ ...prev, focusedNotificationRefId: id }));
+  }, []);
+
   return {
     state,
     setView,
@@ -403,5 +496,13 @@ export function useAppState() {
     setExceptionRole,
     launchWorkflowBuilderWithPrompt,
     setWorkflowBuilderSeedPrompt,
+    openNotificationDrawer,
+    closeNotificationDrawer,
+    markNotificationRead,
+    markAllNotificationsRead,
+    addNotification,
+    setNotificationActionState,
+    restoreNotification,
+    setFocusedNotificationRefId,
   };
 }

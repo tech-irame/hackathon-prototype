@@ -21,6 +21,9 @@ import { DATA_SOURCES } from '../../data/mockData';
 interface WorkflowExecutorProps {
   workflowId: string;
   onBack: () => void;
+  /** Fires when the simulated run reaches the 'complete' phase. App.tsx
+   *  wires this to push a platform notification. */
+  onRunComplete?: (workflowId: string) => void;
 }
 
 type ExecutionPhase = 'idle' | 'running' | 'complete';
@@ -165,7 +168,7 @@ function ConfidenceChip({ value }: { value: number }) {
 
 // ─── Main Component ──────────────────────────────────────
 
-export default function WorkflowExecutor({ workflowId, onBack }: WorkflowExecutorProps) {
+export default function WorkflowExecutor({ workflowId, onBack, onRunComplete }: WorkflowExecutorProps) {
   const workflow = EXECUTOR_WORKFLOW;
 
   const [phase, setPhase] = useState<ExecutionPhase>('idle');
@@ -309,6 +312,7 @@ export default function WorkflowExecutor({ workflowId, onBack }: WorkflowExecuto
     if (stepIdx >= EXECUTION_STEPS.length) {
       setPhase('complete');
       setProgress(100);
+      onRunComplete?.(workflowId);
       return;
     }
 

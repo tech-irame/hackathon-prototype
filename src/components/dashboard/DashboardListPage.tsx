@@ -39,6 +39,10 @@ type SortOption = 'recently' | 'oldest' | 'nameAZ' | 'nameZA';
 
 interface DashboardListPageProps {
   onDashboardClick: (dashboardId: string, customFields?: string[]) => void;
+  /** When set (typically from a notification deep-link), the matching
+   *  dashboard card pulses briefly to draw the user's eye. Cleared by the
+   *  parent ~3s after navigation. */
+  focusedDashboardId?: string | null;
   onImportPowerBI?: () => void;
   createdDashboards?: Dashboard[];
   onCreateDashboard?: (dashboard: Dashboard) => void;
@@ -790,7 +794,7 @@ function CreateDashboardModal({ open, onClose, onCreate, onOpenChat }: {
 
 // ─── Main Component ─────────────────────────────────────────────────────────
 
-export default function DashboardListPage({ onDashboardClick, onImportPowerBI, createdDashboards = [], onCreateDashboard, onDeleteDashboard, onUpdateDashboardSource, onOpenChat }: DashboardListPageProps) {
+export default function DashboardListPage({ onDashboardClick, onImportPowerBI, createdDashboards = [], onCreateDashboard, onDeleteDashboard, onUpdateDashboardSource, onOpenChat, focusedDashboardId }: DashboardListPageProps) {
   const { addToast } = useToast();
   const [activeTab, setActiveTab] = useState<'my' | 'shared'>('my');
   const [searchQuery, setSearchQuery] = useState('');
@@ -926,7 +930,9 @@ export default function DashboardListPage({ onDashboardClick, onImportPowerBI, c
                 exit={{ opacity: 0 }}
                 transition={{ delay: i * 0.04 }}
                 onClick={() => onDashboardClick(dashboard.id)}
-                className="glass-card rounded-xl p-5 cursor-pointer group relative flex flex-col"
+                className={`glass-card rounded-xl p-5 cursor-pointer group relative flex flex-col transition-shadow ${
+                  focusedDashboardId === dashboard.id ? 'ring-2 ring-brand-400 shadow-lg' : ''
+                }`}
               >
                 {/* Context menu trigger */}
                 <div className="absolute top-4 right-4 z-10">
