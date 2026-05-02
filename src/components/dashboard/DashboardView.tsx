@@ -5,7 +5,7 @@ import {
   Plus, Settings, Maximize2, FileText, DollarSign,
   XCircle, Clock, Sparkles, RefreshCw, ChevronDown,
   ShoppingCart, CreditCard, BarChart3,
-  Package, Receipt, Handshake, ShieldCheck,
+  Package, Receipt, Handshake, ShieldCheck, Briefcase,
   Send, X, Mail, Copy, CheckCircle2, ArrowLeft,
   Download, Filter, Share2, Loader2,
   MoreVertical, Edit, Trash2, ChevronUp, Eye, EyeOff,
@@ -27,10 +27,11 @@ import TypographySection from './add-widget/imports/TypographySection-1760-98';
 import ConditionalFormattingSection from './add-widget/imports/ConditionalFormattingSection';
 import DataSeriesFormattingSection from './add-widget/imports/DataSeriesFormattingSection';
 import { SEED, TYPE_META, formatDate } from '../data-sources/sources';
+import { INTEGRATION_CONFIGS } from '../data-sources/datasetFiles';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
-type DashboardId = 'p2p' | 'o2c' | 's2c' | 'grc' | 'excel';
+type DashboardId = 'p2p' | 'o2c' | 's2c' | 'grc' | 'excel' | 'sql';
 
 interface KpiDef {
   title: string;
@@ -343,6 +344,79 @@ const DASHBOARDS: DashboardDef[] = [
       ],
     },
   },
+  // ─── Live SQL — Vendor Risk ─────────────────────────────────────────────
+  // Pre-bound to db-02 (Vendor Master · PostgreSQL) via SEED_DASHBOARD_SOURCE.
+  // All field labels below come from DB_SCHEMAS['db-02'] so when the user
+  // edits a widget the DB tree shows the same column names that the dashboard
+  // already plots — one consistent dataset across every surface.
+  {
+    id: 'sql',
+    name: 'Live SQL — Vendor Risk',
+    icon: Database,
+    accent: 'from-violet-500 to-fuchsia-500',
+    accentHue: 280,
+    subtitle: 'Live SQL — vendor performance, invoice trends, risk distribution',
+    kpis: [
+      { title: 'Active Vendors',       value: '24,180', change: '+312',  trend: 'up',   icon: Briefcase,     color: 'text-evidence-700 bg-evidence-50' },
+      { title: 'Outstanding Invoices', value: '1.84M',  change: '+18%',  trend: 'up',   icon: Receipt,       color: 'text-brand-700 bg-brand-50' },
+      { title: 'Avg Risk Score',       value: 42,       change: '-3',    trend: 'down', icon: AlertTriangle, color: 'text-high-700 bg-high-50' },
+      { title: 'Avg Days to Pay',      value: '38d',    change: '-4d',   trend: 'down', icon: Clock,         color: 'text-compliant bg-compliant-50' },
+    ],
+    donut: {
+      title: 'Vendors by Region',
+      centerLabel: '24.2K',
+      segments: [
+        { label: 'North',   value: 38, color: 'var(--color-brand-500)' },
+        { label: 'South',   value: 24, color: 'var(--color-evidence)' },
+        { label: 'East',    value: 19, color: 'var(--color-compliant)' },
+        { label: 'West',    value: 12, color: 'var(--color-mitigated)' },
+        { label: 'Central', value: 7,  color: 'var(--color-high)' },
+      ],
+    },
+    lineTrend: {
+      title: 'Monthly Invoice Volume',
+      data: [1480, 1620, 1560, 1820, 1940, 2150],
+      labels: ['Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'],
+      color: 'var(--color-brand-500)',
+    },
+    progress: {
+      title: 'Top Categories by Spend',
+      data: [
+        { label: 'Hardware',    value: 88, color: 'var(--color-brand-500)' },
+        { label: 'Services',    value: 72, color: 'var(--color-evidence)' },
+        { label: 'Logistics',   value: 54, color: 'var(--color-compliant)' },
+        { label: 'Consulting',  value: 41, color: 'var(--color-mitigated)' },
+        { label: 'Maintenance', value: 28, color: 'var(--color-high)' },
+      ],
+    },
+    bars: {
+      title: 'Department-wise Spend (₹M)',
+      color: 'var(--color-brand-500)',
+      data: [
+        { label: 'Procurement', value: 84 },
+        { label: 'Finance',     value: 62 },
+        { label: 'IT',          value: 58 },
+        { label: 'Operations',  value: 47 },
+        { label: 'HR',          value: 24 },
+        { label: 'Logistics',   value: 38 },
+      ],
+    },
+    table: {
+      title: 'Vendor Records',
+      // Headers match DB_SCHEMAS['db-02'].public.vendors column labels.
+      headers: ['Vendor ID', 'Vendor Name', 'Region', 'Category', 'Status', 'Risk Score', 'Credit Limit', 'Outstanding Amount'],
+      rows: [
+        { cells: ['V-001', 'Acme Global Imaging',     'North',   'Hardware',    'Active',  '78', '₹12,00,000', '₹4,82,000'] },
+        { cells: ['V-002', 'Korean Technologies',     'East',    'Services',    'Active',  '71', '₹8,50,000',  '₹3,16,000'] },
+        { cells: ['V-003', 'Chintamani Paper Products','South',  'Logistics',   'Pending', '45', '₹4,00,000',  '₹1,12,000'] },
+        { cells: ['V-004', 'M Cargo Logistics',       'West',    'Logistics',   'Active',  '32', '₹6,20,000',  '₹  84,500'] },
+        { cells: ['V-005', '3tones Letter Co.',       'Central', 'Services',    'Active',  '28', '₹2,50,000',  '₹  41,200'] },
+        { cells: ['V-006', 'TechParts Ltd',           'North',   'Hardware',    'Hold',    '82', '₹15,00,000', '₹6,90,000'] },
+        { cells: ['V-007', 'Global Supplies Inc',     'East',    'Maintenance', 'Active',  '54', '₹5,40,000',  '₹2,28,000'] },
+        { cells: ['V-008', 'Atlas Manufacturing',     'South',   'Hardware',    'Pending', '—',  '₹0',          '₹0'] },
+      ],
+    },
+  },
 ];
 
 // ─── Daily Digest Data ───────────────────────────────────────────────────────
@@ -373,6 +447,12 @@ const DAILY_DIGESTS: Record<DashboardId, Array<{ type: 'change' | 'alert' | 'imp
     { type: 'new', text: 'New risk RSK-012 identified in R2R process — GL balance discrepancy', time: '2d ago' },
   ],
   excel: [],
+  sql: [
+    { type: 'alert', text: '5 vendors flagged for risk-score increase past threshold (≥70) — Acme Global, Korean Tech, +3', time: '4h ago' },
+    { type: 'change', text: 'Monthly invoice volume up 18% MoM on public.invoices — driven by Procurement department', time: '8h ago' },
+    { type: 'improvement', text: 'Avg days-to-pay dropped to 38 days (was 42) after early-payment discount uptake', time: '1d ago' },
+    { type: 'new', text: 'New vendor "Atlas Manufacturing" added to public.vendors — KYC pending', time: '2d ago' },
+  ],
 };
 
 // ─── AI Summaries for each dashboard ────────────────────────────────────────
@@ -383,6 +463,7 @@ const DASHBOARD_SUMMARIES: Record<DashboardId, string> = {
   s2c: "4 contracts expiring within 30 days, 2 are high-value (>$500K) — renegotiation must start this week. Cost savings are tracking ahead at $2.8M vs $2.4M target. 3 vendors downgraded to Medium risk after score refresh. Legal added new compliance clause to templates.",
   grc: "Material weakness DEF-002 is 6 days from deadline — remediation evidence pending. SOX progress moved to 58% after 3 controls tested yesterday. Workflow automation saved 45 person-hours this month. New risk RSK-012 identified in R2R — GL balance discrepancy across subsidiaries.",
   excel: "",
+  sql: "Vendor Master DB shows 24,180 active vendors across 5 regions, with North leading at 38%. Outstanding invoices total 1.84M across public.invoices, with avg days-to-pay improving to 38d. 5 vendors crossed the 70+ risk-score threshold this week and need review. Hardware and Services categories together account for 54% of spend.",
 };
 
 const SHARE_EMAIL_TEMPLATES: Record<DashboardId, { subject: string; body: string }> = {
@@ -405,6 +486,10 @@ const SHARE_EMAIL_TEMPLATES: Record<DashboardId, { subject: string; body: string
   excel: {
     subject: 'Excel Data Quality Report — Issues Found',
     body: `Hi Team,\n\nHere's the Excel data quality report from Auditify:\n\nFILE: Invoice_Master.xlsx\n• Total rows: 24,806 across 6 sheets\n• Blank cells: 342\n• Duplicate rows: 89\n• Type mismatches: 47\n• Data completeness: 96.8%\n\nTOP ISSUES\n1. 142 issues in Invoices sheet — mostly type mismatches in Amount column\n2. 87 issues in Vendors sheet — missing email addresses\n3. Date format inconsistencies in 23 rows\n\nGenerated by Auditify`,
+  },
+  sql: {
+    subject: 'Live SQL — Vendor Risk Snapshot',
+    body: `Hi Team,\n\nHere's today's Vendor Risk snapshot from Auditify Copilot, sourced live from Vendor Master (PostgreSQL):\n\nALERTS\n• 5 vendors crossed the 70+ risk-score threshold — review needed before next payment batch\n• Atlas Manufacturing pending KYC verification\n\nMETRICS\n• Active vendors: 24,180\n• Outstanding invoices: 1.84M\n• Avg risk score: 42\n• Avg days-to-pay: 38d (improved from 42d)\n\nTOP CATEGORIES BY SPEND\n1. Hardware\n2. Services\n3. Logistics\n\nGenerated by Auditify Copilot — Live SQL`,
   },
 };
 
@@ -441,6 +526,7 @@ const AI_SUMMARIES: Record<DashboardId, string> = {
   s2c: '12 contracts expire within 30 days across 3 business units. Vendor TechParts Ltd compliance score dropped below 75% threshold. 4 contracts pending legal review — recommend prioritizing the ₹2.1Cr IT services renewal.',
   grc: '2 critical risks in P2P have zero controls mapped. SOD violation detected in AP module — user JSmith has both invoice approval and payment release access. 3 audit findings from Q1 remain open past remediation deadline.',
   excel: '',
+  sql: 'Vendor Master DB carries 24,180 active vendors across 5 regions. 5 vendors crossed the 70+ risk-score threshold this week — review before next payment batch. Avg days-to-pay improved to 38d after the early-payment discount drive. Hardware + Services account for 54% of spend; Procurement department drove an 18% MoM uplift in invoice volume.',
 };
 
 function EmptyAlertsPanel() {
@@ -1485,7 +1571,7 @@ const RISK_COLORS: Record<string, string> = {
 
 const TIME_PERIODS = ['Today', '7D', '30D', '3M', '6M', '12M'];
 
-function ExpandedWidgetModal({ open, onClose, title, subtitle, children, onEdit, onDelete, onPrev, onNext, hasPrev, hasNext, isTable, autoOpenEditSidebar, onEditSidebarOpened, onOpenAddData, widgetChartType, customizeState, onCustomizeChange, xField, yField, legendField, onXFieldChange, onYFieldChange, onLegendFieldChange, isExcelDashboard }: {
+function ExpandedWidgetModal({ open, onClose, title, subtitle, children, onEdit, onDelete, onPrev, onNext, hasPrev, hasNext, isTable, autoOpenEditSidebar, onEditSidebarOpened, onOpenAddData, widgetChartType, customizeState, onCustomizeChange, xField, yField, legendField, onXFieldChange, onYFieldChange, onLegendFieldChange, isExcelDashboard, dataSourceInfo }: {
   open: boolean;
   onClose: () => void;
   title: string;
@@ -1511,6 +1597,7 @@ function ExpandedWidgetModal({ open, onClose, title, subtitle, children, onEdit,
   onYFieldChange?: (v: string) => void;
   onLegendFieldChange?: (v: string) => void;
   isExcelDashboard?: boolean;
+  dataSourceInfo?: { type: 'sql' | 'excel' | 'csv' | 'query'; name: string; meta: string };
 }) {
   const [activeTab, setActiveTab] = useState<'visualization' | 'records' | 'summary'>(isTable ? 'records' : 'visualization');
   const [timePeriod, setTimePeriod] = useState('30D');
@@ -1793,9 +1880,19 @@ function ExpandedWidgetModal({ open, onClose, title, subtitle, children, onEdit,
                           className="text-[13px] font-semibold text-ink-900 cursor-text hover:text-brand-600 transition-colors"
                           onClick={() => setEditingExpandTitle(true)}
                         >{expandTitle}</span>
-                        <span className="flex items-center gap-1 text-[10px] text-ink-400">
-                          <FileText size={10} className="text-green-600" /> Excel · Invoice_Master.xlsx
-                        </span>
+                        {dataSourceInfo?.type === 'sql' ? (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 text-[10px] font-semibold" title={`${dataSourceInfo.name}${dataSourceInfo.meta ? ' · ' + dataSourceInfo.meta : ''}`}>
+                            <Database size={10} /> SQL{dataSourceInfo.name ? ` · ${dataSourceInfo.name}` : ''}
+                          </span>
+                        ) : dataSourceInfo?.type === 'query' ? (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 text-[10px] font-semibold">
+                            <MessageSquare size={10} /> Query{dataSourceInfo.name ? ` · ${dataSourceInfo.name}` : ''}
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1 text-[10px] text-ink-400">
+                            <FileText size={10} className="text-green-600" /> Excel · Invoice_Master.xlsx
+                          </span>
+                        )}
                       </span>
                     )}
                   </div>
@@ -3068,7 +3165,17 @@ function WidgetCard({
             <div className="flex items-center gap-2 mt-0.5" onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => { e.stopPropagation(); setEditingTitle(true); setEditingSubtitle(true); }}>
               {localSubtitle && <p className="text-[11px] text-ink-500 truncate">{localSubtitle}</p>}
               {localSubtitle && <span className="text-ink-300 text-[9px]">·</span>}
-              <span className="inline-flex items-center gap-1 text-[9px] text-ink-400 shrink-0"><FileText size={8} className="text-green-600" /> Excel</span>
+              {dataSourceInfo?.type === 'sql' ? (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 text-[9px] font-semibold shrink-0" title={`${dataSourceInfo.name}${dataSourceInfo.meta ? ' · ' + dataSourceInfo.meta : ''}`}>
+                  <Database size={8} /> SQL
+                </span>
+              ) : dataSourceInfo?.type === 'query' ? (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 text-[9px] font-semibold shrink-0">
+                  <MessageSquare size={8} /> Query
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-[9px] text-ink-400 shrink-0"><FileText size={8} className="text-green-600" /> Excel</span>
+              )}
               {dataLinksFromParent && dataLinksFromParent.length > 0 && (() => {
                 const widgetLabels = (widgetFields || []).map(id => DRAG_FIELDS.find(f => f.id === id)?.label).filter(Boolean);
                 const relevantCount = dataLinksFromParent.filter(l => widgetLabels.includes(l.fieldA) || widgetLabels.includes(l.fieldB)).length;
@@ -3691,12 +3798,47 @@ interface DashboardProps {
   initialDashboardId?: string | null;
   initialDashboardName?: string | null;
   initialCustomFields?: string[] | null;
+  /** Source the dashboard was created with (DB connection, file, etc.). Drives
+   * the live-SQL chip in the header, refresh visibility, and the Add Widget
+   * data source panel. Undefined for seed dashboards from the static catalog. */
+  initialDataSource?: { type: 'excel' | 'csv' | 'sql' | 'query' | 'combo'; sourceId?: string; sourceName?: string };
+  /** All source names attached to this dashboard. Combo dashboards have many;
+   *  single-source dashboards have one. The Add Data modal renders this list
+   *  so users can pick a primary or attach more. */
+  initialDataSourceNames?: string[];
   savedWidgets?: Array<{ chartType: string; title: string; xField: string; yField: string; color?: string; fontFamily?: string; seriesColors?: Record<string, string> }>;
   onSaveWidgets?: (widgets: Array<{ chartType: string; title: string; xField: string; yField: string; color?: string; fontFamily?: string; seriesColors?: Record<string, string> }>) => void;
+  /** Persist any change to the dashboard's source binding (attach a new
+   *  source, swap primary, change DB) back into App state. */
+  onUpdateDashboardSource?: (patch: { dataSource?: 'excel' | 'csv' | 'sql' | 'query' | 'combo'; sourceId?: string; dataSourceNames?: string[] }) => void;
+  /** Navigate to Knowledge Hub, optionally focused on the given source. Wired
+   *  by the header chip click and the Add Widget empty state. */
+  onOpenKnowledgeHub?: (sourceId?: string) => void;
   onBack?: () => void;
   onImportPowerBI?: () => void;
   onShare?: () => void;
 }
+
+// Source binding for seed (catalog) dashboards. Used when `initialDataSource`
+// is not supplied (i.e. the user clicked a built-in dashboard rather than
+// creating their own). Carries `sourceId`/`sourceName` for live-SQL seeds so
+// the header chip + AddCardModal DB tree light up automatically without the
+// user having to attach a connection.
+type SeedSourceBinding = {
+  type: 'excel' | 'csv' | 'sql' | 'query' | 'combo';
+  sourceId?: string;
+  sourceName?: string;
+};
+const SEED_DASHBOARD_SOURCE: Record<'p2p' | 'o2c' | 's2c' | 'grc' | 'excel' | 'sql', SeedSourceBinding> = {
+  p2p:   { type: 'excel' },
+  o2c:   { type: 'query' },
+  s2c:   { type: 'combo' },
+  grc:   { type: 'sql' },
+  excel: { type: 'excel' },
+  // Sample SQL dashboard — pre-bound to the Vendor Master Postgres connection
+  // so the demo doesn't require the user to attach anything.
+  sql:   { type: 'sql', sourceId: 'db-02', sourceName: 'Vendor Master' },
+};
 
 // ─── Connect Tables Modal ────────────────────────────────────────────────────
 // Uses the real DRAG_FIELDS from this dashboard, split into the two actual
@@ -3749,14 +3891,26 @@ const FILE_SOURCES = [
   },
 ];
 
-function ConnectTablesModal({ open, onClose, addToast, links, setLinks }: { open: boolean; onClose: () => void; addToast: (t: { message: string; type: ToastType }) => void; links: FieldLink[]; setLinks: React.Dispatch<React.SetStateAction<FieldLink[]>> }) {
+interface ConnectTablesSource { id: string; name: string; fields: string[] }
+
+function ConnectTablesModal({ open, onClose, addToast, links, setLinks, sources }: {
+  open: boolean;
+  onClose: () => void;
+  addToast: (t: { message: string; type: ToastType }) => void;
+  links: FieldLink[];
+  setLinks: React.Dispatch<React.SetStateAction<FieldLink[]>>;
+  /** Sources to choose from. When provided, replaces the static FILE_SOURCES.
+   *  Used by SQL / combo dashboards to expose real DB tables alongside files. */
+  sources?: ConnectTablesSource[];
+}) {
   const [pickedA, setPickedA] = useState<string | null>(null);
   const [pickedB, setPickedB] = useState<string | null>(null);
   const [selectingField, setSelectingField] = useState<{ side: 'A' | 'B'; field: string } | null>(null);
   const [detecting, setDetecting] = useState(false);
 
-  const srcA = FILE_SOURCES.find(s => s.id === pickedA);
-  const srcB = FILE_SOURCES.find(s => s.id === pickedB);
+  const SOURCES = sources && sources.length > 0 ? sources : FILE_SOURCES;
+  const srcA = SOURCES.find(s => s.id === pickedA);
+  const srcB = SOURCES.find(s => s.id === pickedB);
   const inFieldMode = pickedA && pickedB && srcA && srcB;
 
   const linkedForPair = links.filter(l =>
@@ -4131,7 +4285,7 @@ function ConnectTablesModal({ open, onClose, addToast, links, setLinks }: { open
   );
 }
 
-export default function DashboardView({ initialDashboardId, initialDashboardName, initialCustomFields, savedWidgets = [], onSaveWidgets, onBack, onImportPowerBI, onShare }: DashboardProps = {}) {
+export default function DashboardView({ initialDashboardId, initialDashboardName, initialCustomFields, initialDataSource, initialDataSourceNames, savedWidgets = [], onSaveWidgets, onUpdateDashboardSource, onOpenKnowledgeHub, onBack, onImportPowerBI, onShare }: DashboardProps = {}) {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const isCustomInitial = !!initialDashboardId && !DASHBOARDS.some(d => d.id === initialDashboardId);
@@ -4139,6 +4293,30 @@ export default function DashboardView({ initialDashboardId, initialDashboardName
     !isCustomInitial && (initialDashboardId as DashboardId) && DASHBOARDS.some(d => d.id === initialDashboardId)
       ? (initialDashboardId as DashboardId)
       : 'p2p'
+  );
+
+  // Source binding is stateful inside the view so attach/set-primary actions
+  // reflect immediately. We also bubble each change up via
+  // `onUpdateDashboardSource` so App state persists across navigation.
+  // Custom dashboards carry it in `initialDataSource`; seed dashboards are
+  // looked up from SEED_DASHBOARD_SOURCE.
+  const seedKey: keyof typeof SEED_DASHBOARD_SOURCE =
+    !isCustomInitial && initialDashboardId && (initialDashboardId in SEED_DASHBOARD_SOURCE)
+      ? (initialDashboardId as keyof typeof SEED_DASHBOARD_SOURCE)
+      : 'p2p';
+  const seedBinding = SEED_DASHBOARD_SOURCE[seedKey];
+  const [dashboardSourceType, setDashboardSourceType] = useState<'excel' | 'csv' | 'sql' | 'query' | 'combo' | undefined>(
+    initialDataSource?.type ?? seedBinding.type,
+  );
+  const [dashboardSourceId, setDashboardSourceId] = useState<string | undefined>(
+    initialDataSource?.sourceId ?? seedBinding.sourceId,
+  );
+  const [dashboardSourceName, setDashboardSourceName] = useState<string | undefined>(
+    initialDataSource?.sourceName ?? seedBinding.sourceName,
+  );
+  const [dataSourceNames, setDataSourceNames] = useState<string[]>(
+    initialDataSourceNames
+      ?? (initialDataSource?.sourceName ? [initialDataSource.sourceName] : (seedBinding.sourceName ? [seedBinding.sourceName] : [])),
   );
 
   // Action bar state
@@ -4233,9 +4411,17 @@ export default function DashboardView({ initialDashboardId, initialDashboardName
   }, [filterDateRange, filterStatus, filterRisk, filterDepartment]);
 
   const handleRefresh = () => {
+    // Guard against overlap — if a refresh is already mid-flight (manual or
+    // auto-refresh-driven), skip this call. Without this, rapid clicks or an
+    // auto-refresh tick landing during a manual refresh produce overlapping
+    // setTimeout chains and visual thrash.
+    if (isRefreshing) return;
     setIsRefreshing(true);
-    // Set all widgets to loading
-    const widgetKeys = ['w1', 'w2', 'w3', 'w4', 'table'];
+    // Set all widgets to loading. Includes both the per-dashboard seed widgets
+    // (w1..w4 + table) and any user-added widgets, keyed by index.
+    const seedKeys = ['w1', 'w2', 'w3', 'w4', 'table'];
+    const userKeys = userWidgets.map((_, i) => `user-${i}`);
+    const widgetKeys = [...seedKeys, ...userKeys];
     const loading: Record<string, 'loading' | 'loaded' | 'error'> = {};
     widgetKeys.forEach(k => { loading[k] = 'loading'; });
     setWidgetLoadingStates(loading);
@@ -4258,6 +4444,38 @@ export default function DashboardView({ initialDashboardId, initialDashboardName
     }, 3000);
   };
 
+  // Keep refs to the latest handleRefresh and isRefreshing so the auto-refresh
+  // interval can call without re-arming on every render, and skip ticks that
+  // would overlap with an in-flight manual refresh.
+  const handleRefreshRef = useRef(handleRefresh);
+  handleRefreshRef.current = handleRefresh;
+  const isRefreshingRef = useRef(isRefreshing);
+  isRefreshingRef.current = isRefreshing;
+
+  // Auto-refresh interval. Demo intervals are compressed (Daily=60s) so the
+  // behavior is observable in a session; real intervals would be 86_400_000
+  // (Daily) etc. Off = no interval. Ticks that land during an in-flight
+  // refresh are silently skipped — the next tick catches up.
+  useEffect(() => {
+    const intervalMs: Record<string, number | null> = {
+      Off: null,
+      Daily: 60_000,
+      Weekly: 300_000,
+      Biweekly: 600_000,
+      Monthly: 1_200_000,
+      Quarterly: 1_800_000,
+      'Semi-Annually': 2_700_000,
+      Annually: 3_600_000,
+    };
+    const ms = intervalMs[autoRefreshFrequency];
+    if (!ms) return;
+    const handle = setInterval(() => {
+      if (isRefreshingRef.current) return;
+      handleRefreshRef.current();
+    }, ms);
+    return () => clearInterval(handle);
+  }, [autoRefreshFrequency]);
+
   const handleExport = () => {
     if (isExporting) return;
     setIsExporting(true);
@@ -4279,7 +4497,26 @@ export default function DashboardView({ initialDashboardId, initialDashboardName
   if (loading) return <DashboardSkeleton />;
 
   const dashboard = DASHBOARDS.find(d => d.id === activeId) || DASHBOARDS[0];
+  // True only for the canonical Excel sample dashboard. Drives Excel-specific
+  // UX (Summary tab in expanded widget, alerts panel hide, hasAlert flag).
+  // Distinct from `isStaticFileDashboard`, which captures excel + csv for
+  // refresh-visibility purposes.
   const isExcelDashboard = activeId === 'excel';
+  const isStaticFileDashboard = dashboardSourceType === 'excel' || dashboardSourceType === 'csv';
+  const isLiveSqlDashboard = dashboardSourceType === 'sql' && !!dashboardSourceId;
+  const sqlIntegration = isLiveSqlDashboard ? INTEGRATION_CONFIGS[dashboardSourceId!] : undefined;
+
+  // dataSourceInfo passed to every WidgetCard so each tile (and the expand
+  // modal) shows the right badge — SQL badge for live-SQL dashboards, Query
+  // for query dashboards, default Excel badge otherwise.
+  const widgetDataSourceInfo: { type: 'sql' | 'excel' | 'csv' | 'query'; name: string; meta: string } | undefined =
+    dashboardSourceType === 'sql' || dashboardSourceType === 'csv' || dashboardSourceType === 'query'
+      ? {
+          type: dashboardSourceType,
+          name: dashboardSourceName ?? '',
+          meta: sqlIntegration?.provider ?? '',
+        }
+      : undefined;
   const displayName = dashName || dashboard.name;
   const displaySubtitle = isCustomDashboard ? 'Custom dashboard' : dashboard.subtitle;
 
@@ -4337,20 +4574,28 @@ export default function DashboardView({ initialDashboardId, initialDashboardName
                   )}
                 </div>
                 <div className="flex items-center gap-2">
-                  {/* Refreshed indicator — hidden for Excel */}
-                  {!isExcelDashboard && (
+                  {/* Header DB chip removed — per-widget badge surfaces the
+                      bound DB name + provider on each card and inside the
+                      expand modal instead. Less header clutter. */}
+
+                  {/* Refreshed indicator — hidden for static file dashboards */}
+                  {!isStaticFileDashboard && (
                   <button
                     onClick={handleRefresh}
-                    className="flex items-center gap-1.5 px-4 h-9 border border-canvas-border bg-white rounded-full text-[12px] text-ink-500 hover:border-brand-200 shadow-sm transition-colors cursor-pointer"
-                    title="Click to refresh"
+                    disabled={isRefreshing}
+                    aria-busy={isRefreshing}
+                    className={`flex items-center gap-1.5 px-4 h-9 border border-canvas-border bg-white rounded-full text-[12px] text-ink-500 shadow-sm transition-colors ${
+                      isRefreshing ? 'opacity-60 cursor-not-allowed' : 'hover:border-brand-200 cursor-pointer'
+                    }`}
+                    title={isRefreshing ? 'Refresh in progress…' : 'Click to refresh'}
                   >
                     <RefreshCw size={13} className={isRefreshing ? 'animate-spin text-brand-600' : ''} />
-                    <span className="tabular-nums">Refreshed {lastRefreshTime}</span>
+                    <span className="tabular-nums">{isRefreshing ? 'Refreshing…' : `Refreshed ${lastRefreshTime}`}</span>
                   </button>
                   )}
 
-                  {/* Auto refresh with frequency dropdown — hidden for Excel */}
-                  {!isExcelDashboard && (
+                  {/* Auto refresh with frequency dropdown — hidden for static file dashboards */}
+                  {!isStaticFileDashboard && (
                   <div className="relative">
                     <button
                       onClick={() => setShowFrequencyDropdown(!showFrequencyDropdown)}
@@ -4406,8 +4651,8 @@ export default function DashboardView({ initialDashboardId, initialDashboardName
                     Add Widget
                   </button>
 
-                  {/* Connect Tables — hidden for Excel */}
-                  {!isExcelDashboard && (
+                  {/* Connect Tables — hidden for static file dashboards */}
+                  {!isStaticFileDashboard && (
                   <button
                     onClick={() => setConnectTablesOpen(true)}
                     className={`relative flex items-center justify-center size-9 rounded-lg transition-colors cursor-pointer border ${
@@ -4624,6 +4869,9 @@ export default function DashboardView({ initialDashboardId, initialDashboardName
                     title={w.title}
                     subtitle={w.yField && w.xField ? `${w.yField} by ${w.xField}` : 'Custom widget'}
                     addToast={addToast}
+                    loading={widgetLoadingStates[`user-${i}`] === 'loading'}
+                    isFirstLoad={!hasLoadedOnce}
+                    dataSourceInfo={widgetDataSourceInfo}
                     colSpan={widgetSizes[i] || 1}
                     onChangeSize={(span) => setWidgetSizes(prev => ({ ...prev, [i]: span }))}
                     onMoveUp={i > 0 ? () => {
@@ -4736,6 +4984,7 @@ export default function DashboardView({ initialDashboardId, initialDashboardName
               <WidgetCard
                 title={dashboard.lineTrend?.title || 'Detection Accuracy Goals'}
                 subtitle="Performance over time"
+                dataSourceInfo={widgetDataSourceInfo}
                 addToast={addToast}
                 onExpand={() => setExpandedWidget({ title: dashboard.lineTrend?.title || 'Detection Accuracy Goals', subtitle: 'Performance over time' })}
                 onEdit={() => handleEditDefaultWidget(dashboard.lineTrend?.title || 'Detection Accuracy Goals', 'line', 'Performance over time')}
@@ -4760,6 +5009,7 @@ export default function DashboardView({ initialDashboardId, initialDashboardName
               <WidgetCard
                 title={dashboard.progress?.title || 'Invoice Volume Trend'}
                 subtitle={dashboard.progress ? 'Sheet distribution' : 'Volume over time'}
+                dataSourceInfo={widgetDataSourceInfo}
                 addToast={addToast}
                 onExpand={() => setExpandedWidget({ title: dashboard.progress?.title || 'Invoice Volume Trend', subtitle: dashboard.progress ? 'Sheet distribution' : 'Volume over time' })}
                 onEdit={() => handleEditDefaultWidget(dashboard.progress?.title || 'Invoice Volume Trend', 'area', dashboard.progress ? 'Sheet distribution' : 'Volume over time')}
@@ -4784,6 +5034,7 @@ export default function DashboardView({ initialDashboardId, initialDashboardName
               <WidgetCard
                 title={dashboard.bars?.title || 'Monthly Invoice Volume'}
                 subtitle="Trend analysis"
+                dataSourceInfo={widgetDataSourceInfo}
                 addToast={addToast}
                 onExpand={() => setExpandedWidget({ title: dashboard.bars?.title || 'Monthly Invoice Volume', subtitle: 'Trend analysis' })}
                 onEdit={() => handleEditDefaultWidget(dashboard.bars?.title || 'Monthly Invoice Volume', 'clustered-column', 'Trend analysis')}
@@ -4807,6 +5058,7 @@ export default function DashboardView({ initialDashboardId, initialDashboardName
               <WidgetCard
                 title={dashboard.donut?.title || 'Invoice Status'}
                 subtitle="Distribution breakdown"
+                dataSourceInfo={widgetDataSourceInfo}
                 addToast={addToast}
                 onExpand={() => setExpandedWidget({ title: dashboard.donut?.title || 'Invoice Status', subtitle: 'Distribution breakdown' })}
                 onEdit={() => handleEditDefaultWidget(dashboard.donut?.title || 'Invoice Status', 'pie', 'Distribution breakdown')}
@@ -4838,6 +5090,7 @@ export default function DashboardView({ initialDashboardId, initialDashboardName
               <WidgetCard
                 title={dashboard.table.title}
                 subtitle="Detailed records"
+                dataSourceInfo={widgetDataSourceInfo}
                 addToast={addToast}
                 onExpand={() => setExpandedWidget({ title: dashboard.table.title, subtitle: 'Detailed records' })}
                 onEdit={() => handleEditDefaultWidget(dashboard.table.title, 'table', 'Detailed records')}
@@ -4978,6 +5231,7 @@ export default function DashboardView({ initialDashboardId, initialDashboardName
         onYFieldChange={(v) => { setExpandYField(v); setExpandCustomize(prev => ({ ...prev, yAxisTitle: v })); }}
         onLegendFieldChange={setExpandLegendField}
         isExcelDashboard={isExcelDashboard}
+        dataSourceInfo={widgetDataSourceInfo}
         hasPrev={currentIdx > 0}
         hasNext={currentIdx < allWidgetTitles.length - 1 && currentIdx >= 0}
         onPrev={() => { if (currentIdx > 0) setExpandedWidget(allWidgetTitles[currentIdx - 1]); }}
@@ -5220,10 +5474,49 @@ export default function DashboardView({ initialDashboardId, initialDashboardName
         onOpenExcelUpload={() => addToast({ message: 'Upload Excel', type: 'info' })}
         onOpenQueryModal={() => addToast({ message: 'Open Query', type: 'info' })}
         onOpenAddData={() => setAddDataOpen(true)}
+        onOpenKnowledgeHub={onOpenKnowledgeHub}
+        dashboardSource={dashboardSourceType ? {
+          type: dashboardSourceType,
+          sourceId: dashboardSourceId,
+          sourceName: dashboardSourceName,
+        } : undefined}
       />
       <AddDataModal
         open={addDataOpen}
         onClose={() => setAddDataOpen(false)}
+        connectedSources={dataSourceNames.map(name => {
+          const seed = SEED.find(s => s.name === name);
+          return seed
+            ? { id: seed.id, name: seed.name, type: seed.type, subtype: seed.subtype }
+            : { name, type: name.toLowerCase().endsWith('.csv') ? ('file' as const) : name.toLowerCase().match(/\.(xlsx|xls)$/) ? ('file' as const) : name.includes('query') ? ('query' as const) : ('database' as const) };
+        })}
+        primarySourceId={dashboardSourceId}
+        onAttach={(src) => {
+          // Append to dataSourceNames; flip dashboard to 'combo' if it was
+          // single-source and the user is adding a different one.
+          if (dataSourceNames.includes(src.name)) {
+            addToast({ message: `${src.name} is already attached`, type: 'info' });
+            return;
+          }
+          const nextNames = [...dataSourceNames, src.name];
+          setDataSourceNames(nextNames);
+          const nextType: 'excel' | 'csv' | 'sql' | 'query' | 'combo' =
+            (dashboardSourceType && dashboardSourceType !== 'combo' && nextNames.length > 1) ? 'combo' : (dashboardSourceType ?? 'combo');
+          setDashboardSourceType(nextType);
+          onUpdateDashboardSource?.({ dataSource: nextType, dataSourceNames: nextNames, sourceId: dashboardSourceId });
+          addToast({ message: `Attached ${src.name}`, type: 'success' });
+        }}
+        onSetPrimary={(src) => {
+          // Swap dashboard's primary source. Updates type, sourceId, sourceName
+          // to point at the picked entry.
+          const nextType: 'excel' | 'csv' | 'sql' | 'query' | 'combo' =
+            src.type === 'database' ? 'sql' : src.type === 'file' ? (src.subtype === 'CSV' ? 'csv' : 'excel') : src.type === 'query' ? 'query' : (dashboardSourceType ?? 'sql');
+          setDashboardSourceType(nextType);
+          setDashboardSourceId(src.id);
+          setDashboardSourceName(src.name);
+          onUpdateDashboardSource?.({ dataSource: nextType, sourceId: src.id, dataSourceNames });
+          addToast({ message: `Primary source set to ${src.name}`, type: 'success' });
+        }}
       />
     </div>
   );

@@ -4,6 +4,7 @@ import { Sparkles } from 'lucide-react';
 import { useAppState } from './hooks/useAppState';
 import { ToastProvider } from './components/shared/Toast';
 import { BulkRunProgressProvider } from './components/shared/BulkRunProgress';
+import { GENERATED_REPORTS } from './data/mockData';
 import Sidebar from './components/sidebar/Sidebar';
 import ChatView from './components/chat/ChatView';
 import ArtifactPanel from './components/artifacts/ArtifactPanel';
@@ -17,6 +18,7 @@ import AuditExecution from './components/audit/AuditExecution';
 import DashboardView from './components/dashboard/DashboardView';
 import DashboardListPage from './components/dashboard/DashboardListPage';
 import ReportsView, { CUSTOM_TEMPLATES } from './components/reports/ReportsView';
+import { REPORT_TEMPLATES } from './data/mockData';
 import HomeView from './components/home/HomeView';
 import RecentsView from './components/recents/RecentsView';
 import KnowledgeHubView from './components/knowledge/KnowledgeHubView';
@@ -38,6 +40,7 @@ import WorkflowBuilderJourney from './components/concierge-workflow-builder/Work
 import AdminView from './components/admin/AdminView';
 import FindingsView from './components/execution/FindingsView';
 import WorkflowExecutor from './components/workflow/WorkflowExecutor';
+import WorkflowEditInChatJourney from './components/workflow-edit-in-chat/WorkflowEditInChatJourney';
 import EngagementDetailView from './components/engagement/EngagementDetailView';
 import ControlDetailDrawer from './components/engagement/ControlDetailDrawer';
 import ManageExceptionsView from './components/exceptions/ManageExceptionsView';
@@ -49,6 +52,20 @@ const LAUNCHED_FROM_REPORT =
   typeof window !== 'undefined' &&
   new URLSearchParams(window.location.search).has('from') &&
   new URLSearchParams(window.location.search).get('view') === 'manage-exceptions';
+
+// Built-in dashboards exposed to the "Add to Dashboard" modal in ChatView
+const BUILTIN_DASHBOARDS = [
+  { id: 'p2p', name: 'Procurement (P2P)', description: 'Procure-to-Pay analytics', accent: 'bg-brand-50 text-brand-700' },
+  { id: 'grc', name: 'GRC Overview', description: 'Governance, risk & compliance', accent: 'bg-brand-50 text-brand-700' },
+  { id: 'o2c', name: 'Order to Cash (O2C)', description: 'Revenue & collections overview', accent: 'bg-brand-50 text-brand-700' },
+  { id: 's2c', name: 'Source to Contract (S2C)', description: 'Sourcing & contract management', accent: 'bg-brand-50 text-brand-700' },
+];
+
+const SHARED_DASHBOARD_OPTIONS = [
+  { id: 'shared-1', name: 'Vendor Risk Assessment', description: 'Evaluation of vendor risk profiles', accent: 'bg-brand-50 text-brand-700', sharedBy: 'Sarah Johnson' },
+  { id: 'shared-2', name: 'SOX Compliance Tracker', description: 'SOX compliance progress and control testing', accent: 'bg-brand-50 text-brand-700', sharedBy: 'Michael Chen' },
+  { id: 'shared-3', name: 'GL Reconciliation Monitor', description: 'General Ledger reconciliation status', accent: 'bg-brand-50 text-brand-700', sharedBy: 'Sneha Desai' },
+];
 
 export default function App() {
   const {
@@ -80,6 +97,8 @@ export default function App() {
     saveDashboardWidgets,
     addCreatedDashboard,
     deleteCreatedDashboard,
+    updateDashboardSource,
+    openKnowledgeHub,
     setPendingDashboard,
     openExecutionPanel,
     closeExecutionPanel,
@@ -91,9 +110,23 @@ export default function App() {
   const mainScrollRef = useRef<HTMLDivElement>(null);
   const [viewLoading, setViewLoading] = useState(false);
   const [controlDrawerId, setControlDrawerId] = useState<string | null>(null);
+  const [controlDrawerData, setControlDrawerData] = useState<any>(null);
   const [engagementBackView, setEngagementBackView] = useState<'programs' | 'audit-planning' | 'business-processes'>('programs');
   type CustomTemplate = typeof CUSTOM_TEMPLATES[number];
-  const [customTemplates, setCustomTemplates] = useState<CustomTemplate[]>(CUSTOM_TEMPLATES);
+  const CUSTOM_TEMPLATES_KEY = 'irame.reports.customTemplates.v1';
+  const [customTemplates, setCustomTemplates] = useState<CustomTemplate[]>(() => {
+    try {
+      const raw = localStorage.getItem(CUSTOM_TEMPLATES_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed as CustomTemplate[];
+      }
+    } catch { /* ignore */ }
+    return CUSTOM_TEMPLATES;
+  });
+  useEffect(() => {
+    try { localStorage.setItem(CUSTOM_TEMPLATES_KEY, JSON.stringify(customTemplates)); } catch { /* ignore */ }
+  }, [customTemplates]);
   const addCustomTemplate = (t: CustomTemplate) => setCustomTemplates(prev => [t, ...prev]);
 
   useEffect(() => {
@@ -210,6 +243,47 @@ export default function App() {
               }}
               onDismissPendingDashboard={() => setPendingDashboard(null)}
               onLaunchWorkflowBuilder={launchWorkflowBuilderWithPrompt}
+              availableDashboards={[
+                ...state.createdDashboards.map(d => ({ id: d.id, name: d.name, description: d.description, accent: d.accent })),
+                ...BUILTIN_DASHBOARDS,
+                ...SHARED_DASHBOARD_OPTIONS,
+              ]}
+              availableReports={GENERATED_REPORTS.map(r => ({ id: r.id, name: r.name, status: r.status as 'draft' | 'final', generatedBy: r.generatedBy }))}
+              onAddResultToDashboard={(payload) => {
+                if (payload.isNew && payload.newName) {
+                  addCreatedDashboard({
+                    id: payload.dashboardId,
+                    name: payload.newName,
+                    description: payload.newDescription || 'Created from chat',
+                    timeAgo: 'Just now',
+                    creator: 'You',
+                    accent: 'bg-brand-50 text-brand-700',
+                  });
+                }
+                // Build widget stubs from granular selection
+                const widgetStubs: { chartType: string; title: string; xField: string; yField: string }[] = [];
+                if (payload.selection.kpis.length > 0) {
+                  widgetStubs.push({ chartType: 'kpi', title: 'Query KPIs', xField: 'Category', yField: 'Value' });
+                }
+                for (const chartId of payload.selection.charts) {
+                  widgetStubs.push({ chartType: 'bar', title: chartId, xField: 'Category', yField: 'Count' });
+                }
+                if (payload.selection.columns.length > 0) {
+                  widgetStubs.push({ chartType: 'table', title: 'Query Results', xField: payload.selection.columns[0], yField: payload.selection.columns[1] || payload.selection.columns[0] });
+                }
+                const existing = state.dashboardWidgets[payload.dashboardId] || [];
+                saveDashboardWidgets(payload.dashboardId, [...existing, ...widgetStubs]);
+              }}
+              onAddResultToReport={(payload) => {
+                // Report builder doesn't have widget persistence yet — for hackathon
+                // the message-level addedTo state (handled in ChatView) is sufficient.
+                // In production, this would append sections to the report draft.
+                if (payload.isNew) {
+                  // Could add to a reports list — skipped for hackathon scope
+                }
+              }}
+              onViewDashboard={(id) => openDashboard(id)}
+              onViewReport={() => setView('reports')}
             /></div>
             <AnimatePresence>
               {renderArtifactPanel()}
@@ -251,6 +325,14 @@ export default function App() {
           <WorkflowExecutor
             workflowId={state.selectedWorkflowId!}
             onBack={() => setSelectedWorkflow(null)}
+          />
+        );
+
+      case 'workflow-edit-in-chat':
+        return (
+          <WorkflowEditInChatJourney
+            workflowId={state.selectedWorkflowId!}
+            onBack={() => setView('workflow-detail')}
           />
         );
 
@@ -296,7 +378,7 @@ export default function App() {
           <EngagementDetailView
             engagementId={state.selectedEngagementId ?? undefined}
             onBack={() => setView(engagementBackView)}
-            onOpenControl={(controlId) => setControlDrawerId(controlId)}
+            onOpenControl={(controlId, controlData) => { setControlDrawerId(controlId); setControlDrawerData(controlData || null); }}
           />
         );
 
@@ -308,6 +390,7 @@ export default function App() {
             createdDashboards={state.createdDashboards}
             onCreateDashboard={addCreatedDashboard}
             onDeleteDashboard={deleteCreatedDashboard}
+            onUpdateDashboardSource={updateDashboardSource}
             onOpenChat={(pending) => {
               if (pending) setPendingDashboard(pending);
               setView('chat');
@@ -315,19 +398,31 @@ export default function App() {
           />
         );
 
-      case 'dashboard-detail':
+      case 'dashboard-detail': {
+        const created = state.createdDashboards.find(d => d.id === state.selectedDashboardId);
         return (
           <DashboardView
             initialDashboardId={state.selectedDashboardId}
-            initialDashboardName={state.createdDashboards.find(d => d.id === state.selectedDashboardId)?.name}
+            initialDashboardName={created?.name}
             initialCustomFields={state.dashboardCustomFields}
+            initialDataSource={created?.dataSource ? {
+              type: created.dataSource,
+              sourceId: created.sourceId,
+              sourceName: created.dataSourceNames?.[0],
+            } : undefined}
+            initialDataSourceNames={created?.dataSourceNames}
             savedWidgets={state.dashboardWidgets[state.selectedDashboardId || ''] || []}
             onSaveWidgets={(widgets) => saveDashboardWidgets(state.selectedDashboardId || '', widgets)}
+            onUpdateDashboardSource={(patch) => {
+              if (state.selectedDashboardId) updateDashboardSource(state.selectedDashboardId, patch);
+            }}
+            onOpenKnowledgeHub={openKnowledgeHub}
             onBack={() => setView('dashboards')}
             onImportPowerBI={() => setShowPowerBIWizard(true)}
             onShare={() => setShowShareModal(true, { type: 'dashboard', id: state.selectedDashboardId || 'dash-1' })}
           />
         );
+      }
 
       case 'reports':
       case 'report-history':
@@ -337,7 +432,7 @@ export default function App() {
             onShare={(id) => setShowShareModal(true, { type: 'report', id })}
             onManageExceptions={() => setView('manage-exceptions')}
             onOpenQuery={(q) => {
-              setChatInitialQuery(`Open the ${q.id} duplicate invoice query`);
+              setChatInitialQuery(`Open ${q.id}: ${q.title}`);
               setView('chat');
             }}
             customTemplates={customTemplates}
@@ -361,6 +456,7 @@ export default function App() {
             context={state.reportBuilderContext}
             onBack={() => setView('reports')}
             onSaveAsTemplate={addCustomTemplate}
+            existingTemplateNames={[...REPORT_TEMPLATES.map(t => t.name), ...customTemplates.map(t => t.name)]}
           />
         );
 
@@ -543,7 +639,8 @@ export default function App() {
           {controlDrawerId && (
             <ControlDetailDrawer
               controlId={controlDrawerId}
-              onClose={() => setControlDrawerId(null)}
+              controlData={controlDrawerData}
+              onClose={() => { setControlDrawerId(null); setControlDrawerData(null); }}
             />
           )}
         </AnimatePresence>

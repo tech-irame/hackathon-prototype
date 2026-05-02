@@ -20,9 +20,10 @@ import {
 } from "lucide-react";
 import { createPortal } from "react-dom";
 import { ConfigurableChart, PIE_DATA } from "./ConfigurableChart";
-import { FileTreeView } from "./FileTreeView";
+import { FileTreeView, type FileTreeFile } from "./FileTreeView";
 import { ColorPicker } from "./ColorPicker";
 import { WhiteDropdown } from "./WhiteDropdown";
+import { DB_SCHEMAS, INTEGRATION_CONFIGS } from "../../data-sources/datasetFiles";
 import TypographySection from "./imports/TypographySection-1760-98";
 import RangeYAxisSection from "./imports/RangeYAxisSection";
 import ConditionalFormattingSection from "./imports/ConditionalFormattingSection";
@@ -303,7 +304,15 @@ function AggDropdown({ value, onChange, fieldId }: { value: string; onChange: (v
   );
 }
 
-/* ─── Props ───────────────────────────────────────────────────────���─����������────── */
+/* ─── Props ─────────────────────────────────────────────────────────────────── */
+export interface AddCardDashboardSource {
+  type: 'excel' | 'csv' | 'sql' | 'query' | 'combo';
+  /** SEED id of the picked source — required for live-SQL dashboards. */
+  sourceId?: string;
+  /** Display name (file name or DB name). */
+  sourceName?: string;
+}
+
 interface AddCardModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -319,12 +328,19 @@ interface AddCardModalProps {
   onOpenExcelUpload?: () => void;
   onOpenQueryModal?: () => void;
   onOpenAddData?: () => void;
+  /** Jumps to the Knowledge Hub view, optionally focused on the given source.
+   *  Wired by the empty-state panel for unknown SQL sourceIds. */
+  onOpenKnowledgeHub?: (sourceId?: string) => void;
   isCreateDashboardMode?: boolean;
   onNavigateToBuilder?: (data: { cardType: string; config: any }) => void;
+  /** Source the parent dashboard is bound to. Drives the Data Source panel:
+   * for 'sql' we render the DB schema tree from DB_SCHEMAS instead of the
+   * canonical Excel demo files. */
+  dashboardSource?: AddCardDashboardSource;
 }
 
-/* ─── Modal ────���─────────────────────────────────────────────────────────── */
-export function AddCardModal({ open, onOpenChange, onSelectCard, mode = 'add', initialXAxis, initialYAxis, initialWidgetType, initialColor, initialFontFamily, initialName, initialSeriesColors, onOpenExcelUpload, onOpenQueryModal, onOpenAddData, isCreateDashboardMode = false, onNavigateToBuilder }: AddCardModalProps) {
+/* ─── Modal ─────────────────────────────────────────────────────────────────── */
+export function AddCardModal({ open, onOpenChange, onSelectCard, mode = 'add', initialXAxis, initialYAxis, initialWidgetType, initialColor, initialFontFamily, initialName, initialSeriesColors, onOpenExcelUpload, onOpenQueryModal, onOpenAddData, onOpenKnowledgeHub, isCreateDashboardMode = false, onNavigateToBuilder, dashboardSource }: AddCardModalProps) {
   const [activeTab, setActiveTab] = useState<"data" | "format">("data");
   const [selected, setSelected] = useState<WidgetDef | null>(null); // No default selection
   const [chartTypeOpen, setChartTypeOpen] = useState(true);
@@ -333,6 +349,10 @@ export function AddCardModal({ open, onOpenChange, onSelectCard, mode = 'add', i
   const [file1Open, setFile1Open] = useState(true);
   const [file2Open, setFile2Open] = useState(false);
   const [addDataOpen, setAddDataOpen] = useState(false);
+  // The widget renders against the dashboard's bound source. Picking an
+  // additional / different source happens via the Add Data button, which
+  // opens the shared AddDataModal (same as dashboard creation).
+  const widgetSource: AddCardDashboardSource | undefined = dashboardSource;
   
   // Widget name and description
   const [widgetName, setWidgetName] = useState("");
@@ -583,6 +603,45 @@ export function AddCardModal({ open, onOpenChange, onSelectCard, mode = 'add', i
   const dimensionFields = filteredFields.filter(f => f.kind === "dimension");
   const measureFields = filteredFields.filter(f => f.kind === "measure");
 
+  // ── Live-SQL widget: build the Database → Table → Column tree from
+  //    DB_SCHEMAS so the user gets real DB columns instead of the canonical
+  //    Excel demo files. We map each column's label back to an existing
+  //    FIELDS id when one matches, so dragged items reuse the same icons,
+  //    aggregations, and chart wiring as the Excel flow.
+  // Three SQL states need to be distinguished:
+  //   1. isSqlBound       — dashboard claims a SQL source but its sourceId is
+  //                          unknown OR has no published tables. Render empty
+  //                          state panel; do NOT fall through to Excel demos.
+  //   2. isSqlWidget       — known sourceId + tables present; render DB tree.
+  //   3. neither           — Excel/CSV/combo/query → existing demo files path.
+  const isSqlBound = widgetSource?.type === 'sql' && !!widgetSource?.sourceId;
+  const sqlBindingValid = isSqlBound && !!DB_SCHEMAS[widgetSource!.sourceId!] && DB_SCHEMAS[widgetSource!.sourceId!].length > 0;
+  const isSqlWidget = isSqlBound && sqlBindingValid;
+  const sqlTables = isSqlWidget ? DB_SCHEMAS[widgetSource!.sourceId!] : [];
+  const sqlIntegration = widgetSource?.sourceId ? INTEGRATION_CONFIGS[widgetSource.sourceId] : undefined;
+  const sqlHeaderName = isSqlWidget
+    ? `${widgetSource?.sourceName || 'Database'}${sqlIntegration?.provider ? ` · ${sqlIntegration.provider}` : ''}`
+    : '';
+  const sqlFiles: FileTreeFile[] = isSqlWidget ? [{
+    name: sqlHeaderName,
+    icon: 'database',
+    sheets: sqlTables.map(t => ({
+      name: `${t.schema}.${t.name}`,
+      columns: t.columns
+        .filter(c => !dataSearch || c.label.toLowerCase().includes(dataSearch.toLowerCase()))
+        .map(c => c.label),
+    })),
+  }] : [];
+  const sqlFieldIdMap: Record<string, string> = {};
+  if (isSqlWidget) {
+    for (const t of sqlTables) {
+      for (const c of t.columns) {
+        const existing = FIELDS.find(f => f.label === c.label || f.axisValue === c.label);
+        sqlFieldIdMap[c.label] = existing?.id || c.label;
+      }
+    }
+  }
+
   // Determine which datasource is active based on selected fields
   const getActiveDatasource = (): "file1" | "file2" | null => {
     const allSelectedIds = [...xFieldIds, ...yFieldIds];
@@ -728,23 +787,21 @@ export function AddCardModal({ open, onOpenChange, onSelectCard, mode = 'add', i
                 {/* ── DATA SOURCE section ── */}
                 <div className="bg-white rounded-[8px] border border-[#e5e7eb] overflow-hidden shadow-sm">
                   <div className="w-full flex items-center justify-between px-3 py-2.5 bg-gradient-to-r from-[#faf5ff] to-white border-b border-[#f0f0f0]">
-                    <div className="flex items-center gap-2">
-                      <div className="size-[18px] rounded-[4px]  flex items-center justify-center">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="size-[18px] rounded-[4px] flex items-center justify-center">
                         <Database className="size-[12px] text-[#6a12cd]" strokeWidth={2} />
                       </div>
-                      <span className="text-[12px] font-bold uppercase tracking-[0.8px] text-[#26064a]">Data Source</span>
+                      <span className="text-[12px] font-bold uppercase tracking-[0.8px] text-[#26064a] shrink-0">Data Source</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); onOpenAddData?.(); }}
-                        className="flex items-center gap-1 px-2 py-1 text-[10px] font-semibold text-white bg-[#6a12cd] hover:bg-[#5a0ebd] rounded-md transition-colors cursor-pointer shrink-0"
-                      >
-                        <Plus size={10} />
-                        Add Data
-                      </button>
-                    </div>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onOpenAddData?.(); }}
+                      className="flex items-center gap-1 px-2 py-1 text-[10px] font-semibold text-white bg-[#6a12cd] hover:bg-[#5a0ebd] rounded-md transition-colors cursor-pointer shrink-0"
+                    >
+                      <Plus size={10} />
+                      Add Data
+                    </button>
                   </div>
-                  
+
                   <div className="bg-[#fafafa]">
                       {/* Search */}
                       <div className="px-2.5 pt-2.5 pb-2">
@@ -752,7 +809,7 @@ export function AddCardModal({ open, onOpenChange, onSelectCard, mode = 'add', i
                           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-[11px] text-[#b0b8c4]" />
                           <input
                             type="text"
-                            placeholder="Search fields…"
+                            placeholder={isSqlWidget ? 'Search columns…' : 'Search fields…'}
                             value={dataSearch}
                             onChange={e => setDataSearch(e.target.value)}
                             className="w-full h-[32px] pl-8 pr-2.5 bg-white border border-[#e5e7eb] rounded-[6px] text-[12px] text-[#26064a] placeholder:text-[#c4c9d4] outline-none focus:border-[#6a12cd]/40 transition-colors"
@@ -760,18 +817,39 @@ export function AddCardModal({ open, onOpenChange, onSelectCard, mode = 'add', i
                         </div>
                       </div>
 
-                      {/* File → Sheet → Fields tree */}
-                      <div className="mx-2.5 mb-2.5">
-                        <FileTreeView
-                          files={[
-                            { name: 'Invoice_Master.xlsx', icon: 'excel', sheets: [{ name: 'Sheet1', columns: dimensionFields.slice(0, 8).map(f => f.label) }] },
-                            { name: 'Vendor_Finance.xlsx', icon: 'excel', sheets: [{ name: 'Sheet1', columns: measureFields.map(f => f.label) }] },
-                          ]}
-                          search={dataSearch}
-                          draggable
-                          fieldIdMap={Object.fromEntries(FIELDS.map(f => [f.label, f.id]))}
-                        />
-                      </div>
+                      {/* Empty state — SQL-bound but no published tables. Don't fall
+                          through to Excel demos; ask the user to publish in KH. */}
+                      {isSqlBound && !sqlBindingValid && (
+                        <div className="mx-2.5 mb-2.5 px-3 py-4 bg-white border border-dashed border-[#e5e7eb] rounded-[8px] text-center">
+                          <Database size={20} className="text-[#b0b8c4] mx-auto mb-2" strokeWidth={1.5} />
+                          <p className="text-[12px] font-semibold text-[#26064a] mb-1">No published tables</p>
+                          <p className="text-[11px] text-[#6b7280] mb-3 leading-relaxed">
+                            <span className="font-medium">{widgetSource?.sourceName || 'This connection'}</span> has no tables published to Knowledge Hub yet.
+                          </p>
+                          <button
+                            onClick={() => onOpenKnowledgeHub?.(widgetSource?.sourceId)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold text-white bg-[#6a12cd] hover:bg-[#5a0ebd] rounded-md transition-colors cursor-pointer"
+                          >
+                            <Database size={11} />
+                            Open Knowledge Hub
+                          </button>
+                        </div>
+                      )}
+
+                      {/* File → Sheet → Fields tree (or Database → Table → Column for live-SQL) */}
+                      {!(isSqlBound && !sqlBindingValid) && (
+                        <div className="mx-2.5 mb-2.5">
+                          <FileTreeView
+                            files={isSqlWidget ? sqlFiles : [
+                              { name: 'Invoice_Master.xlsx', icon: 'excel', sheets: [{ name: 'Sheet1', columns: dimensionFields.slice(0, 8).map(f => f.label) }] },
+                              { name: 'Vendor_Finance.xlsx', icon: 'excel', sheets: [{ name: 'Sheet1', columns: measureFields.map(f => f.label) }] },
+                            ]}
+                            search={dataSearch}
+                            draggable
+                            fieldIdMap={isSqlWidget ? sqlFieldIdMap : Object.fromEntries(FIELDS.map(f => [f.label, f.id]))}
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
 

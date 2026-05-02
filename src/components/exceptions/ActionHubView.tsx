@@ -26,7 +26,6 @@ import {
 } from '../../data/mockData';
 import ExceptionStatusTracker from './ExceptionStatusTracker';
 import ExceptionListDrawer from './ExceptionListDrawer';
-import GenerateATRModal from './GenerateATRModal';
 
 type DrillPreset = {
   key: string;
@@ -182,7 +181,7 @@ function CollapsibleSection({
   );
 }
 
-function CircularProgress({ pct, size = 64, stroke = 5, label }: { pct: number; size?: number; stroke?: number; label?: string }) {
+export function CircularProgress({ pct, size = 64, stroke = 5, label }: { pct: number; size?: number; stroke?: number; label?: React.ReactNode }) {
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   const dash = (pct / 100) * c;
@@ -256,6 +255,41 @@ function StatCard({
   );
 }
 
+
+function MetricCell({
+  label,
+  value,
+  tone,
+  onClick,
+}: {
+  label: string;
+  value: number;
+  tone?: 'brand' | 'evidence' | 'mitigated' | 'compliant' | 'risk';
+  onClick?: () => void;
+}) {
+  const valueColor = {
+    brand:     'text-brand-700',
+    evidence:  'text-evidence-700',
+    mitigated: 'text-mitigated-700',
+    compliant: 'text-compliant-700',
+    risk:      'text-risk-700',
+  };
+  const color = tone ? valueColor[tone] : 'text-ink-900';
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group text-left cursor-pointer flex flex-col gap-1.5 py-1 transition-opacity hover:opacity-70"
+    >
+      <span className={`font-display text-[36px] leading-none tabular-nums tracking-[-0.01em] ${color}`}>
+        {value}
+      </span>
+      <span className="text-[11.5px] text-ink-500 group-hover:text-ink-700 transition-colors">
+        {label}
+      </span>
+    </button>
+  );
+}
 
 function ClassificationDonut({ rows }: { rows: { label: string; count: number; tone: BreakdownTone }[] }) {
   const total = rows.reduce((sum, r) => sum + r.count, 0);
@@ -379,7 +413,6 @@ export default function ActionHubView() {
   const timeline = ACTION_HUB_TIMELINE;
 
   const [openPresetKey, setOpenPresetKey] = useState<string | null>(null);
-  const [atrModalOpen, setAtrModalOpen] = useState(false);
   const openPreset = openPresetKey ? resolvePreset(openPresetKey) : null;
   const presetExceptions = useMemo(
     () => (openPreset ? openPreset.ids.map(id => GRC_EXCEPTIONS.find(e => e.id === id)).filter(Boolean) as GrcException[] : []),
@@ -417,116 +450,146 @@ export default function ActionHubView() {
       transition={{ duration: 0.2 }}
       className="flex-1 overflow-auto"
     >
-      <div className="px-8 py-6 max-w-[1600px] mx-auto">
-        {/* Title row */}
-        <div className="flex items-start justify-between gap-6 mb-5">
-          <div>
-            <h1 className="font-display text-[26px] text-ink-900 font-semibold tracking-tight">Action Hub</h1>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-3 bg-brand-50/70 border border-brand-100 rounded-[12px] px-4 py-2.5">
-              <CircularProgress pct={s.reportHealthPct} size={48} stroke={4} label={`${s.reportHealthPct}%`} />
-              <div className="leading-tight">
-                <div className="text-[11px] text-ink-500">Report Health</div>
-                <div className="text-[14px] font-semibold text-ink-900">{s.reportHealthLabel}</div>
-              </div>
-            </div>
-            <button
-              onClick={() => setAtrModalOpen(true)}
-              className="h-11 px-4 inline-flex items-center gap-2 text-[13px] font-semibold text-white bg-brand-600 hover:bg-brand-500 rounded-[8px] cursor-pointer transition-colors"
-            >
-              <FileText size={15} />
-              Generate ATR
-            </button>
-          </div>
-        </div>
+      <div className="px-10 py-10 max-w-[1440px] mx-auto">
 
-        {/* ATR Readiness Check */}
-        <div className="bg-canvas-elevated border border-canvas-border rounded-[12px] p-5 mb-4">
-          <div className="flex items-center gap-4 mb-4">
-            <CircularProgress pct={s.atrReadiness.overallPct} size={56} stroke={5} label={`${s.atrReadiness.overallPct}%`} />
-            <div className="flex-1 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <ShieldCheck size={16} className="text-brand-700" />
-                <h3 className="text-[14px] font-semibold text-ink-900">ATR Readiness Check</h3>
-              </div>
-              <span className="inline-flex items-center h-6 px-2.5 text-[11px] font-medium bg-[#F4F2F7] text-ink-600 rounded-full tabular-nums">
-                {s.atrReadiness.completedSteps}/{s.atrReadiness.totalSteps} complete
-              </span>
-            </div>
-          </div>
-          <div className="grid grid-cols-3 gap-5">
-            {s.atrReadiness.steps.map(step => {
-              const pct = (step.current / step.total) * 100;
-              return (
-                <div key={step.id}>
-                  <div className="text-[12px] text-ink-700 mb-2">{step.label}</div>
-                  <div className="h-1.5 rounded-full bg-[#EEEEF1] overflow-hidden mb-1.5">
-                    <div className="h-full rounded-full bg-mitigated" style={{ width: `${pct}%` }} />
+        {/* ATR Readiness — centerpiece, in canvas card */}
+        <section className="mb-6 bg-canvas-elevated border border-canvas-border rounded-[12px] p-8">
+          <div className="grid grid-cols-[auto_1fr] gap-12 items-center">
+            <div className="flex flex-col items-center">
+              <CircularProgress
+                pct={s.atrReadiness.overallPct}
+                size={132}
+                stroke={7}
+                label={
+                  <div className="flex flex-col items-center">
+                    <span className="font-display text-[36px] leading-none text-ink-900 tabular-nums tracking-[-0.02em]">
+                      {s.atrReadiness.overallPct}<span className="text-[20px] text-ink-400 font-normal">%</span>
+                    </span>
+                    <span className="mt-1.5 text-[10px] uppercase tracking-[0.16em] text-ink-500 font-medium">Ready</span>
                   </div>
-                  <div className="text-[11px] text-ink-500 tabular-nums">{step.current}/{step.total}</div>
-                </div>
-              );
-            })}
+                }
+              />
+            </div>
+            <div>
+              <div className="flex items-baseline justify-between mb-1.5">
+                <h2 className="text-[16px] text-ink-900 font-semibold">ATR readiness check</h2>
+                <span className="text-[12px] text-ink-500 tabular-nums">{s.atrReadiness.completedSteps} of {s.atrReadiness.totalSteps} gates closed</span>
+              </div>
+              <p className="text-[12.5px] text-ink-500 mb-6 leading-relaxed max-w-[60ch]">
+                Three gates must close before the audit-to-record can be issued. Each tracks a checkpoint across the engagement.
+              </p>
+              <ol className="grid grid-cols-3 gap-x-10">
+                {s.atrReadiness.steps.map((step, idx) => {
+                  const pct = (step.current / step.total) * 100;
+                  const done = step.current >= step.total;
+                  return (
+                    <li key={step.id} className="flex flex-col">
+                      <div className="flex items-baseline gap-1.5 mb-3">
+                        <span className="text-[10.5px] uppercase tracking-wider text-ink-500 font-medium tabular-nums">0{idx + 1}</span>
+                      </div>
+                      <div className="flex items-baseline gap-1.5 mb-2">
+                        <span className={`font-display text-[28px] leading-none tabular-nums tracking-tight ${done ? 'text-compliant-700' : 'text-ink-900'}`}>
+                          {step.current}
+                        </span>
+                        <span className="text-[14px] text-ink-400 tabular-nums">/ {step.total}</span>
+                      </div>
+                      <div className="h-[3px] rounded-full bg-canvas-border overflow-hidden mb-2">
+                        <div className={`h-full rounded-full transition-all ${done ? 'bg-compliant' : 'bg-mitigated'}`} style={{ width: `${pct}%` }} />
+                      </div>
+                      <span className="text-[12.5px] text-ink-700 leading-snug">{step.label}</span>
+                    </li>
+                  );
+                })}
+              </ol>
+            </div>
           </div>
-        </div>
+        </section>
 
-        {/* Overdue banner */}
+        {/* Overdue strip — restrained urgency: soft risk tint, leading icon, serif anchor */}
         {s.overdue.length > 0 && (
           <button
             onClick={() => openDrawer('overdue')}
-            className="w-full flex items-center gap-4 bg-risk-50 border border-risk-50 rounded-[12px] p-4 mb-5 text-left hover:bg-risk-50/80 cursor-pointer transition-colors"
+            className="group w-full flex items-stretch gap-0 mb-6 text-left cursor-pointer rounded-[12px] bg-risk-50/70 border border-risk/15 hover:border-risk/30 hover:bg-risk-50 transition-colors overflow-hidden"
           >
-            <div className="w-9 h-9 rounded-full bg-risk-50 border border-risk/30 text-risk flex items-center justify-center shrink-0">
-              <AlertTriangle size={16} />
-            </div>
-            <div className="flex-1">
-              <div className="text-[14px] font-semibold text-risk-700 mb-1.5">
-                {s.overdue.length} Overdue Cases — Immediate Attention Required
+            <div className="w-[3px] bg-risk shrink-0" aria-hidden="true" />
+            <div className="flex-1 min-w-0 flex items-center gap-4 px-5 py-4">
+              <div className="w-9 h-9 rounded-full bg-risk-50 ring-1 ring-risk/25 text-risk flex items-center justify-center shrink-0">
+                <AlertTriangle size={16} strokeWidth={1.75} />
               </div>
-              <div className="flex items-center gap-2 flex-wrap">
-                {s.overdue.map(c => (
-                  <span
-                    key={c.id}
-                    className="inline-flex items-center gap-1.5 h-6 px-2.5 text-[11px] font-medium bg-canvas-elevated border border-risk/20 text-ink-700 rounded-full"
-                  >
-                    <span className="font-mono text-ink-700">{c.id}</span>
-                    <span className="text-ink-300">·</span>
-                    <span className="text-risk-700">{c.overdueLabel}</span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-baseline gap-2.5 mb-1">
+                  <span className="font-display text-[26px] leading-none text-risk-700 tabular-nums tracking-[-0.01em]">
+                    {s.overdue.length}
                   </span>
-                ))}
+                  <span className="text-[13.5px] text-ink-900 font-semibold">
+                    overdue {s.overdue.length === 1 ? 'case' : 'cases'} need immediate attention
+                  </span>
+                  <span className="text-[10.5px] uppercase tracking-[0.14em] text-risk font-semibold">
+                    Action required
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {s.overdue.map(c => (
+                    <span
+                      key={c.id}
+                      className="inline-flex items-center gap-1.5 h-6 px-2.5 text-[11px] font-medium bg-canvas-elevated border border-risk/20 text-ink-700 rounded-full"
+                    >
+                      <span className="font-mono text-ink-800">{c.id}</span>
+                      <span className="text-ink-300">·</span>
+                      <span className="text-risk-700 tabular-nums">{c.overdueLabel}</span>
+                    </span>
+                  ))}
+                </div>
               </div>
+              <ArrowRight size={16} className="text-risk-700 shrink-0 group-hover:translate-x-0.5 transition-transform" />
             </div>
-            <ArrowRight size={16} className="text-risk-700 shrink-0" />
           </button>
         )}
 
-        {/* Count stats */}
-        <div className="grid grid-cols-7 gap-3 mb-5">
-          <StatCard label="Total Exceptions" value={s.counts.total}        tone="default"   icon={AlertTriangle}  onClick={() => openDrawer('total')} />
-          <StatCard label="Classified"       value={s.counts.classified}   tone="brand"     icon={Tag}            navigable onClick={() => openDrawer('classified')} />
-          <StatCard label="Action Plans"     value={s.counts.actionPlans}  tone="evidence"  icon={ClipboardList}  navigable onClick={() => openDrawer('actionPlans')} />
-          <StatCard label="Open"             value={openCount}             tone="evidence"  icon={FileText}       navigable onClick={() => openDrawer('open')} />
-          <StatCard label="Closed"           value={s.counts.resolved}     tone="compliant" icon={CheckCircle2}   navigable onClick={() => openDrawer('resolved')} />
-          <StatCard label="In-Progress"      value={s.counts.underReview}  tone="mitigated" icon={Clock}          navigable onClick={() => openDrawer('underReview')} />
-          <StatCard label="Overdue"          value={s.counts.overdue}      tone="risk"      icon={AlertTriangle}  navigable onClick={() => openDrawer('overdue')} />
-        </div>
+        {/* Metric spine — single row, three groups, typographic emphasis */}
+        <section className="mb-6 bg-canvas-elevated border border-canvas-border rounded-[12px] p-8">
+          <div className="grid grid-cols-[3fr_4fr_3fr]">
+            {/* Snapshot */}
+            <div className="pr-8">
+              <div className="flex items-baseline justify-between mb-5">
+                <span className="text-[10.5px] uppercase tracking-[0.14em] text-ink-500 font-medium">Snapshot</span>
+                <span className="text-[10.5px] text-ink-400">Portfolio</span>
+              </div>
+              <div className="grid grid-cols-3 gap-x-3">
+                <MetricCell label="Total" value={s.counts.total} onClick={() => openDrawer('total')} />
+                <MetricCell label="Classified" value={s.counts.classified} tone="brand" onClick={() => openDrawer('classified')} />
+                <MetricCell label="Action plans" value={s.counts.actionPlans} tone="evidence" onClick={() => openDrawer('actionPlans')} />
+              </div>
+            </div>
 
-        {/* Implementation Outcomes — clickable tiles drill into the case list */}
-        <div className="mb-5">
-          <div className="flex items-baseline justify-between mb-2.5">
-            <h3 className="text-[13px] font-semibold text-ink-800">Implementation Outcomes</h3>
-            <span className="text-[11.5px] text-ink-500">Click any tile to view the underlying cases</span>
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            <StatCard label="Implemented"           value={implCounts['Implemented']}           tone="compliant" icon={CheckCircle2}   navigable onClick={() => openDrawer('implImplemented')} />
-            <StatCard label="Partially Implemented" value={implCounts['Partially Implemented']} tone="mitigated" icon={CircleDashed}   navigable onClick={() => openDrawer('implPartial')} />
-            <StatCard label="Discrepancy"           value={implCounts['Discrepancy']}           tone="risk"      icon={AlertTriangle}  navigable onClick={() => openDrawer('implDiscrepancy')} />
-          </div>
-        </div>
+            {/* Lifecycle — flanked by separators */}
+            <div className="px-8 border-l border-r border-canvas-border">
+              <div className="flex items-baseline justify-between mb-5">
+                <span className="text-[10.5px] uppercase tracking-[0.14em] text-ink-500 font-medium">Lifecycle</span>
+                <span className="text-[10.5px] text-ink-400">Where cases sit</span>
+              </div>
+              <div className="grid grid-cols-4 gap-x-3">
+                <MetricCell label="Open" value={openCount} tone="evidence" onClick={() => openDrawer('open')} />
+                <MetricCell label="In progress" value={s.counts.underReview} tone="mitigated" onClick={() => openDrawer('underReview')} />
+                <MetricCell label="Closed" value={s.counts.resolved} tone="compliant" onClick={() => openDrawer('resolved')} />
+                <MetricCell label="Overdue" value={s.counts.overdue} tone="risk" onClick={() => openDrawer('overdue')} />
+              </div>
+            </div>
 
-        {/* Exception Status Tracker */}
-        <ExceptionStatusTracker />
+            {/* Outcomes */}
+            <div className="pl-8">
+              <div className="flex items-baseline justify-between mb-5">
+                <span className="text-[10.5px] uppercase tracking-[0.14em] text-ink-500 font-medium">Outcomes</span>
+                <span className="text-[10.5px] text-ink-400">Resolution</span>
+              </div>
+              <div className="grid grid-cols-3 gap-x-3">
+                <MetricCell label="Implemented" value={implCounts['Implemented']} tone="compliant" onClick={() => openDrawer('implImplemented')} />
+                <MetricCell label="Partial" value={implCounts['Partially Implemented']} tone="mitigated" onClick={() => openDrawer('implPartial')} />
+                <MetricCell label="Discrepancy" value={implCounts['Discrepancy']} tone="risk" onClick={() => openDrawer('implDiscrepancy')} />
+              </div>
+            </div>
+          </div>
+        </section>
 
         {/* Classification Breakdown */}
         <CollapsibleSection
@@ -537,35 +600,9 @@ export default function ActionHubView() {
           <ClassificationDonut rows={s.classificationBreakdown.rows} />
         </CollapsibleSection>
 
-        {/* Activity Timeline */}
-        <CollapsibleSection
-          icon={Activity}
-          title="Activity Timeline"
-          subtitle="Chronological log of every action across all exceptions"
-          badge={
-            <span className="inline-flex items-center h-5 px-2 text-[11px] font-medium bg-[#F4F2F7] text-ink-600 rounded-full tabular-nums">
-              {timeline.length}
-            </span>
-          }
-        >
-          <div className="max-h-[560px] overflow-y-auto pr-1">
-            {grouped.map(group => (
-              <div key={group.date} className="relative">
-                <div className="sticky top-0 z-10 bg-canvas-elevated flex items-center justify-between py-2 border-b border-canvas-border">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-ink-500">{group.date}</span>
-                  <span className="text-[11px] text-ink-400 tabular-nums">
-                    {group.events.length} {group.events.length === 1 ? 'event' : 'events'}
-                  </span>
-                </div>
-                <ol className="divide-y divide-canvas-border">
-                  {group.events.map(ev => (
-                    <TimelineEntry key={ev.id} event={ev} />
-                  ))}
-                </ol>
-              </div>
-            ))}
-          </div>
-        </CollapsibleSection>
+        {/* Exception Status Tracker */}
+        <ExceptionStatusTracker />
+
       </div>
 
       <AnimatePresence>
@@ -576,12 +613,6 @@ export default function ActionHubView() {
             subtitle={openPreset.subtitle}
             exceptions={presetExceptions}
             onClose={() => setOpenPresetKey(null)}
-          />
-        )}
-        {atrModalOpen && (
-          <GenerateATRModal
-            key="atr-modal"
-            onClose={() => setAtrModalOpen(false)}
           />
         )}
       </AnimatePresence>

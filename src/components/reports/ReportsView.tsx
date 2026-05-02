@@ -10,14 +10,19 @@ import {
   List, LayoutGrid, GripVertical, Plus, StickyNote, PanelLeftClose, PanelLeftOpen,
   ShieldAlert, MoreVertical, Eye, Database, Search, PackageOpen, ExternalLink, Copy,
   MessageSquare, Paperclip, Send, Clock as ClockIcon, History,
+  Star, Layers, Check, CloudUpload,
 } from 'lucide-react';
 import { REPORT_TEMPLATES, GENERATED_REPORTS, SHARED_REPORTS } from '../../data/mockData';
-import { REPORT_QUERIES_ATR } from '../../data/reportQueries';
+import { REPORT_QUERIES_ATR, type ReportQueryAtr } from '../../data/reportQueries';
+import { QUERY_SESSIONS, FAVOURITES } from '../../data/queryHistory';
+import { QUERY_GRAPHS, type QueryGraph } from '../../data/queryGraphs';
+import { ConfigurableChart } from '../dashboard/add-widget/ConfigurableChart';
 import { StatusBadge } from '../shared/StatusBadge';
 import SmartTable from '../shared/SmartTable';
 import { useToast } from '../shared/Toast';
 import FloatingLines from '../shared/FloatingLines';
 import ReportBuilder from './ReportBuilder';
+import { SEED, TYPE_META, formatDate } from '../data-sources/sources';
 
 const ICON_MAP: Record<string, React.ElementType> = {
   shield: Shield,
@@ -38,6 +43,19 @@ const CATEGORY_COLORS: Record<string, string> = {
   Analytics: 'text-brand-700 bg-brand-50',
   Audit: 'text-risk-700 bg-risk-50',
   Executive: 'text-indigo-600 bg-indigo-50',
+};
+
+type AttachedQuery = {
+  id: string;
+  kind: 'query' | 'source' | 'upload';
+  label: string;
+  attachedAt: string;
+  attachedBy: string;
+};
+
+type GeneratedReport = typeof GENERATED_REPORTS[number] & {
+  isEmpty?: boolean;
+  attachedQueries?: AttachedQuery[];
 };
 
 // Dummy user-created templates. Replace with real data when the create-custom-template flow lands.
@@ -633,7 +651,7 @@ function TemplateSectionRow({
   );
 }
 
-function TemplateEditor({ template, onClose, isCopy = false, onSaveCopy }: { template: typeof REPORT_TEMPLATES[0]; onClose: () => void; isCopy?: boolean; onSaveCopy?: (copy: typeof REPORT_TEMPLATES[0]) => void }) {
+function TemplateEditor({ template, onClose, isCopy = false, onSaveCopy, existingTemplateNames = [] }: { template: typeof REPORT_TEMPLATES[0]; onClose: () => void; isCopy?: boolean; onSaveCopy?: (copy: typeof REPORT_TEMPLATES[0]) => void; existingTemplateNames?: string[] }) {
   const { addToast } = useToast();
   const [copyName, setCopyName] = useState(`Copy of ${template.name}`);
   const [brand, setBrand] = useState('Auditify');
@@ -752,6 +770,10 @@ function TemplateEditor({ template, onClose, isCopy = false, onSaveCopy }: { tem
             onClick={() => {
               if (isCopy && onSaveCopy) {
                 const finalName = copyName.trim() || `Copy of ${template.name}`;
+                if (existingTemplateNames.some(n => n.toLowerCase() === finalName.toLowerCase())) {
+                  addToast({ type: 'error', message: `A template named "${finalName}" already exists. Choose a different name.` });
+                  return;
+                }
                 onSaveCopy({
                   ...template,
                   id: `ct-copy-${Date.now()}`,
@@ -1342,13 +1364,13 @@ function ManageExceptionsLaunchButton({ queryId }: { queryId: string }) {
  * idle → switch off; user flips it on → brief generating state; once ready the
  * toggle is replaced inline by the existing ManageExceptionsLaunchButton.
  */
-function GenerateCasesGate({ queryId }: { queryId: string }) {
-  const [phase, setPhase] = useState<'idle' | 'generating' | 'ready'>('idle');
+type CasesPhase = 'idle' | 'generating' | 'ready';
 
+function GenerateCasesGate({ queryId, phase, onPhaseChange }: { queryId: string; phase: CasesPhase; onPhaseChange: (p: CasesPhase) => void }) {
   const handleToggle = () => {
     if (phase !== 'idle') return;
-    setPhase('generating');
-    window.setTimeout(() => setPhase('ready'), 1400);
+    onPhaseChange('generating');
+    window.setTimeout(() => onPhaseChange('ready'), 1400);
   };
 
   if (phase === 'ready') {
@@ -1391,12 +1413,93 @@ function GenerateCasesGate({ queryId }: { queryId: string }) {
   );
 }
 
-function QueryCard({ query, index, onManageExceptions, onOpenQuery, onDelete, comments = [], onAddComment }: { query: QueryShape; index: number; onManageExceptions?: () => void; onOpenQuery?: (query: { id: string; title: string }) => void; onDelete?: () => void; comments?: QueryComment[]; onAddComment?: (queryId: string, queryTitle: string, text: string, attachment?: string) => void }) {
+// ─── Reusable confirm dialog (delete/destructive prompts) ───
+function ConfirmDialog({
+  open,
+  onClose,
+  onConfirm,
+  title,
+  description,
+  confirmLabel = 'Confirm',
+  cancelLabel = 'Cancel',
+  destructive = false,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  title: string;
+  description: React.ReactNode;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  destructive?: boolean;
+}) {
+  if (!open) return null;
+  const titleId = `confirm-${title.replace(/\s+/g, '-').toLowerCase()}`;
+  const descId = `${titleId}-desc`;
+  return createPortal(
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.15 }}
+        className="fixed inset-0 z-[9999] flex items-center justify-center p-6"
+        onClick={onClose}
+      >
+        <div className="absolute inset-0 bg-ink-900/40 backdrop-blur-[2px]" />
+        <motion.div
+          initial={{ opacity: 0, scale: 0.96, y: 8 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.96, y: 8 }}
+          transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+          onClick={(e) => e.stopPropagation()}
+          role="alertdialog"
+          aria-labelledby={titleId}
+          aria-describedby={descId}
+          className="relative bg-white rounded-[16px] border border-border-light shadow-2xl w-[440px] max-w-[calc(100vw-32px)] p-6"
+        >
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="absolute top-4 right-4 w-7 h-7 inline-flex items-center justify-center rounded-md text-text-muted hover:text-text hover:bg-paper-50 transition-colors cursor-pointer"
+          >
+            <X size={16} />
+          </button>
+          <h3 id={titleId} className="text-[16px] font-bold text-text tracking-tight mb-2">{title}</h3>
+          <div id={descId} className="text-[13px] text-text-secondary leading-relaxed mb-6 pr-4">{description}</div>
+          <div className="flex items-center justify-end gap-2.5">
+            <button
+              onClick={onClose}
+              className="inline-flex items-center justify-center h-9 px-4 text-[13px] font-semibold text-text bg-white border border-border-light rounded-[8px] hover:bg-paper-50 transition-colors cursor-pointer"
+            >
+              {cancelLabel}
+            </button>
+            <button
+              onClick={onConfirm}
+              className={`inline-flex items-center justify-center h-9 px-5 text-[13px] font-semibold text-white rounded-[8px] transition-colors cursor-pointer ${
+                destructive ? 'bg-risk hover:bg-risk-700' : 'bg-primary hover:bg-primary-hover'
+              }`}
+            >
+              {confirmLabel}
+            </button>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>,
+    document.body,
+  );
+}
+
+function QueryCard({ query, index, onManageExceptions, onOpenQuery, onDelete, comments = [], onAddComment, casesPhase, onCasesPhaseChange }: { query: QueryShape; index: number; onManageExceptions?: () => void; onOpenQuery?: (query: { id: string; title: string }) => void; onDelete?: () => void; comments?: QueryComment[]; onAddComment?: (queryId: string, queryTitle: string, text: string, attachment?: string) => void; casesPhase: CasesPhase; onCasesPhaseChange: (phase: CasesPhase) => void }) {
   const { addToast } = useToast();
-  const [expanded, setExpanded] = useState(index === 0);
   const [hovered, setHovered] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [drawerTab, setDrawerTab] = useState<'comments' | 'source-files' | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [graphModalOpen, setGraphModalOpen] = useState(false);
+  const [attachedGraphId, setAttachedGraphId] = useState<string | null>(null);
+  const availableGraphs = QUERY_GRAPHS[query.id] ?? [];
+  const attachedGraph = availableGraphs.find(g => g.id === attachedGraphId) ?? null;
   const menuRef = useRef<HTMLDivElement>(null);
   const baseDelay = index * 0.08;
 
@@ -1474,25 +1577,25 @@ function QueryCard({ query, index, onManageExceptions, onOpenQuery, onDelete, co
               <span className={`w-1 h-1 rounded-full ${statusStyle.dot}`} />
               {query.status}
             </span>
+            <GenerateCasesGate queryId={query.id} phase={casesPhase} onPhaseChange={onCasesPhaseChange} />
             {(() => {
               const myComments = comments.filter(c => c.queryId === query.id).length;
               return (
                 <button
                   onClick={() => setDrawerTab('comments')}
                   title="Comments on this query"
-                  className="relative inline-flex items-center gap-1.5 h-8 px-3 text-[12px] font-semibold text-primary bg-white border border-primary/25 rounded-[8px] cursor-pointer hover:bg-primary-xlight hover:border-primary/40 transition-colors"
+                  aria-label="Comments on this query"
+                  className="relative inline-flex items-center justify-center w-8 h-8 text-primary bg-white border border-primary/25 rounded-[8px] cursor-pointer hover:bg-primary-xlight hover:border-primary/40 transition-colors"
                 >
-                  <MessageSquare size={13} className="shrink-0" />
-                  Comment
+                  <MessageSquare size={14} className="shrink-0" />
                   {myComments > 0 && (
-                    <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-semibold bg-primary text-white rounded-full tabular-nums">
+                    <span className="absolute -top-1.5 -right-1.5 inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 text-[9.5px] font-semibold bg-primary text-white rounded-full tabular-nums border border-white">
                       {myComments}
                     </span>
                   )}
                 </button>
               );
             })()}
-            <GenerateCasesGate queryId={query.id} />
             <div className="relative" ref={menuRef}>
               <button
                 onClick={() => setMenuOpen(o => !o)}
@@ -1526,10 +1629,10 @@ function QueryCard({ query, index, onManageExceptions, onOpenQuery, onDelete, co
                     Copy Card ID
                   </button>
                   <button
-                    onClick={() => setMenuOpen(false)}
+                    onClick={() => { setMenuOpen(false); setGraphModalOpen(true); }}
                     className="flex items-center gap-2 w-full text-left px-3 py-2 text-[12.5px] text-text-secondary hover:bg-primary-xlight hover:text-primary cursor-pointer"
                   >
-                    <TrendingUp size={13} />
+                    <BarChart3 size={13} />
                     Add Graph
                   </button>
                   <button
@@ -1541,7 +1644,7 @@ function QueryCard({ query, index, onManageExceptions, onOpenQuery, onDelete, co
                   </button>
                   <div className="my-1 border-t border-border-light" />
                   <button
-                    onClick={() => { setMenuOpen(false); onDelete?.(); }}
+                    onClick={() => { setMenuOpen(false); setShowDeleteConfirm(true); }}
                     className="flex items-center gap-2 w-full text-left px-3 py-2 text-[12.5px] text-risk-700 hover:bg-risk-50 cursor-pointer"
                   >
                     <Trash2 size={13} />
@@ -1563,21 +1666,86 @@ function QueryCard({ query, index, onManageExceptions, onOpenQuery, onDelete, co
           {query.title}
         </motion.h3>
 
-        {/* KPI strip — matches the Executive Summary stats card style */}
-        <div className="grid grid-cols-4 gap-3 mb-5">
-          {computeQueryKpis(query).map((k) => (
-            <div
-              key={k.label}
-              className="glass-card rounded-xl p-4 flex items-center gap-3 hover:shadow-md hover:shadow-primary/5 transition-all"
-            >
-              <div className={`p-2 rounded-lg ${k.color}`}><k.icon size={16} /></div>
-              <div>
-                <div className="text-xl font-bold text-text tabular-nums">{k.value}</div>
-                <div className="text-[10px] text-text-muted tracking-wide">{k.label}</div>
+        {/* KPI strip — populated only after cases generate; placeholder otherwise so users know why metrics are missing */}
+        {casesPhase === 'ready' ? (() => {
+          const kpis = computeQueryKpis(query);
+          if (kpis.length === 0) {
+            return (
+              <div className="border border-dashed border-border-light rounded-xl px-4 py-5 mb-5 text-center">
+                <p className="text-[12px] text-text-muted">No metrics available for this query yet.</p>
               </div>
+            );
+          }
+          return (
+            <div className="grid grid-cols-4 gap-3 mb-5">
+              {kpis.map((k) => (
+                <div
+                  key={k.label}
+                  className="bg-canvas-elevated border border-border-light rounded-xl p-4 flex items-center gap-3"
+                >
+                  <div className={`p-2 rounded-lg ${k.color}`}><k.icon size={16} /></div>
+                  <div>
+                    <div className="text-xl font-bold text-text tabular-nums">{k.value}</div>
+                    <div className="text-[10px] text-text-muted tracking-wide">{k.label}</div>
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          );
+        })() : (
+          <div className="border border-dashed border-border-light rounded-xl px-4 py-5 mb-5 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-paper-50 flex items-center justify-center shrink-0">
+              {casesPhase === 'generating'
+                ? <Loader2 size={15} className="text-primary animate-spin" />
+                : <ShieldAlert size={15} className="text-text-muted" />}
+            </div>
+            <div className="min-w-0">
+              <p className="text-[12.5px] font-semibold text-text">
+                {casesPhase === 'generating' ? 'Generating cases…' : 'Exception metrics not generated yet'}
+              </p>
+              <p className="text-[11.5px] text-text-muted leading-snug">
+                {casesPhase === 'generating'
+                  ? 'Cases are being created — KPIs will appear here in a moment.'
+                  : 'Turn on Generate Cases to populate Total Exceptions, Open, Closed and Check Health.'}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Attached graph (selected from Add Graph modal) */}
+        {attachedGraph && (
+          <motion.div
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+            className="bg-canvas-elevated border border-border-light rounded-xl p-4 mb-5"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2 text-[11px] font-bold text-text-secondary uppercase tracking-wider">
+                <BarChart3 size={12} />
+                {attachedGraph.title}
+              </div>
+              <button
+                onClick={() => setAttachedGraphId(null)}
+                title="Remove graph"
+                aria-label="Remove graph"
+                className="w-6 h-6 flex items-center justify-center rounded-md text-text-muted hover:text-risk-700 hover:bg-risk-50 transition-colors cursor-pointer"
+              >
+                <X size={13} />
+              </button>
+            </div>
+            <div className="h-[200px]">
+              <ConfigurableChart
+                type={attachedGraph.type}
+                xAxis={attachedGraph.xAxis}
+                yAxis={attachedGraph.yAxis}
+                color={attachedGraph.color ?? '#6a12cd'}
+                showTarget={false}
+                showLegend
+              />
+            </div>
+          </motion.div>
+        )}
 
         {/* Summary */}
         <motion.p
@@ -1589,63 +1757,36 @@ function QueryCard({ query, index, onManageExceptions, onOpenQuery, onDelete, co
           {query.summary}
         </motion.p>
 
-        {/* Bottom row: expand toggle */}
-        <button
-          onClick={() => setExpanded(p => !p)}
-          className="flex items-center gap-1.5 text-[13px] font-semibold text-primary cursor-pointer focus:outline-none focus-visible:outline-none focus:ring-0 group"
-        >
-          <motion.span
-            animate={{ rotate: expanded ? 0 : -90 }}
-            transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-            className="inline-flex"
-          >
-            <ChevronDown size={14} />
-          </motion.span>
-          <span className="transition-colors group-hover:text-primary-hover">
-            {expanded ? 'Hide findings & observations' : 'Show findings & observations'}
-          </span>
-        </button>
-      </div>
-
-      {/* Expandable details */}
-      <AnimatePresence initial={false}>
-        {expanded && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-            className="overflow-hidden"
-          >
-            <div className="px-6 pb-6 pt-2">
-              <div className="space-y-6">
-                {[
-                  { title: 'Findings', items: query.findings },
-                  { title: 'Observations', items: query.observations },
-                ].map(section => (
-                  <div key={section.title}>
-                    <h4 className="text-[11px] font-bold text-text-secondary uppercase tracking-wider mb-3">{section.title}</h4>
-                    <ul className="space-y-2.5">
-                      {section.items.map((item, i) => (
-                        <motion.li
-                          key={i}
-                          initial={{ opacity: 0, x: -4 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: 0.08 + i * 0.05, duration: 0.3 }}
-                          className="flex gap-2.5 text-[13px] text-text leading-relaxed"
-                        >
-                          <div className="w-1 h-1 rounded-full mt-2 shrink-0 bg-primary/60" />
-                          {item}
-                        </motion.li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </div>
+        {/* Findings & observations (always visible) */}
+        <div className="space-y-6 pt-2">
+          {[
+            { title: 'Findings', items: query.findings, emptyCopy: 'No findings recorded for this query yet.' },
+            { title: 'Observations', items: query.observations, emptyCopy: 'No observations recorded for this query yet.' },
+          ].map(section => (
+            <div key={section.title}>
+              <h4 className="text-[11px] font-bold text-text-secondary uppercase tracking-wider mb-3">{section.title}</h4>
+              {section.items.length === 0 ? (
+                <p className="text-[12.5px] text-text-muted italic">{section.emptyCopy}</p>
+              ) : (
+                <ul className="space-y-2.5">
+                  {section.items.map((item, i) => (
+                    <motion.li
+                      key={i}
+                      initial={{ opacity: 0, x: -4 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: baseDelay + 0.7 + i * 0.05, duration: 0.3 }}
+                      className="flex gap-2.5 text-[13px] text-text leading-relaxed"
+                    >
+                      <div className="w-1 h-1 rounded-full mt-2 shrink-0 bg-primary/60" />
+                      {item}
+                    </motion.li>
+                  ))}
+                </ul>
+              )}
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          ))}
+        </div>
+      </div>
 
       {drawerTab && createPortal(
         <CommentDrawer
@@ -1657,7 +1798,174 @@ function QueryCard({ query, index, onManageExceptions, onOpenQuery, onDelete, co
         />,
         document.body,
       )}
+
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        title="Remove Query Card?"
+        description="This will permanently remove this query card from the report. This action cannot be undone."
+        confirmLabel="Delete"
+        destructive
+        onConfirm={() => {
+          setShowDeleteConfirm(false);
+          onDelete?.();
+          addToast({ type: 'success', message: 'Query card removed.' });
+        }}
+      />
+
+      {graphModalOpen && createPortal(
+        <AddGraphModal
+          queryId={query.id}
+          queryTitle={query.title}
+          graphs={availableGraphs}
+          attachedGraphId={attachedGraphId}
+          onSelect={(id) => {
+            setAttachedGraphId(id);
+            setGraphModalOpen(false);
+            addToast({ type: 'success', message: 'Graph added to query card.' });
+          }}
+          onClose={() => setGraphModalOpen(false)}
+        />,
+        document.body,
+      )}
     </motion.div>
+  );
+}
+
+// ─── "Add Graph" modal — pick from query's available chat-session graphs ───
+function AddGraphModal({
+  queryId,
+  queryTitle,
+  graphs,
+  attachedGraphId,
+  onSelect,
+  onClose,
+}: {
+  queryId: string;
+  queryTitle: string;
+  graphs: QueryGraph[];
+  attachedGraphId: string | null;
+  onSelect: (id: string) => void;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const [pickedId, setPickedId] = useState<string | null>(attachedGraphId);
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.18 }}
+        className="fixed inset-0 z-[9999] flex items-center justify-center p-6"
+        onClick={onClose}
+      >
+        <div className="absolute inset-0 bg-ink-900/45 backdrop-blur-[2px]" />
+        <motion.div
+          initial={{ opacity: 0, scale: 0.97, y: 10 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.97, y: 10 }}
+          transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+          onClick={(e) => e.stopPropagation()}
+          role="dialog"
+          aria-labelledby="add-graph-title"
+          className="relative bg-white rounded-[16px] border border-border-light shadow-2xl w-[820px] max-w-[calc(100vw-48px)] max-h-[calc(100vh-48px)] flex flex-col overflow-hidden"
+        >
+          <div className="flex items-start justify-between gap-4 px-6 pt-5 pb-4 border-b border-border-light">
+            <div>
+              <h3 id="add-graph-title" className="text-[16px] font-bold text-text tracking-tight">
+                Add Graph
+              </h3>
+              <p className="text-[12.5px] text-text-secondary mt-1">
+                <span className="font-mono text-[11px] text-primary">{queryId}</span>
+                <span className="mx-1.5 text-text-muted">·</span>
+                {queryTitle}
+              </p>
+            </div>
+            <button
+              onClick={onClose}
+              aria-label="Close"
+              className="w-8 h-8 inline-flex items-center justify-center rounded-md text-text-muted hover:text-text hover:bg-paper-50 transition-colors cursor-pointer"
+            >
+              <X size={17} />
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-6 py-5">
+            {graphs.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <div className="w-12 h-12 rounded-full bg-paper-50 flex items-center justify-center mb-3">
+                  <BarChart3 size={20} className="text-text-muted" />
+                </div>
+                <p className="text-[13px] font-semibold text-text mb-1">No graphs available for this query yet</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-4">
+                {graphs.map((g) => {
+                  const isPicked = pickedId === g.id;
+                  return (
+                    <button
+                      key={g.id}
+                      onClick={() => setPickedId(g.id)}
+                      className={`text-left bg-white border-2 rounded-xl p-3 transition-all cursor-pointer focus:outline-none ${
+                        isPicked
+                          ? 'border-primary shadow-[0_0_0_3px_rgba(106,18,205,0.12)]'
+                          : 'border-border-light hover:border-primary/40'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <span
+                          className={`inline-flex items-center justify-center w-5 h-5 rounded-full border transition-colors ${
+                            isPicked
+                              ? 'bg-primary border-primary text-white'
+                              : 'bg-white border-border-light text-transparent'
+                          }`}
+                        >
+                          <Check size={12} />
+                        </span>
+                        <span className="text-[12.5px] font-semibold text-text">{g.title}</span>
+                      </div>
+                      <div className="h-[160px] bg-canvas-elevated rounded-lg p-1.5 pointer-events-none">
+                        <ConfigurableChart
+                          type={g.type}
+                          xAxis={g.xAxis}
+                          yAxis={g.yAxis}
+                          color={g.color ?? '#6a12cd'}
+                          showTarget={false}
+                          showLegend={false}
+                        />
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center justify-end gap-2.5 px-6 py-4 border-t border-border-light bg-paper-50/40">
+            <button
+              onClick={onClose}
+              className="inline-flex items-center justify-center h-9 px-4 text-[13px] font-semibold text-text bg-white border border-border-light rounded-[8px] hover:bg-paper-50 transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => pickedId && onSelect(pickedId)}
+              disabled={!pickedId}
+              className="inline-flex items-center justify-center h-9 px-5 text-[13px] font-semibold text-white bg-primary hover:bg-primary-hover rounded-[8px] transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Add Graph
+            </button>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
   );
 }
 
@@ -1899,43 +2207,52 @@ function CommentDrawer({
         ) : (
           <>
             <div className="flex-1 overflow-y-auto px-6 py-5">
-              <ul className="divide-y divide-border-light border border-border-light rounded-[10px] overflow-hidden">
-                {sourceFiles.map(f => {
-                  const pillClass = f.type === 'excel'
-                    ? 'bg-compliant-50 text-compliant-700'
-                    : 'bg-brand-50 text-brand-700';
-                  return (
-                    <li key={f.name} className="flex items-center gap-3 px-4 py-3 hover:bg-paper-50 transition-colors">
-                      <div className="w-9 h-9 rounded-[8px] bg-paper-50 border border-border-light flex items-center justify-center shrink-0">
-                        <FileText size={16} className={f.type === 'excel' ? 'text-compliant-700' : 'text-brand-700'} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-0.5">
-                          <span className="font-mono text-[12.5px] font-semibold text-text truncate">{f.name}</span>
-                          <span className={`inline-flex items-center h-5 px-1.5 text-[10px] font-semibold uppercase tracking-wider rounded ${pillClass}`}>{f.type}</span>
+              {sourceFiles.length === 0 ? (
+                <div className="flex flex-col items-center justify-center text-center py-12">
+                  <div className="w-10 h-10 rounded-xl bg-paper-50 flex items-center justify-center mb-3">
+                    <FileText size={18} className="text-text-muted/50" />
+                  </div>
+                  <p className="text-[13px] font-medium text-text-secondary">No source files attached to this query yet.</p>
+                </div>
+              ) : (
+                <ul className="divide-y divide-border-light border border-border-light rounded-[10px] overflow-hidden">
+                  {sourceFiles.map(f => {
+                    const pillClass = f.type === 'excel'
+                      ? 'bg-compliant-50 text-compliant-700'
+                      : 'bg-brand-50 text-brand-700';
+                    return (
+                      <li key={f.name} className="flex items-center gap-3 px-4 py-3 hover:bg-paper-50 transition-colors">
+                        <div className="w-9 h-9 rounded-[8px] bg-paper-50 border border-border-light flex items-center justify-center shrink-0">
+                          <FileText size={16} className={f.type === 'excel' ? 'text-compliant-700' : 'text-brand-700'} />
                         </div>
-                        <div className="text-[11.5px] text-text-muted tabular-nums">
-                          {f.size} · {f.rows.toLocaleString()} rows · {f.source} · {f.modified}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <span className="font-mono text-[12.5px] font-semibold text-text truncate">{f.name}</span>
+                            <span className={`inline-flex items-center h-5 px-1.5 text-[10px] font-semibold uppercase tracking-wider rounded ${pillClass}`}>{f.type}</span>
+                          </div>
+                          <div className="text-[11.5px] text-text-muted tabular-nums">
+                            {f.size} · {f.rows.toLocaleString()} rows · {f.source} · {f.modified}
+                          </div>
                         </div>
-                      </div>
-                      <button
-                        className="inline-flex items-center justify-center w-8 h-8 text-text-secondary bg-white border border-border-light rounded-[8px] hover:border-primary/30 hover:text-primary cursor-pointer"
-                        title={`Preview ${f.name}`}
-                        aria-label={`Preview ${f.name}`}
-                      >
-                        <Eye size={14} />
-                      </button>
-                      <button
-                        className="inline-flex items-center justify-center w-8 h-8 text-text-secondary bg-white border border-border-light rounded-[8px] hover:border-primary/30 hover:text-primary cursor-pointer"
-                        title={`Download ${f.name}`}
-                        aria-label={`Download ${f.name}`}
-                      >
-                        <Download size={14} />
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
+                        <button
+                          className="inline-flex items-center justify-center w-8 h-8 text-text-secondary bg-white border border-border-light rounded-[8px] hover:border-primary/30 hover:text-primary cursor-pointer"
+                          title={`Preview ${f.name}`}
+                          aria-label={`Preview ${f.name}`}
+                        >
+                          <Eye size={14} />
+                        </button>
+                        <button
+                          className="inline-flex items-center justify-center w-8 h-8 text-text-secondary bg-white border border-border-light rounded-[8px] hover:border-primary/30 hover:text-primary cursor-pointer"
+                          title={`Download ${f.name}`}
+                          aria-label={`Download ${f.name}`}
+                        >
+                          <Download size={14} />
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
             </div>
             <footer className="shrink-0 px-6 py-3 border-t border-border-light text-right text-[11.5px] text-text-muted tabular-nums">
               {sourceFiles.length} files
@@ -2136,6 +2453,8 @@ function DraggableQuerySection({
   onDelete,
   comments,
   onAddComment,
+  casesPhase,
+  onCasesPhaseChange,
 }: {
   section: { id: string; kind: 'query'; title: string; query: QueryShape };
   index: number;
@@ -2145,6 +2464,8 @@ function DraggableQuerySection({
   onDelete: () => void;
   comments: QueryComment[];
   onAddComment: (queryId: string, queryTitle: string, text: string, attachment?: string) => void;
+  casesPhase: CasesPhase;
+  onCasesPhaseChange: (phase: CasesPhase) => void;
 }) {
   const controls = useDragControls();
   return (
@@ -2166,14 +2487,487 @@ function DraggableQuerySection({
         onDelete={onDelete}
         comments={comments}
         onAddComment={onAddComment}
+        casesPhase={casesPhase}
+        onCasesPhaseChange={onCasesPhaseChange}
       />
     </Reorder.Item>
   );
 }
 
+// ─── Attached Query Card — compact pending card for queries the user just attached ───
+
+function AttachedQueryCard({ query, index, onRemove }: {
+  query: AttachedQuery;
+  index: number;
+  onRemove: (id: string) => void;
+}) {
+  const KindIcon = query.kind === 'query' ? MessageSquare : query.kind === 'upload' ? Upload : Database;
+  const kindLabel = query.kind === 'query' ? 'Saved Query' : query.kind === 'upload' ? 'Uploaded File' : 'Data Source';
+
+  // Resolve the modal label to a REPORT_QUERIES_ATR entry. Only saved queries
+  // map to canned data; uploads and ad-hoc data sources have no preview.
+  const resolved: ReportQueryAtr | null =
+    query.kind === 'query' && QUERY_LABEL_TO_KEY[query.label]
+      ? REPORT_QUERIES_ATR[QUERY_LABEL_TO_KEY[query.label]]
+      : null;
+
+  type Phase = 'syncing' | 'ready' | 'noPreview';
+  const [phase, setPhase] = useState<Phase>('syncing');
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setPhase(resolved ? 'ready' : 'noPreview');
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [resolved]);
+
+  return (
+    <motion.section
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.04 }}
+      className="bg-white border border-border-light rounded-2xl px-6 py-5"
+    >
+      <div className="flex items-start gap-3">
+        <div className="size-9 rounded-[10px] bg-brand-50 flex items-center justify-center shrink-0 mt-0.5">
+          <KindIcon size={15} className="text-primary" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-[10.5px] font-bold tracking-[0.08em] uppercase text-primary/80">{kindLabel}</span>
+            <span className="text-[10.5px] text-text-muted">·</span>
+            <span className="text-[10.5px] text-text-muted">Attached {query.attachedAt} by {query.attachedBy}</span>
+          </div>
+          <h3 className="text-[14.5px] font-bold text-text tracking-tight leading-snug">{query.label}</h3>
+        </div>
+        <button
+          onClick={() => onRemove(query.id)}
+          aria-label="Remove attached query"
+          className="p-1.5 rounded-lg text-text-muted hover:text-high-700 hover:bg-high-50 transition-colors cursor-pointer shrink-0"
+        >
+          <X size={14} />
+        </button>
+      </div>
+
+      <AnimatePresence mode="wait">
+        {phase === 'syncing' && (
+          <motion.div
+            key="syncing"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="mt-4 border border-dashed border-brand-200 rounded-[10px] bg-brand-50/40 px-5 py-4 flex items-center gap-3"
+          >
+            <Loader2 size={14} className="text-primary animate-spin shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-[12.5px] font-semibold text-primary mb-0.5">Data syncing</p>
+              <p className="text-[11.5px] text-text-muted">Running query against your data — preview will appear in a moment.</p>
+            </div>
+          </motion.div>
+        )}
+
+        {phase === 'ready' && resolved && (
+          <motion.div
+            key="ready"
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="mt-4 space-y-4"
+          >
+            {/* Summary */}
+            <div>
+              <div className="text-[10.5px] font-bold tracking-[0.08em] uppercase text-text-muted mb-1.5">Summary</div>
+              <p className="text-[12.5px] leading-relaxed text-text">{resolved.summary}</p>
+            </div>
+
+            {/* Findings */}
+            {resolved.findings.length > 0 && (
+              <div>
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <Lightbulb size={12} className="text-evidence-700" />
+                  <span className="text-[10.5px] font-bold tracking-[0.08em] uppercase text-text-muted">Findings</span>
+                  <span className="text-[10.5px] text-text-muted">·</span>
+                  <span className="text-[10.5px] text-text-muted">{resolved.findings.length}</span>
+                </div>
+                <ul className="space-y-1.5">
+                  {resolved.findings.map((f, i) => (
+                    <li key={i} className="flex gap-2 text-[12px] text-text leading-relaxed">
+                      <span className="text-evidence-700 shrink-0 mt-1">•</span>
+                      <span>{f}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Observations */}
+            {resolved.observations.length > 0 && (
+              <div>
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <Eye size={12} className="text-primary" />
+                  <span className="text-[10.5px] font-bold tracking-[0.08em] uppercase text-text-muted">Observations</span>
+                  <span className="text-[10.5px] text-text-muted">·</span>
+                  <span className="text-[10.5px] text-text-muted">{resolved.observations.length}</span>
+                </div>
+                <ul className="space-y-1.5">
+                  {resolved.observations.map((o, i) => (
+                    <li key={i} className="flex gap-2 text-[12px] text-text leading-relaxed">
+                      <span className="text-primary shrink-0 mt-1">•</span>
+                      <span>{o}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </motion.div>
+        )}
+
+        {phase === 'noPreview' && (
+          <motion.div
+            key="noPreview"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="mt-4 border border-dashed border-border-light rounded-[10px] bg-paper-50/40 px-5 py-4 flex items-center gap-3"
+          >
+            <PackageOpen size={14} className="text-text-muted shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-[12.5px] font-semibold text-text mb-0.5">Preview not available</p>
+              <p className="text-[11.5px] text-text-muted">
+                {query.kind === 'upload'
+                  ? 'Uploaded files render once the parser finishes — wire your data pipeline to enable preview.'
+                  : query.kind === 'source'
+                    ? 'Connected data sources render once a query is run against them.'
+                    : 'This query has no canned preview yet — connect it to your data to see results.'}
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.section>
+  );
+}
+
+// ─── Add Query Modal — picker for attaching a query/source to a report ───
+
+// Maps modal labels to REPORT_QUERIES_ATR keys so the AttachedQueryCard can
+// resolve to real summary/findings/observations after the simulated sync.
+const QUERY_LABEL_TO_KEY: Record<string, keyof typeof REPORT_QUERIES_ATR> = {
+  'Detect duplicate invoice entries across vendors': 'Q01',
+  'Duplicate invoice detection summary': 'Q01',
+  'Show unauthorized vendor master changes — last 90 days': 'Q02',
+  'Unauthorized vendor master changes — quarterly review': 'Q02',
+  'Risk identification across P2P, O2C, R2R, S2C processes': 'RA01',
+  'Risk register — 12 critical risks across processes': 'RA01',
+  'Mitigation strategy effectiveness — partially mitigated high risks': 'RA02',
+  'Control testing results — effectiveness across 87 controls': 'CE01',
+  'Control testing — effective vs requires remediation': 'CE01',
+  'Workflow execution performance — runs and accuracy': 'WA01',
+  'Exception trend analysis — flagged vs resolved': 'WA02',
+  'Board-level GRC posture summary': 'EX01',
+  'GRC posture for board reporting': 'EX01',
+};
+
+type AddQueryTab = 'recent' | 'saved' | 'upload' | 'all' | 'files' | 'db';
+
+function AddQueryModal({ open, onClose, onAttach }: {
+  open: boolean;
+  onClose: () => void;
+  onAttach: (selection: { kind: 'query' | 'source' | 'upload'; label: string }) => void;
+}) {
+  const [activeTab, setActiveTab] = useState<AddQueryTab>('recent');
+  const [search, setSearch] = useState('');
+  const [selectedQuery, setSelectedQuery] = useState<string | null>(null);
+  const [selectedSource, setSelectedSource] = useState<string | null>(null);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [dragging, setDragging] = useState(false);
+
+  if (!open) return null;
+
+  const allSources = SEED;
+  const fileSources = allSources.filter(s => s.type === 'file');
+  const dbSources = allSources.filter(s => s.type === 'database' || s.type === 'api' || s.type === 'cloud');
+
+  const handleClose = () => {
+    setActiveTab('recent');
+    setSearch('');
+    setSelectedQuery(null);
+    setSelectedSource(null);
+    setUploadedFile(null);
+    setDragging(false);
+    onClose();
+  };
+
+  const handleAttach = () => {
+    if ((activeTab === 'recent' || activeTab === 'saved') && selectedQuery) {
+      onAttach({ kind: 'query', label: selectedQuery });
+      handleClose();
+    } else if (activeTab === 'upload' && uploadedFile) {
+      onAttach({ kind: 'upload', label: uploadedFile.name });
+      handleClose();
+    } else if ((activeTab === 'all' || activeTab === 'files' || activeTab === 'db') && selectedSource) {
+      const src = allSources.find(s => s.id === selectedSource);
+      if (src) {
+        onAttach({ kind: 'source', label: src.name });
+        handleClose();
+      }
+    }
+  };
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[9999] flex items-center justify-center"
+          onClick={handleClose}
+        >
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.96, y: 10 }}
+            transition={{ duration: 0.2 }}
+            className="relative bg-canvas-elevated rounded-2xl border border-canvas-border shadow-2xl flex flex-col overflow-hidden w-[820px] h-[600px]"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-7 py-4 border-b border-canvas-border">
+              <h2 className="text-[16px] font-bold text-ink-900 shrink-0">Add Query</h2>
+              <div className="flex-1 mx-5 relative">
+                <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-400" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder={activeTab === 'upload' ? 'Drop files below to upload...' : 'Search...'}
+                  className="w-full pl-10 pr-4 py-2 text-[13px] border border-canvas-border rounded-full bg-canvas-elevated text-ink-800 placeholder:text-ink-400 outline-none focus:border-brand-400 transition-colors"
+                />
+              </div>
+              <button onClick={handleClose} className="p-1.5 rounded-lg hover:bg-surface-2 transition-colors cursor-pointer shrink-0">
+                <X size={20} className="text-ink-400" />
+              </button>
+            </div>
+
+            {/* Tabs */}
+            <div className="flex gap-5 px-7 border-b border-canvas-border">
+              {([
+                { id: 'recent' as AddQueryTab, label: 'Recent Chats', icon: MessageSquare, count: QUERY_SESSIONS.reduce((n, g) => n + g.items.length, 0) },
+                { id: 'saved' as AddQueryTab, label: 'Favourites', icon: Star, count: FAVOURITES.reduce((n, g) => n + g.items.length, 0) },
+                { id: 'upload' as AddQueryTab, label: 'Upload', icon: Upload, count: 0 },
+                { id: 'all' as AddQueryTab, label: 'All Data', icon: Layers, count: allSources.length },
+                { id: 'files' as AddQueryTab, label: 'Files', icon: FileText, count: fileSources.length },
+                { id: 'db' as AddQueryTab, label: 'DB', icon: Database, count: dbSources.length },
+              ]).map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => { setActiveTab(tab.id); setSelectedQuery(null); setSelectedSource(null); }}
+                  className={`flex items-center gap-1.5 pb-3 pt-3 text-[13px] font-semibold transition-colors cursor-pointer relative whitespace-nowrap ${
+                    activeTab === tab.id ? 'text-brand-700' : 'text-ink-400 hover:text-ink-600'
+                  }`}
+                >
+                  <tab.icon size={14} />
+                  {tab.label}
+                  {tab.count > 0 && <span className="text-[11px] text-ink-400 font-normal">{tab.count}</span>}
+                  {activeTab === tab.id && (
+                    <motion.div layoutId="add-query-tab" className="absolute bottom-0 left-0 right-0 h-[2px] bg-brand-600 rounded-full" />
+                  )}
+                </button>
+              ))}
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto px-7 py-6">
+              <AnimatePresence mode="wait">
+                {(activeTab === 'recent' || activeTab === 'saved') && (() => {
+                  const groups = activeTab === 'recent' ? QUERY_SESSIONS : FAVOURITES;
+                  const hasResults = groups.some(g => g.items.some(q => q.toLowerCase().includes(search.toLowerCase())));
+                  return (
+                    <motion.div key={activeTab} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.12 }}>
+                      {hasResults ? (
+                        <div className="space-y-4">
+                          {groups.map(group => {
+                            const filtered = group.items.filter(q => q.toLowerCase().includes(search.toLowerCase()));
+                            if (filtered.length === 0) return null;
+                            return (
+                              <div key={group.group || 'ungrouped'}>
+                                {group.group && <div className="text-[11px] font-bold text-ink-500 uppercase tracking-wider mb-2">{group.group}</div>}
+                                <div className="space-y-2">
+                                  {filtered.map(q => (
+                                    <button
+                                      key={q}
+                                      onClick={() => setSelectedQuery(q)}
+                                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-all cursor-pointer text-left ${
+                                        selectedQuery === q ? 'border-brand-500 bg-brand-50' : 'border-canvas-border bg-canvas-elevated hover:border-brand-200'
+                                      }`}
+                                    >
+                                      {activeTab === 'recent'
+                                        ? <MessageSquare size={14} className={selectedQuery === q ? 'text-brand-600' : 'text-ink-400'} />
+                                        : <Star size={14} className={selectedQuery === q ? 'text-brand-600' : 'text-ink-400'} />}
+                                      <span className={`text-[13px] ${selectedQuery === q ? 'text-brand-700 font-medium' : 'text-ink-700'}`}>{q}</span>
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center py-16 text-center">
+                          {activeTab === 'recent' ? <MessageSquare size={32} className="text-ink-200 mb-3" /> : <Star size={32} className="text-ink-200 mb-3" />}
+                          <p className="text-[14px] font-medium text-ink-500 mb-1">
+                            {activeTab === 'recent' ? 'No chats found' : 'No favourites found'}
+                          </p>
+                          <p className="text-[12px] text-ink-400">
+                            {search ? 'Try a different search term.' : activeTab === 'recent' ? 'Start a new chat to see it here.' : 'Star a chat to add it to favourites.'}
+                          </p>
+                        </div>
+                      )}
+                    </motion.div>
+                  );
+                })()}
+
+                {activeTab === 'upload' && (
+                  <motion.div key="upload" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.12 }}>
+                    <input
+                      id="add-query-file-input"
+                      type="file"
+                      accept=".xlsx,.xls,.csv"
+                      className="hidden"
+                      onChange={e => { const f = e.target.files?.[0]; if (f) setUploadedFile(f); }}
+                    />
+                    <div
+                      onDragOver={e => { e.preventDefault(); setDragging(true); }}
+                      onDragLeave={() => setDragging(false)}
+                      onDrop={e => { e.preventDefault(); setDragging(false); const f = e.dataTransfer.files[0]; if (f) setUploadedFile(f); }}
+                      onClick={() => !uploadedFile && document.getElementById('add-query-file-input')?.click()}
+                      className={`border-2 border-dashed rounded-2xl p-12 flex flex-col items-center justify-center text-center transition-all min-h-[300px] ${
+                        dragging
+                          ? 'border-brand-500 bg-brand-50'
+                          : uploadedFile
+                            ? 'border-compliant bg-green-50/30 cursor-default'
+                            : 'border-ink-200 bg-surface-2/30 cursor-pointer hover:border-brand-300 hover:bg-brand-50/20'
+                      }`}
+                    >
+                      {uploadedFile ? (
+                        <div>
+                          <CloudUpload size={28} className="text-green-600 mx-auto mb-3" />
+                          <h3 className="text-[15px] font-bold text-ink-900 mb-1">{uploadedFile.name}</h3>
+                          <p className="text-[13px] text-compliant font-medium mb-1">
+                            {(uploadedFile.size / 1024).toFixed(1)} KB — File ready
+                          </p>
+                          <button
+                            onClick={e => { e.stopPropagation(); setUploadedFile(null); }}
+                            className="text-[12px] text-ink-400 hover:text-red-500 transition-colors cursor-pointer mt-1"
+                          >
+                            Remove file
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <Upload size={28} className="text-ink-300 mb-3" />
+                          <h3 className="text-[14px] font-semibold text-ink-800 mb-1">Drop files here</h3>
+                          <p className="text-[13px] text-ink-400 mb-4">or pick from your computer</p>
+                          <button
+                            onClick={e => { e.stopPropagation(); document.getElementById('add-query-file-input')?.click(); }}
+                            className="flex items-center gap-2 px-5 py-2.5 bg-brand-600 hover:bg-brand-500 text-white text-[13px] font-semibold rounded-lg transition-colors cursor-pointer"
+                          >
+                            <Upload size={14} />
+                            Choose files
+                          </button>
+                          <p className="text-[11px] text-ink-400 mt-3">CSV · Excel · ≤ 50 MB each</p>
+                        </>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+
+                {(activeTab === 'all' || activeTab === 'files' || activeTab === 'db') && (() => {
+                  const sources = (activeTab === 'all' ? allSources : activeTab === 'files' ? fileSources : dbSources)
+                    .filter(s => s.name.toLowerCase().includes(search.toLowerCase()));
+                  const tabLabel = activeTab === 'all' ? 'data sources' : activeTab === 'files' ? 'files' : 'databases';
+                  return (
+                    <motion.div key={activeTab} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.12 }}>
+                      {sources.length > 0 ? (
+                        <div className="space-y-1.5">
+                          {sources.map(source => {
+                            const meta = TYPE_META[source.type];
+                            const Icon = meta.icon;
+                            const isSelected = selectedSource === source.id;
+                            return (
+                              <button
+                                key={source.id}
+                                onClick={() => setSelectedSource(isSelected ? null : source.id)}
+                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-all cursor-pointer text-left ${
+                                  isSelected ? 'border-brand-500 bg-brand-50' : 'border-canvas-border bg-canvas-elevated hover:border-brand-200'
+                                }`}
+                              >
+                                <div className={`size-8 rounded-md flex items-center justify-center shrink-0 ${meta.tone}`}>
+                                  <Icon size={14} />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-[13px] font-medium text-ink-900 truncate">{source.name}</div>
+                                  <div className="text-[11px] text-ink-400">{source.subtype} · {formatDate(source.createdAt)}</div>
+                                </div>
+                                {isSelected && <Check size={16} className="text-brand-600 shrink-0" />}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center py-16 text-center">
+                          <Search size={32} className="text-ink-200 mb-3" />
+                          <p className="text-[14px] font-medium text-ink-500 mb-1">No {tabLabel} found</p>
+                          <p className="text-[12px] text-ink-400">
+                            {search ? 'Try a different search term.' : `No ${tabLabel} available.`}
+                          </p>
+                        </div>
+                      )}
+                    </motion.div>
+                  );
+                })()}
+              </AnimatePresence>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-3 px-7 py-4 border-t border-canvas-border">
+              <p className="text-[12px] text-ink-400 mr-auto">Pick a saved query, file, or data source to attach.</p>
+              <button onClick={handleClose} className="px-5 py-2.5 text-[13px] font-semibold text-ink-600 hover:text-ink-800 transition-colors cursor-pointer">
+                Cancel
+              </button>
+              {(() => {
+                const enabled =
+                  ((activeTab === 'recent' || activeTab === 'saved') && !!selectedQuery) ||
+                  (activeTab === 'upload' && !!uploadedFile) ||
+                  ((activeTab === 'all' || activeTab === 'files' || activeTab === 'db') && !!selectedSource);
+                return (
+                  <button
+                    onClick={handleAttach}
+                    disabled={!enabled}
+                    className={`flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-[13px] font-semibold transition-colors cursor-pointer ${
+                      enabled ? 'bg-brand-600 hover:bg-brand-500 text-white' : 'bg-ink-100 text-ink-400 cursor-not-allowed'
+                    }`}
+                  >
+                    <Check size={14} />
+                    Attach
+                  </button>
+                );
+              })()}
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
 // ─── Report View (with multiple queries) ───
-function ReportView({ report, onBack, onShare, onManageExceptions, onOpenQuery, initialTemplate, customTemplates = [] }: {
-  report: typeof GENERATED_REPORTS[0];
+function ReportView({ report, onBack, onShare, onManageExceptions, onOpenQuery, initialTemplate, customTemplates = [], onAddQuery, onRemoveQuery }: {
+  report: GeneratedReport;
+  onAddQuery: (reportId: string, query: AttachedQuery) => void;
+  onRemoveQuery: (reportId: string, queryId: string) => void;
   onBack: () => void;
   onShare?: () => void;
   onManageExceptions?: () => void;
@@ -2186,6 +2980,11 @@ function ReportView({ report, onBack, onShare, onManageExceptions, onOpenQuery, 
   const [appliedTemplate, setAppliedTemplate] = useState<typeof REPORT_TEMPLATES[0] | null>(initialTemplate ?? null);
   const [applyingTemplate, setApplyingTemplate] = useState(false);
   const [showDownloadDropdown, setShowDownloadDropdown] = useState(false);
+  // QueryCard "Generate Cases" phase, lifted up so it survives template
+  // switches that re-mount QueryCards. Keyed by query.id.
+  const [casesPhases, setCasesPhases] = useState<Record<string, CasesPhase>>({});
+  const setCasesPhase = (queryId: string, phase: CasesPhase) =>
+    setCasesPhases(prev => ({ ...prev, [queryId]: phase }));
   // Local launch pulse — the whole report surface nudges right + dims when
   // the Manage Exceptions CTA fires, mirroring the new-tab launch.
   const [launching, setLaunching] = useState(false);
@@ -2405,6 +3204,9 @@ function ReportView({ report, onBack, onShare, onManageExceptions, onOpenQuery, 
   // Report-level activity log drawer (consolidates activity across all query cards).
   const [activityLogOpen, setActivityLogOpen] = useState(false);
 
+  // Add Query modal — shown from the empty-state report layout.
+  const [addQueryOpen, setAddQueryOpen] = useState(false);
+
   // ─── Shared comments state (common activity log across all query cards) ───
   const [comments, setComments] = useState<QueryComment[]>([
     { id: 'c-1', queryId: 'Q01', queryTitle: 'Detects duplicate invoice entries by vendor, date, and amount', author: 'Priya Mehta',  initials: 'PM', timestamp: '2 days ago', text: 'Grouped cases by vendor and exported for AP review. Priority — largest 12 duplicates are all the same vendor.' },
@@ -2522,7 +3324,134 @@ function ReportView({ report, onBack, onShare, onManageExceptions, onOpenQuery, 
           )}
         </AnimatePresence>
 
-        {appliedTemplate ? (
+        {report.isEmpty ? (
+          <>
+            {/* Empty-state Cover — same chrome, simpler body */}
+            <div className="relative rounded-2xl overflow-hidden mb-5 bg-gradient-to-br from-[#3b0b72] to-[#6a12cd]" style={{ boxShadow: '0 4px 24px rgba(106,18,205,0.35)' }}>
+              <div className="relative z-10 px-8 py-7">
+                <h1 className="text-2xl font-bold text-white tracking-tight mb-1">{report.name}</h1>
+                {reportTemplate && (
+                  <p className="text-white/60 text-[13px] mb-3">{reportTemplate.desc}</p>
+                )}
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 text-[13px]">
+                    <span className="font-semibold text-white">{report.generatedBy}</span>
+                    <span className="text-white/30 mx-0.5">|</span>
+                    <span className="text-white/70">{report.generatedAt}</span>
+                    <span className="text-white/30 mx-0.5">|</span>
+                    <span className="text-white/70">{reportTemplate?.sections.length ?? 0} {reportTemplate?.sections.length === 1 ? 'section' : 'sections'}</span>
+                  </div>
+                  <button
+                    onClick={() => setAddQueryOpen(true)}
+                    className="inline-flex items-center gap-1.5 h-9 px-3.5 text-[12.5px] font-semibold text-primary bg-white rounded-[10px] hover:bg-white/90 transition-colors cursor-pointer shadow-[0_2px_8px_rgba(0,0,0,0.15)]"
+                  >
+                    <Plus size={13} />
+                    Add Query
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Section blocks — render template sections with empty placeholders.
+                When a section is the "queries" section (e.g., Audit Queries) and
+                queries have been attached, the cards slot inside that section. */}
+            {(() => {
+              const sections = reportTemplate?.sections ?? [];
+              const attached = report.attachedQueries ?? [];
+              const queriesSectionIndex = sections.findIndex(s => /quer(y|ies)/i.test(s.name));
+              const hasQueriesSection = queriesSectionIndex !== -1;
+
+              return (
+                <div className="space-y-4">
+                  {sections.map((section, i) => {
+                    const Icon = SECTION_ICONS[section.icon] || FileText;
+                    const isQueriesSection = i === queriesSectionIndex;
+                    const renderQueriesHere = isQueriesSection && attached.length > 0;
+
+                    if (renderQueriesHere) {
+                      return (
+                        <motion.div
+                          key={`${section.name}-${i}`}
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: i * 0.04 }}
+                          className="space-y-3"
+                        >
+                          <div className="flex items-center gap-2.5 px-1">
+                            <Icon size={16} className="text-primary" />
+                            <h3 className="text-[14.5px] font-bold text-text tracking-tight">{section.name}</h3>
+                            <span className="text-[10.5px] text-text-muted">·</span>
+                            <span className="text-[10.5px] text-text-muted">{attached.length}</span>
+                          </div>
+                          <AnimatePresence>
+                            {attached.map((q, qi) => (
+                              <AttachedQueryCard
+                                key={q.id}
+                                query={q}
+                                index={qi}
+                                onRemove={(id) => onRemoveQuery(report.id, id)}
+                              />
+                            ))}
+                          </AnimatePresence>
+                        </motion.div>
+                      );
+                    }
+
+                    return (
+                      <motion.section
+                        key={`${section.name}-${i}`}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: i * 0.04 }}
+                        className="bg-white border border-border-light rounded-2xl px-6 py-5"
+                      >
+                        <div className="flex items-center gap-2.5 mb-3">
+                          <Icon size={16} className="text-primary" />
+                          <h3 className="text-[14.5px] font-bold text-text tracking-tight">{section.name}</h3>
+                        </div>
+                        <div className="border border-dashed border-border-light rounded-[10px] bg-paper-50/40 px-6 py-7 text-center">
+                          <p className="text-[12.5px] text-text-muted/80">
+                            {attached.length > 0
+                              ? `${section.name} will be generated from your attached queries.`
+                              : `Section content generated from ${report.name} data`}
+                          </p>
+                        </div>
+                      </motion.section>
+                    );
+                  })}
+
+                  {/* Fallback — template has no queries section, so render attached queries above remaining sections */}
+                  {!hasQueriesSection && attached.length > 0 && (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2.5 px-1">
+                        <MessageSquare size={16} className="text-primary" />
+                        <h3 className="text-[14.5px] font-bold text-text tracking-tight">Attached Queries</h3>
+                        <span className="text-[10.5px] text-text-muted">·</span>
+                        <span className="text-[10.5px] text-text-muted">{attached.length}</span>
+                      </div>
+                      <AnimatePresence>
+                        {attached.map((q, qi) => (
+                          <AttachedQueryCard
+                            key={q.id}
+                            query={q}
+                            index={qi}
+                            onRemove={(id) => onRemoveQuery(report.id, id)}
+                          />
+                        ))}
+                      </AnimatePresence>
+                    </div>
+                  )}
+
+                  {(!reportTemplate || sections.length === 0) && (
+                    <div className="bg-white border border-border-light rounded-2xl px-6 py-12 text-center">
+                      <p className="text-[13px] text-text-muted">This template has no sections defined.</p>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </>
+        ) : appliedTemplate ? (
           <>
             {/* Report Cover */}
             <div className="relative rounded-2xl overflow-hidden mb-5 bg-gradient-to-br from-[#3b0b72] to-[#6a12cd]" style={{ boxShadow: '0 4px 24px rgba(106,18,205,0.35)' }}>
@@ -2720,6 +3649,8 @@ function ReportView({ report, onBack, onShare, onManageExceptions, onOpenQuery, 
                         onDelete={() => removeSection(section.id)}
                         comments={comments}
                         onAddComment={addComment}
+                        casesPhase={casesPhases[section.query.id] ?? 'idle'}
+                        onCasesPhaseChange={(p) => setCasesPhase(section.query.id, p)}
                       />
                     );
                   }
@@ -2756,6 +3687,24 @@ function ReportView({ report, onBack, onShare, onManageExceptions, onOpenQuery, 
           />
         )}
       </AnimatePresence>
+
+      {/* Add Query modal — opened from empty-state cover */}
+      <AddQueryModal
+        open={addQueryOpen}
+        onClose={() => setAddQueryOpen(false)}
+        onAttach={(selection) => {
+          const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+          onAddQuery(report.id, {
+            id: `aq-${Date.now()}`,
+            kind: selection.kind,
+            label: selection.label,
+            attachedAt: today,
+            attachedBy: report.generatedBy,
+          });
+          const verb = selection.kind === 'upload' ? 'Uploaded' : 'Attached';
+          addToast({ type: 'success', message: `${verb} "${selection.label}" — data syncing…` });
+        }}
+      />
     </motion.div>
   );
 }
@@ -2777,7 +3726,8 @@ export default function ReportsView({
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [tagFilter, setTagFilter] = useState<string>('All');
   const [showTagDropdown, setShowTagDropdown] = useState(false);
-  const [viewingReport, setViewingReport] = useState<typeof GENERATED_REPORTS[0] | null>(null);
+  const [viewingReport, setViewingReport] = useState<GeneratedReport | null>(null);
+  const [reportToDelete, setReportToDelete] = useState<{ id: string; name: string } | null>(null);
   const [editingTemplate, setEditingTemplate] = useState<typeof REPORT_TEMPLATES[0] | null>(null);
   const [editingAsCopy, setEditingAsCopy] = useState(false);
   const [customTemplatesLocal, setCustomTemplatesLocal] = useState<typeof REPORT_TEMPLATES[number][]>(CUSTOM_TEMPLATES as typeof REPORT_TEMPLATES[number][]);
@@ -2786,7 +3736,47 @@ export default function ReportsView({
     if (onAddCustomTemplate) onAddCustomTemplate(t);
     else setCustomTemplatesLocal(prev => [t, ...prev]);
   };
-  const [generatedReports, setGeneratedReports] = useState<typeof GENERATED_REPORTS[number][]>([...GENERATED_REPORTS]);
+  const GENERATED_REPORTS_KEY = 'irame.reports.generatedReports.v1';
+  const [generatedReports, setGeneratedReports] = useState<GeneratedReport[]>(() => {
+    try {
+      const raw = localStorage.getItem(GENERATED_REPORTS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed as GeneratedReport[];
+      }
+    } catch { /* ignore */ }
+    return [...GENERATED_REPORTS];
+  });
+  useEffect(() => {
+    try { localStorage.setItem(GENERATED_REPORTS_KEY, JSON.stringify(generatedReports)); } catch { /* ignore */ }
+  }, [generatedReports]);
+
+  const addQueryToReport = (reportId: string, query: AttachedQuery) => {
+    setGeneratedReports(prev => prev.map(r =>
+      r.id === reportId
+        ? { ...r, attachedQueries: [...(r.attachedQueries ?? []), query] }
+        : r
+    ));
+    setViewingReport(prev =>
+      prev && prev.id === reportId
+        ? { ...prev, attachedQueries: [...(prev.attachedQueries ?? []), query] }
+        : prev
+    );
+  };
+
+  const removeAttachedQuery = (reportId: string, queryId: string) => {
+    setGeneratedReports(prev => prev.map(r =>
+      r.id === reportId
+        ? { ...r, attachedQueries: (r.attachedQueries ?? []).filter(q => q.id !== queryId) }
+        : r
+    ));
+    setViewingReport(prev =>
+      prev && prev.id === reportId
+        ? { ...prev, attachedQueries: (prev.attachedQueries ?? []).filter(q => q.id !== queryId) }
+        : prev
+    );
+  };
+
   const [previewingTemplate, setPreviewingTemplate] = useState<typeof REPORT_TEMPLATES[0] | null>(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [reportAppliedTemplates, setReportAppliedTemplates] = useState<Record<string, typeof REPORT_TEMPLATES[0]>>({});
@@ -2855,6 +3845,8 @@ export default function ReportsView({
         onOpenQuery={onOpenQuery}
         initialTemplate={reportAppliedTemplates[viewingReport.id] ?? null}
         customTemplates={customTemplates}
+        onAddQuery={addQueryToReport}
+        onRemoveQuery={removeAttachedQuery}
       />
     );
   }
@@ -2925,6 +3917,13 @@ export default function ReportsView({
             searchPlaceholder="Search reports..."
             searchKeys={['name', 'generatedBy']}
             paginated={false}
+            emptyMessage={
+              generatedReports.length === 0
+                ? 'No reports yet. Create your first report to see it here.'
+                : tagFilter !== 'All'
+                  ? `No reports match the "${tagFilter}" filter.`
+                  : 'No reports match your search.'
+            }
             headerExtra={
               <div className="flex items-center gap-2">
                 <TagFilterDropdown />
@@ -2965,7 +3964,7 @@ export default function ReportsView({
                 <div className="flex items-center justify-end gap-1">
                   <button onClick={() => addToast({ type: 'success', message: `Downloading ${item.name}...` })} className="p-1.5 text-text-muted hover:text-primary hover:bg-primary-xlight rounded-md transition-colors cursor-pointer" title="Download"><Download size={14} /></button>
                   <button onClick={() => onShare ? onShare(String(item.id)) : addToast({ type: 'info', message: `Sharing ${item.name}...` })} className="p-1.5 text-text-muted hover:text-primary hover:bg-primary-xlight rounded-md transition-colors cursor-pointer" title="Share"><Share2 size={14} /></button>
-                  <button onClick={() => addToast({ type: 'success', message: `${item.name} deleted.` })} className="p-1.5 text-text-muted hover:text-risk-700 hover:bg-risk-50 rounded-md transition-colors cursor-pointer" title="Delete"><Trash2 size={14} /></button>
+                  <button onClick={() => setReportToDelete({ id: String(item.id), name: String(item.name) })} className="p-1.5 text-text-muted hover:text-risk-700 hover:bg-risk-50 rounded-md transition-colors cursor-pointer" title="Delete"><Trash2 size={14} /></button>
                 </div>
               )},
             ]}
@@ -2984,6 +3983,29 @@ export default function ReportsView({
                 </div>
               </div>
             </div>
+            {filteredReports.length === 0 ? (
+              <div className="px-6 py-16 flex flex-col items-center justify-center text-center">
+                <div className="w-10 h-10 rounded-xl bg-surface-2 flex items-center justify-center mb-3">
+                  <FileText size={18} className="text-text-muted/50" />
+                </div>
+                <div className="text-[13px] font-medium text-text-secondary">
+                  {generatedReports.length === 0
+                    ? 'No reports yet. Create your first report to see it here.'
+                    : tagFilter !== 'All'
+                      ? `No reports match the "${tagFilter}" filter.`
+                      : 'No reports match your search.'}
+                </div>
+                {generatedReports.length === 0 && (
+                  <button
+                    onClick={openNewReportModal}
+                    className="mt-4 inline-flex items-center gap-1.5 h-9 px-4 text-[12.5px] font-semibold text-white bg-primary hover:bg-primary/90 rounded-[8px] cursor-pointer transition-colors"
+                  >
+                    <Plus size={14} />
+                    Create Report
+                  </button>
+                )}
+              </div>
+            ) : (
             <div className="p-4 grid grid-cols-3 gap-4 items-start">
               {filteredReports.map((r, i) => {
                 return (
@@ -2996,7 +4018,7 @@ export default function ReportsView({
                       <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button onClick={(e) => { e.stopPropagation(); addToast({ type: 'success', message: `Downloading ${r.name}...` }); }} className="hover:text-primary transition-colors cursor-pointer" style={{ color: 'rgba(38,6,74,0.4)' }} title="Download"><Download size={15} /></button>
                         <button onClick={(e) => { e.stopPropagation(); onShare ? onShare(r.id) : addToast({ type: 'info', message: `Sharing ${r.name}...` }); }} className="hover:text-primary transition-colors cursor-pointer" style={{ color: 'rgba(38,6,74,0.4)' }} title="Share"><Share2 size={15} /></button>
-                        <button onClick={(e) => { e.stopPropagation(); addToast({ type: 'success', message: `${r.name} deleted.` }); }} className="hover:text-risk transition-colors cursor-pointer" style={{ color: 'rgba(38,6,74,0.4)' }} title="Delete"><Trash2 size={15} /></button>
+                        <button onClick={(e) => { e.stopPropagation(); setReportToDelete({ id: r.id, name: r.name }); }} className="hover:text-risk transition-colors cursor-pointer" style={{ color: 'rgba(38,6,74,0.4)' }} title="Delete"><Trash2 size={15} /></button>
                       </div>
                     </div>
                     <div className="font-medium text-text group-hover:text-primary transition-colors mb-1" style={{ fontSize: '14px', lineHeight: '20px' }}>{r.name}</div>
@@ -3010,6 +4032,7 @@ export default function ReportsView({
                 );
               })}
             </div>
+            )}
           </div>
         )}
 
@@ -3021,6 +4044,11 @@ export default function ReportsView({
             searchPlaceholder="Search shared reports..."
             searchKeys={['name', 'sharedBy', 'sharedWith']}
             paginated={false}
+            emptyMessage={
+              SHARED_REPORTS.length === 0
+                ? 'No reports have been shared with you yet.'
+                : 'No shared reports match your search.'
+            }
             headerExtra={
               <div className="flex items-center gap-0.5 p-0.5 bg-paper-50 rounded-[8px]">
                 <button onClick={() => setViewMode('list')} className="p-1.5 rounded-md bg-white shadow-sm text-primary cursor-pointer" title="List view"><List size={15} /></button>
@@ -3054,7 +4082,6 @@ export default function ReportsView({
                 <div className="flex items-center justify-end gap-1">
                   <button onClick={() => addToast({ type: 'success', message: `Downloading ${item.name}...` })} className="p-1.5 text-text-muted hover:text-primary hover:bg-primary-xlight rounded-md transition-colors cursor-pointer" title="Download"><Download size={14} /></button>
                   <button onClick={() => addToast({ type: 'info', message: `Sharing ${item.name}...` })} className="p-1.5 text-text-muted hover:text-primary hover:bg-primary-xlight rounded-md transition-colors cursor-pointer" title="Share"><Share2 size={14} /></button>
-                  <button onClick={() => addToast({ type: 'success', message: `${item.name} deleted.` })} className="p-1.5 text-text-muted hover:text-risk-700 hover:bg-risk-50 rounded-md transition-colors cursor-pointer" title="Delete"><Trash2 size={14} /></button>
                 </div>
               )},
             ]}
@@ -3070,6 +4097,16 @@ export default function ReportsView({
                 <button onClick={() => setViewMode('grid')} className="p-1.5 rounded-md bg-white shadow-sm text-primary cursor-pointer" title="Grid view"><LayoutGrid size={15} /></button>
               </div>
             </div>
+            {SHARED_REPORTS.length === 0 ? (
+              <div className="px-6 py-16 flex flex-col items-center justify-center text-center">
+                <div className="w-10 h-10 rounded-xl bg-surface-2 flex items-center justify-center mb-3">
+                  <Share2 size={18} className="text-text-muted/50" />
+                </div>
+                <div className="text-[13px] font-medium text-text-secondary">
+                  No reports have been shared with you yet.
+                </div>
+              </div>
+            ) : (
             <div className="p-4 grid grid-cols-3 gap-4 items-start">
               {SHARED_REPORTS.map((r, i) => (
                 <motion.div key={r.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
@@ -3080,7 +4117,6 @@ export default function ReportsView({
                     <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button onClick={(e) => { e.stopPropagation(); addToast({ type: 'success', message: `Downloading ${r.name}...` }); }} className="hover:text-primary transition-colors cursor-pointer" style={{ color: 'rgba(38,6,74,0.4)' }} title="Download"><Download size={15} /></button>
                       <button onClick={(e) => { e.stopPropagation(); addToast({ type: 'info', message: `Sharing ${r.name}...` }); }} className="hover:text-primary transition-colors cursor-pointer" style={{ color: 'rgba(38,6,74,0.4)' }} title="Share"><Share2 size={15} /></button>
-                      <button onClick={(e) => { e.stopPropagation(); addToast({ type: 'success', message: `${r.name} deleted.` }); }} className="hover:text-red-500 transition-colors cursor-pointer" style={{ color: 'rgba(38,6,74,0.4)' }} title="Delete"><Trash2 size={15} /></button>
                     </div>
                   </div>
                   <div className="font-medium text-[13px] text-text group-hover:text-primary transition-colors leading-snug mb-1">{r.name}</div>
@@ -3097,6 +4133,7 @@ export default function ReportsView({
                 </motion.div>
               ))}
             </div>
+            )}
           </div>
         )}
 
@@ -3132,15 +4169,18 @@ export default function ReportsView({
                         addToast({ type: 'info', message: `Generating "${rt.name}"...` });
                         setTimeout(() => {
                           const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                          const newReport: typeof GENERATED_REPORTS[number] = {
+                          const sectionsCount = rt.sections?.length ?? 0;
+                          const tagFromTemplate = rt.category === 'Risk' ? 'Bulk Audit' : 'Internal Audit';
+                          const newReport: GeneratedReport = {
                             id: `gr-gen-${Date.now()}`,
                             templateId: rt.id,
                             name: `${rt.name} — ${today}`,
-                            tag: 'Internal Audit',
+                            tag: tagFromTemplate,
                             generatedBy: 'You',
                             generatedAt: today,
                             status: 'draft',
-                            pages: 8,
+                            pages: Math.max(1, sectionsCount),
+                            isEmpty: true,
                           };
                           setGeneratedReports(prev => [newReport, ...prev]);
                           setViewingReport(newReport);
@@ -3192,6 +4232,7 @@ export default function ReportsView({
             isCopy={editingAsCopy}
             onClose={() => { setEditingTemplate(null); setEditingAsCopy(false); }}
             onSaveCopy={(copy) => addCustomTemplate(copy)}
+            existingTemplateNames={[...REPORT_TEMPLATES.map(t => t.name), ...customTemplates.map(t => t.name)]}
           />
         )}
       </AnimatePresence>
@@ -3328,15 +4369,18 @@ export default function ReportsView({
                     addToast({ type: 'info', message: `Generating "${newReportName}"...` });
                     setTimeout(() => {
                       const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                      const newReport: typeof GENERATED_REPORTS[number] = {
+                      const sectionsCount = template.sections?.length ?? 0;
+                      const tagFromTemplate = template.category === 'Risk' ? 'Bulk Audit' : 'Internal Audit';
+                      const newReport: GeneratedReport = {
                         id: `gr-gen-${Date.now()}`,
                         templateId: template.id,
                         name: newReportName.trim(),
-                        tag: 'Internal Audit',
+                        tag: tagFromTemplate,
                         generatedBy: 'You',
                         generatedAt: today,
                         status: 'draft',
-                        pages: 8,
+                        pages: Math.max(1, sectionsCount),
+                        isEmpty: true,
                       };
                       setGeneratedReports(prev => [newReport, ...prev]);
                       setViewingReport(newReport);
@@ -3376,11 +4420,30 @@ export default function ReportsView({
                 onBack={() => setShowBuilderModal(false)}
                 initialTitle={newReportName.trim() || undefined}
                 onSaveAsTemplate={(t) => addCustomTemplate(t as typeof REPORT_TEMPLATES[number])}
+                existingTemplateNames={[...REPORT_TEMPLATES.map(t => t.name), ...customTemplates.map(t => t.name)]}
               />
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
+
+      <ConfirmDialog
+        open={!!reportToDelete}
+        onClose={() => setReportToDelete(null)}
+        title="Delete File?"
+        description={reportToDelete && (
+          <>Are you sure you want to delete <span className="font-semibold text-text">{reportToDelete.name}</span>? This action cannot be undone.</>
+        )}
+        confirmLabel="Delete"
+        destructive
+        onConfirm={() => {
+          if (!reportToDelete) return;
+          const name = reportToDelete.name;
+          setGeneratedReports(prev => prev.filter(r => r.id !== reportToDelete.id));
+          setReportToDelete(null);
+          addToast({ type: 'success', message: `${name} deleted.` });
+        }}
+      />
     </div>
   );
 }

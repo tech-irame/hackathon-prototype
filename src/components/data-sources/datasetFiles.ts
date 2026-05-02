@@ -117,6 +117,153 @@ export interface IntegrationConfig {
   fields: ConfigField[];
 }
 
+// ─── DB schemas (mock) ───────────────────────────────────────────────────────
+// What the backend would expose via Knowledge Hub once a DB connection is wired
+// up: the whitelisted tables and their columns. Drives the live-SQL dashboard
+// flow — Add Widget renders this as a Database → Table → Column tree, and
+// drag-to-canvas lets the user build charts without writing SQL by hand.
+
+export type DbColumnKind = 'dimension' | 'measure';
+export type DbColumnDataType = 'string' | 'number' | 'date' | 'boolean';
+
+export interface DbColumn {
+  /** Raw column name as it lives in the database. */
+  name: string;
+  /** Human-friendly label rendered in the tree and used for chart axes. */
+  label: string;
+  kind: DbColumnKind;
+  dataType: DbColumnDataType;
+}
+
+export interface DbTable {
+  schema: string;
+  name: string;
+  rowCount: number;
+  columns: DbColumn[];
+}
+
+export const DB_SCHEMAS: Record<string, DbTable[]> = {
+  // Oracle SAP-ERP — AP module
+  'db-01': [
+    {
+      schema: 'AP_MODULE', name: 'INVOICE_HEADER', rowCount: 1_204_530,
+      columns: [
+        { name: 'INVOICE_DATE',     label: 'Date',                kind: 'dimension', dataType: 'date'   },
+        { name: 'PERIOD_MONTH',     label: 'Month',               kind: 'dimension', dataType: 'string' },
+        { name: 'REGION_CODE',      label: 'Region',              kind: 'dimension', dataType: 'string' },
+        { name: 'VENDOR_NAME',      label: 'Vendor Name',         kind: 'dimension', dataType: 'string' },
+        { name: 'STATUS',           label: 'Status',              kind: 'dimension', dataType: 'string' },
+        { name: 'CATEGORY',         label: 'Category',            kind: 'dimension', dataType: 'string' },
+        { name: 'INVOICE_AMOUNT',   label: 'Invoice Amount (₹)',  kind: 'measure',   dataType: 'number' },
+        { name: 'AMOUNT_AT_RISK',   label: 'Amount at Risk (₹)',  kind: 'measure',   dataType: 'number' },
+      ],
+    },
+    {
+      schema: 'AP_MODULE', name: 'DUPLICATE_AUDIT', rowCount: 184_220,
+      columns: [
+        { name: 'AUDIT_DATE',       label: 'Date',                kind: 'dimension', dataType: 'date'   },
+        { name: 'INVOICE_ID',       label: 'Invoice ID',          kind: 'dimension', dataType: 'string' },
+        { name: 'DUPLICATE_COUNT',  label: 'Duplicate Count',     kind: 'measure',   dataType: 'number' },
+        { name: 'DUPLICATE_SCORE',  label: 'Duplicate Score (%)', kind: 'measure',   dataType: 'number' },
+        { name: 'INVOICES_SCANNED', label: 'Invoices Scanned',    kind: 'measure',   dataType: 'number' },
+      ],
+    },
+  ],
+  // PostgreSQL — vendor master
+  'db-02': [
+    {
+      schema: 'public', name: 'vendors', rowCount: 24_180,
+      columns: [
+        { name: 'vendor_id',     label: 'Vendor ID',     kind: 'dimension', dataType: 'string' },
+        { name: 'vendor_name',   label: 'Vendor Name',   kind: 'dimension', dataType: 'string' },
+        { name: 'region',        label: 'Region',        kind: 'dimension', dataType: 'string' },
+        { name: 'category',      label: 'Category',      kind: 'dimension', dataType: 'string' },
+        { name: 'status',        label: 'Status',        kind: 'dimension', dataType: 'string' },
+        { name: 'risk_score',    label: 'Risk Score',    kind: 'measure',   dataType: 'number' },
+        { name: 'credit_limit',  label: 'Credit Limit',  kind: 'measure',   dataType: 'number' },
+      ],
+    },
+    {
+      schema: 'public', name: 'invoices', rowCount: 1_842_310,
+      columns: [
+        { name: 'invoice_id',     label: 'Invoice ID',          kind: 'dimension', dataType: 'string' },
+        { name: 'invoice_date',   label: 'Date',                kind: 'dimension', dataType: 'date'   },
+        { name: 'period_month',   label: 'Month',               kind: 'dimension', dataType: 'string' },
+        { name: 'vendor_id',      label: 'Vendor ID',           kind: 'dimension', dataType: 'string' },
+        { name: 'department',     label: 'Department',          kind: 'dimension', dataType: 'string' },
+        { name: 'status',         label: 'Status',              kind: 'dimension', dataType: 'string' },
+        { name: 'invoice_amount', label: 'Invoice Amount (₹)',  kind: 'measure',   dataType: 'number' },
+        { name: 'duplicate_flag', label: 'Duplicate Count',     kind: 'measure',   dataType: 'number' },
+      ],
+    },
+    {
+      schema: 'public', name: 'payment_terms', rowCount: 312,
+      columns: [
+        { name: 'term_code',     label: 'Term Code',     kind: 'dimension', dataType: 'string' },
+        { name: 'term_label',    label: 'Term',          kind: 'dimension', dataType: 'string' },
+        { name: 'days_net',      label: 'Days (Net)',    kind: 'measure',   dataType: 'number' },
+        { name: 'discount_pct',  label: 'Discount (%)',  kind: 'measure',   dataType: 'number' },
+      ],
+    },
+  ],
+  // Snowflake — GL history
+  'db-03': [
+    {
+      schema: 'GL_HISTORY', name: 'JOURNAL_ENTRIES', rowCount: 8_410_220,
+      columns: [
+        { name: 'POSTING_DATE',  label: 'Date',                kind: 'dimension', dataType: 'date'   },
+        { name: 'PERIOD',        label: 'Month',               kind: 'dimension', dataType: 'string' },
+        { name: 'ACCOUNT',       label: 'Account',             kind: 'dimension', dataType: 'string' },
+        { name: 'COST_CENTER',   label: 'Cost Center',         kind: 'dimension', dataType: 'string' },
+        { name: 'DEPARTMENT',    label: 'Department',          kind: 'dimension', dataType: 'string' },
+        { name: 'AMOUNT',        label: 'Amount (₹)',          kind: 'measure',   dataType: 'number' },
+        { name: 'AMOUNT_AT_RISK',label: 'Amount at Risk (₹)',  kind: 'measure',   dataType: 'number' },
+      ],
+    },
+    {
+      schema: 'GL_HISTORY', name: 'CONTROL_TESTS', rowCount: 12_840,
+      columns: [
+        { name: 'TEST_DATE',     label: 'Date',              kind: 'dimension', dataType: 'date'   },
+        { name: 'CONTROL_ID',    label: 'Control ID',        kind: 'dimension', dataType: 'string' },
+        { name: 'CONTROL_NAME',  label: 'Control Name',      kind: 'dimension', dataType: 'string' },
+        { name: 'OUTCOME',       label: 'Status',            kind: 'dimension', dataType: 'string' },
+        { name: 'PASS_COUNT',    label: 'Pass Count',        kind: 'measure',   dataType: 'number' },
+        { name: 'FAIL_COUNT',    label: 'Fail Count',        kind: 'measure',   dataType: 'number' },
+      ],
+    },
+  ],
+  // Workday HRIS
+  'db-04': [
+    {
+      schema: 'public', name: 'employees', rowCount: 18_230,
+      columns: [
+        { name: 'employee_id',   label: 'Employee ID',   kind: 'dimension', dataType: 'string' },
+        { name: 'department',    label: 'Department',    kind: 'dimension', dataType: 'string' },
+        { name: 'region',        label: 'Region',        kind: 'dimension', dataType: 'string' },
+        { name: 'hire_date',     label: 'Hire Date',     kind: 'dimension', dataType: 'date'   },
+        { name: 'status',        label: 'Status',        kind: 'dimension', dataType: 'string' },
+        { name: 'headcount',     label: 'Headcount',     kind: 'measure',   dataType: 'number' },
+        { name: 'salary_cost',   label: 'Salary Cost',   kind: 'measure',   dataType: 'number' },
+      ],
+    },
+    {
+      schema: 'public', name: 'expense_claims', rowCount: 142_310,
+      columns: [
+        { name: 'claim_date',    label: 'Date',                kind: 'dimension', dataType: 'date'   },
+        { name: 'period_month',  label: 'Month',               kind: 'dimension', dataType: 'string' },
+        { name: 'department',    label: 'Department',          kind: 'dimension', dataType: 'string' },
+        { name: 'category',      label: 'Category',            kind: 'dimension', dataType: 'string' },
+        { name: 'status',        label: 'Status',              kind: 'dimension', dataType: 'string' },
+        { name: 'claim_amount',  label: 'Amount (₹)',          kind: 'measure',   dataType: 'number' },
+        { name: 'duplicate_cnt', label: 'Duplicate Count',     kind: 'measure',   dataType: 'number' },
+      ],
+    },
+  ],
+};
+
+// Masked by default — sensitive fields (password, secret, token) render as ••••••
+// with a copy-to-clipboard fallback to the support contact.
+
 export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
   'db-01': {
     provider: 'Oracle Database',

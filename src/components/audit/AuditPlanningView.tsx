@@ -388,6 +388,29 @@ function getRacmComputed(racm: RacmEntry): ComputedRacmState {
 
 const MOCK_RACMS = RACM_SEED_DATA;
 
+type MappingStatus = 'Not Started' | 'In Progress' | 'Complete';
+function getMappingStatus(racm: RacmEntry): MappingStatus {
+  if (racm.mappedRisks === 0) return 'Not Started';
+  if (racm.mappedRisks < racm.risks) return 'In Progress';
+  return 'Complete';
+}
+const MAPPING_STYLES: Record<MappingStatus, string> = {
+  'Not Started': 'bg-gray-100 text-gray-500',
+  'In Progress': 'bg-amber-50 text-amber-600',
+  'Complete': 'bg-emerald-50 text-emerald-600',
+};
+type Readiness = 'Needs Mapping' | 'Needs Workflow Setup' | 'Ready';
+function getReadiness(racm: RacmEntry): Readiness {
+  if (racm.unmappedRisks > 0 || racm.mappedRisks < racm.risks) return 'Needs Mapping';
+  if (racm.workflowCoverage < 100) return 'Needs Workflow Setup';
+  return 'Ready';
+}
+const READINESS_STYLES: Record<Readiness, string> = {
+  'Needs Mapping': 'bg-amber-50 text-amber-700',
+  'Needs Workflow Setup': 'bg-amber-50/60 text-amber-600',
+  'Ready': 'bg-emerald-50 text-emerald-700',
+};
+
 const BP_DOT_COLORS: Record<string, string> = { P2P: '#6a12cd', O2C: '#0284c7', R2R: '#d97706', S2C: '#059669', ITGC: '#16a34a' };
 
 // Imported RACM row shape
@@ -715,13 +738,6 @@ function RacmDashboard({ engagements, onGoToExecution }: { engagements: { source
             className="flex items-center gap-1.5 px-3 py-2 border border-border rounded-lg text-[12px] font-medium text-text-secondary hover:bg-white transition-colors cursor-pointer">
             <Upload size={13} />Import RACM
           </button>
-          <button onClick={() => {
-              const needsMapping = racmList.find(r => r.unmappedRisks > 0) || racmList[0];
-              if (needsMapping) { setMappingRacm(needsMapping); setShowMappingWorkspace(true); }
-            }}
-            className="flex items-center gap-1.5 px-3 py-2 border border-border rounded-lg text-[12px] font-medium text-text-secondary hover:bg-white transition-colors cursor-pointer">
-            <Target size={13} />Start Mapping
-          </button>
           <button onClick={() => setShowCreateRacmModal(true)}
             className="flex items-center gap-1.5 px-3 py-2 border border-primary/30 bg-primary/5 rounded-lg text-[12px] font-medium text-primary hover:bg-primary/10 transition-colors cursor-pointer">
             <Plus size={13} />Create RACM
@@ -747,86 +763,47 @@ function RacmDashboard({ engagements, onGoToExecution }: { engagements: { source
         ))}
       </div>
 
-      {/* Unmapped warning */}
-      {totalUnmapped > 0 && (
-        <div className="rounded-xl border border-high/20 bg-high-50/30 px-4 py-3 flex items-center gap-3">
-          <AlertTriangle size={15} className="text-high-700 shrink-0" />
-          <div>
-            <span className="text-[12px] font-semibold text-high-700">{totalUnmapped} risk{totalUnmapped !== 1 ? 's' : ''} not mapped to controls.</span>
-            <span className="text-[12px] text-high-700/70 ml-1">Complete mapping before engagement execution.</span>
-          </div>
-          <button onClick={() => {
-              const needsMapping = racmList.find(r => r.unmappedRisks > 0) || racmList[0];
-              setMappingRacm(needsMapping);
-              setShowMappingWorkspace(true);
-            }}
-            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-high-50 text-high-700 text-[11px] font-semibold hover:bg-high/10 transition-colors cursor-pointer shrink-0">
-            <Target size={11} />Start Mapping
-          </button>
-        </div>
-      )}
-
       {/* RACM table */}
       <div className="glass-card rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-[12px]">
             <thead>
               <tr className="border-b border-border bg-surface-2/50">
-                {['RACM', 'Process', 'Framework', 'Risks', 'Controls', 'Key', 'Unmapped', 'Workflow %', 'Status', 'Readiness', 'Action'].map(h => (
-                  <th key={h} className="px-3 py-2.5 text-left text-[10px] font-semibold text-text-muted uppercase tracking-wide whitespace-nowrap">{h}</th>
+                {['RACM', 'Process', 'Framework', 'Risks', 'Controls', 'Key Controls', 'Mapping Status', 'Readiness', ''].map(h => (
+                  <th key={h || 'action'} className="px-3 py-2.5 text-left text-[10px] font-semibold text-text-muted uppercase tracking-wide whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {racmList.map((racm, i) => {
-                const computed = getRacmComputed(racm);
+                const mapping = getMappingStatus(racm);
+                const readiness = getReadiness(racm);
                 return (
                   <motion.tr key={racm.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }}
                     className="border-b border-border/50 hover:bg-gray-50/60 transition-colors">
                     <td className="px-3 py-3">
-                      <div className="text-[12px] font-medium text-text">{racm.name}</div>
-                      <div className="text-[10px] text-text-muted font-mono">{racm.version}</div>
-                    </td>
-                    <td className="px-3 py-3">
-                      <span className="inline-flex items-center gap-1 px-2 h-5 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-600 border border-gray-200/60">
-                        {racm.process}
-                      </span>
-                    </td>
-                    <td className="px-3 py-3"><span className="text-[11px] text-text-secondary">{racm.framework}</span></td>
-                    <td className="px-3 py-3"><span className="text-[12px] font-semibold text-text tabular-nums">{racm.risks}</span></td>
-                    <td className="px-3 py-3"><span className="text-[12px] font-semibold text-text tabular-nums">{racm.controls}</span></td>
-                    <td className="px-3 py-3"><span className="text-[12px] font-medium text-gray-600 tabular-nums">{racm.keyControls}</span></td>
-                    <td className="px-3 py-3">
-                      {racm.unmappedRisks > 0
-                        ? <span className="text-[12px] font-bold text-red-600 tabular-nums">{racm.unmappedRisks}</span>
-                        : <span className="text-[11px] text-gray-400 font-medium">0</span>}
-                    </td>
-                    <td className="px-3 py-3">
-                      <div className="flex items-center gap-2 min-w-[60px]">
-                        <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                          <div className="h-full rounded-full bg-gray-400 transition-all" style={{ width: `${racm.workflowCoverage}%` }} />
-                        </div>
-                        <span className="text-[10px] text-gray-400 tabular-nums w-7 text-right">{racm.workflowCoverage}%</span>
+                      <div className="flex items-center gap-1.5">
+                        {racm.linkedToEngagement && <Lock size={10} className="text-gray-400 shrink-0" />}
+                        <span className="text-[12px] font-medium text-text">{racm.name}</span>
                       </div>
                     </td>
                     <td className="px-3 py-3">
-                      <span className={`px-2 h-5 rounded-full text-[9px] font-semibold inline-flex items-center ${RACM_STATUS_STYLES[computed.status]}`}>{computed.status}</span>
+                      <span className="inline-flex items-center px-2 h-5 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-600 border border-gray-200/60">{racm.process}</span>
+                    </td>
+                    <td className="px-3 py-3"><span className="text-[11px] text-gray-500">{racm.framework}</span></td>
+                    <td className="px-3 py-3"><span className="text-[12px] text-text tabular-nums">{racm.risks}</span></td>
+                    <td className="px-3 py-3"><span className="text-[12px] text-text tabular-nums">{racm.controls}</span></td>
+                    <td className="px-3 py-3"><span className="text-[12px] text-gray-500 tabular-nums">{racm.keyControls}</span></td>
+                    <td className="px-3 py-3">
+                      <span className={`px-2 h-5 rounded-full text-[9px] font-semibold inline-flex items-center ${MAPPING_STYLES[mapping]}`}>{mapping}</span>
                     </td>
                     <td className="px-3 py-3">
-                      {computed.readiness !== 'Ready' ? (
-                        <span className={`inline-flex items-center px-2 h-5 rounded-full text-[9px] font-semibold ${RACM_READINESS_STYLES[computed.readiness]}`}>
-                          {computed.readiness}
-                        </span>
-                      ) : (
-                        <span className={`inline-flex items-center gap-1 px-2 h-5 rounded-full text-[9px] font-semibold ${RACM_READINESS_STYLES.Ready}`}>
-                          <CheckCircle2 size={9} />Ready
-                        </span>
-                      )}
+                      <span className={`px-2 h-5 rounded-full text-[9px] font-semibold inline-flex items-center ${READINESS_STYLES[readiness]}`}>{readiness}</span>
                     </td>
-                    <td className="px-3 py-3">
+                    <td className="px-3 py-3 text-right">
                       <button onClick={() => { setMappingRacm(racm); setShowMappingWorkspace(true); }}
-                        className={`px-2 py-1 rounded-lg text-[10px] font-bold cursor-pointer transition-colors inline-flex items-center gap-1 ${RACM_ACTION_STYLES[computed.action]}`}>
-                        {computed.action}<ChevronRight size={8} />
+                        className="px-2 py-1 rounded-lg text-[10px] font-bold cursor-pointer transition-colors inline-flex items-center gap-1 bg-gray-100 text-gray-600 hover:bg-gray-200/70">
+                        View<ChevronRight size={8} />
                       </button>
                     </td>
                   </motion.tr>
@@ -1137,15 +1114,20 @@ function RacmSetupWorkspace({ racm, onBack, onStartMapping, onImport }: {
 // ─── Create RACM Modal ──────────────────────────────────────────────────────
 
 const RACM_PROCESSES = ['P2P', 'O2C', 'R2R', 'S2C', 'ITGC', 'Cross'];
-const RACM_FRAMEWORKS = ['SOX ICFR', 'IFC', 'ISO 27001', 'Internal Policy', ''];
+const RACM_AUDIT_TYPES = ['IFC', 'Internal Audit', 'Operational Audit', 'Concurrent Audit', 'ITGC'];
+const RACM_FY_OPTIONS = ['FY25', 'FY26', 'FY27'];
+const RACM_FRAMEWORKS = ['SOX ICFR', 'ISO 27001', 'Internal Policy', 'Custom'];
 
 function CreateRacmModal({ onClose, onCreate }: { onClose: () => void; onCreate: (r: RacmEntry) => void }) {
   const [name, setName] = useState('');
-  const [process, setProcess] = useState('P2P');
-  const [framework, setFramework] = useState('');
   const [description, setDescription] = useState('');
+  const [process, setProcess] = useState('P2P');
+  const [auditType, setAuditType] = useState('');
+  const [financialYear, setFinancialYear] = useState('FY26');
+  const [framework, setFramework] = useState('');
+  const [owner, setOwner] = useState('Current User');
 
-  const isValid = name.trim().length > 0;
+  const isValid = name.trim().length > 0 && auditType !== '' && financialYear !== '' && owner.trim().length > 0;
 
   const handleCreate = () => {
     if (!isValid) return;
@@ -1154,7 +1136,7 @@ function CreateRacmModal({ onClose, onCreate }: { onClose: () => void; onCreate:
       name,
       version: 'v1.0',
       process,
-      framework: framework || 'Internal Policy',
+      framework: framework || auditType,
       risks: 0,
       controls: 0,
       mappedRisks: 0,
@@ -1168,50 +1150,84 @@ function CreateRacmModal({ onClose, onCreate }: { onClose: () => void; onCreate:
   };
 
   const fieldCls = 'w-full px-3 py-2.5 border border-border rounded-lg text-[13px] text-text bg-white outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/10 transition-all';
+  const labelCls = 'text-[12px] font-semibold text-text-muted block mb-1.5';
 
   return (
     <>
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}
         className="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/30 backdrop-blur-sm" onClick={onClose}>
         <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }}
-          transition={{ duration: 0.2 }} className="bg-white rounded-2xl shadow-xl border border-canvas-border w-full max-w-[460px] flex flex-col" onClick={e => e.stopPropagation()}>
+          transition={{ duration: 0.2 }} className="bg-white rounded-2xl shadow-xl border border-canvas-border w-full max-w-[480px] flex flex-col" onClick={e => e.stopPropagation()}>
 
           <div className="px-6 pt-5 pb-4 border-b border-canvas-border flex items-start justify-between">
             <div>
-              <div className="flex items-center gap-2"><LayoutGrid size={18} className="text-brand-600" /><h2 className="font-display text-[18px] font-semibold text-ink-900">Create RACM</h2></div>
-              <p className="text-[12px] text-ink-500 mt-0.5">Define a new Risk & Control Matrix. Add risks and controls after creation.</p>
+              <h2 className="font-display text-[18px] font-semibold text-ink-900">Create RACM</h2>
+              <p className="text-[12px] text-ink-500 mt-0.5">Define a new Risk & Control Matrix for audit governance.</p>
             </div>
             <button onClick={onClose} className="w-8 h-8 rounded-full text-ink-500 hover:text-ink-800 hover:bg-[#F4F2F7] flex items-center justify-center cursor-pointer"><X size={16} /></button>
           </div>
 
-          <div className="px-6 py-5 space-y-3">
-            <div>
-              <label className="text-[12px] font-semibold text-text-muted block mb-1.5">RACM Name *</label>
-              <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. FY26 P2P — Vendor Payment" className={fieldCls} autoFocus />
+          <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5" style={{ maxHeight: 480 }}>
+            {/* Section 1: Basic Info */}
+            <div className="space-y-3">
+              <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Basic Info</h3>
+              <div>
+                <label className={labelCls}>RACM Name <span className="text-red-400">*</span></label>
+                <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. FY26 P2P — Vendor Payment" className={fieldCls} autoFocus />
+              </div>
+              <div>
+                <label className={labelCls}>Description <span className="font-normal text-ink-400">(optional)</span></label>
+                <textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} placeholder="Brief description of scope..." className={fieldCls + ' resize-none'} />
+              </div>
             </div>
-            <div>
-              <label className="text-[12px] font-semibold text-text-muted block mb-1.5">Primary Business Process *</label>
-              <select value={process} onChange={e => setProcess(e.target.value)} className={fieldCls + ' cursor-pointer appearance-none'}>
-                {RACM_PROCESSES.map(p => <option key={p} value={p}>{p}</option>)}
-              </select>
+
+            {/* Section 2: Audit Context */}
+            <div className="space-y-3">
+              <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Audit Context</h3>
+              <div>
+                <label className={labelCls}>Business Process <span className="text-red-400">*</span></label>
+                <select value={process} onChange={e => setProcess(e.target.value)} className={fieldCls + ' cursor-pointer appearance-none'}>
+                  {RACM_PROCESSES.map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelCls}>Audit Type <span className="text-red-400">*</span></label>
+                  <select value={auditType} onChange={e => setAuditType(e.target.value)} className={fieldCls + ' cursor-pointer appearance-none'}>
+                    <option value="">Select audit type...</option>
+                    {RACM_AUDIT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className={labelCls}>Financial Year <span className="text-red-400">*</span></label>
+                  <select value={financialYear} onChange={e => setFinancialYear(e.target.value)} className={fieldCls + ' cursor-pointer appearance-none'}>
+                    {RACM_FY_OPTIONS.map(fy => <option key={fy} value={fy}>{fy}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className={labelCls}>Framework <span className="font-normal text-ink-400">(optional)</span></label>
+                <select value={framework} onChange={e => setFramework(e.target.value)} className={fieldCls + ' cursor-pointer appearance-none'}>
+                  <option value="">Select framework...</option>
+                  {RACM_FRAMEWORKS.map(f => <option key={f} value={f}>{f}</option>)}
+                </select>
+              </div>
             </div>
-            <div>
-              <label className="text-[12px] font-semibold text-text-muted block mb-1.5">Framework <span className="font-normal text-ink-400">(optional)</span></label>
-              <select value={framework} onChange={e => setFramework(e.target.value)} className={fieldCls + ' cursor-pointer appearance-none'}>
-                <option value="">Select framework...</option>
-                {RACM_FRAMEWORKS.filter(Boolean).map(f => <option key={f} value={f}>{f}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="text-[12px] font-semibold text-text-muted block mb-1.5">Description <span className="font-normal text-ink-400">(optional)</span></label>
-              <textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} placeholder="Brief description of scope..." className={fieldCls + ' resize-none'} />
+
+            {/* Section 3: Ownership */}
+            <div className="space-y-3">
+              <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Ownership</h3>
+              <div>
+                <label className={labelCls}>RACM Owner <span className="text-red-400">*</span></label>
+                <input value={owner} onChange={e => setOwner(e.target.value)} className={fieldCls} />
+              </div>
             </div>
           </div>
 
           <div className="px-6 py-4 border-t border-canvas-border flex items-center justify-end gap-3">
             <button onClick={onClose} className="px-4 py-2.5 rounded-lg border border-canvas-border text-[13px] font-medium text-ink-600 hover:bg-canvas transition-colors cursor-pointer">Cancel</button>
             <button onClick={handleCreate} disabled={!isValid}
-              className="px-5 py-2.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-[13px] font-semibold transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
+              className="px-5 py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-white text-[13px] font-semibold transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
               Create RACM
             </button>
           </div>

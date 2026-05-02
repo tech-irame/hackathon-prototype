@@ -118,12 +118,12 @@ export default function BulkClassifyModal({
         className="fixed inset-0 bg-ink-900/40 backdrop-blur-[2px] z-50"
         onClick={onClose}
       />
-      <motion.div
-        initial={{ opacity: 0, scale: 0.98, y: 8 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.98, y: 8 }}
-        transition={{ duration: 0.18, ease: [0.2, 0, 0, 1] }}
-        className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[640px] max-w-[94vw] max-h-[92vh] bg-canvas-elevated rounded-[16px] shadow-xl border border-canvas-border z-[60] flex flex-col"
+      <motion.aside
+        initial={{ x: 24, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        exit={{ x: 24, opacity: 0 }}
+        transition={{ duration: 0.2, ease: [0.2, 0, 0, 1] }}
+        className="fixed top-0 right-0 bottom-0 w-full max-w-[640px] bg-canvas-elevated shadow-xl border-l border-canvas-border z-[60] flex flex-col"
         role="dialog"
         aria-label="Bulk Classify"
       >
@@ -432,7 +432,7 @@ export default function BulkClassifyModal({
             Apply to {selectedCases.length} case{selectedCases.length === 1 ? '' : 's'}
           </button>
         </footer>
-      </motion.div>
+      </motion.aside>
     </>
   );
 }
