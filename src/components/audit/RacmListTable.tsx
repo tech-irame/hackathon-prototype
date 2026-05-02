@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { ChevronRight, AlertTriangle, Lock } from 'lucide-react';
+import { ChevronRight, AlertTriangle, Lock, Pencil, Settings, Play, FolderOpen } from 'lucide-react';
 import RacmMappingWorkspace from './RacmMappingWorkspace';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -10,37 +10,52 @@ export interface RacmEntry {
   risks: number; controls: number; mappedRisks: number; unmappedRisks: number;
   keyControls: number; workflowCoverage: number; attributesCoverage: number;
   isValidated: boolean; linkedToEngagement: boolean;
+  /** false = still in draft review (editable Excel grid); true | undefined = frozen / active */
+  isFrozen?: boolean;
+  /** Original uploaded file name — used when re-opening the review editor */
+  sourceFileName?: string;
 }
 
-// ─── Derived columns ────────────────────────────────────────────────────────
+// ─── RACM Lifecycle ─────────────────────────────────────────────────────────
 
-type MappingStatus = 'Not Started' | 'In Progress' | 'Complete';
+type RacmLifecycle = 'Draft Review' | 'Needs Setup' | 'Setup In Progress' | 'Ready';
 
-function getMappingStatus(racm: RacmEntry): MappingStatus {
-  if (racm.mappedRisks === 0) return 'Not Started';
-  if (racm.mappedRisks < racm.risks) return 'In Progress';
-  return 'Complete';
-}
-
-const MAPPING_STYLES: Record<MappingStatus, string> = {
-  'Not Started': 'bg-gray-100 text-gray-500',
-  'In Progress': 'bg-amber-50 text-amber-600',
-  'Complete': 'bg-emerald-50 text-emerald-600',
-};
-
-type Readiness = 'Needs Mapping' | 'Needs Workflow Setup' | 'Ready';
-
-function getReadiness(racm: RacmEntry): Readiness {
-  if (racm.unmappedRisks > 0 || racm.mappedRisks < racm.risks) return 'Needs Mapping';
-  if (racm.workflowCoverage < 100) return 'Needs Workflow Setup';
+function getRacmLifecycle(racm: RacmEntry): RacmLifecycle {
+  // Draft = not yet frozen
+  if (racm.isFrozen === false) return 'Draft Review';
+  // Frozen but nothing mapped yet
+  if (racm.mappedRisks === 0 && racm.risks === 0) return 'Needs Setup';
+  if (racm.unmappedRisks > 0 || racm.mappedRisks < racm.risks) return 'Needs Setup';
+  // Mapped but workflows/attributes not complete
+  if (racm.workflowCoverage < 100 || racm.attributesCoverage < 100) return 'Setup In Progress';
   return 'Ready';
 }
 
-const READINESS_STYLES: Record<Readiness, string> = {
-  'Needs Mapping': 'bg-amber-50 text-amber-700',
-  'Needs Workflow Setup': 'bg-amber-50/60 text-amber-600',
-  'Ready': 'bg-emerald-50 text-emerald-700',
+const LIFECYCLE_BADGE: Record<RacmLifecycle, string> = {
+  'Draft Review':      'bg-amber-50 text-amber-600 border-amber-200/50',
+  'Needs Setup':       'bg-yellow-50 text-yellow-700 border-yellow-200/50',
+  'Setup In Progress': 'bg-blue-50 text-blue-600 border-blue-200/50',
+  'Ready':             'bg-emerald-50 text-emerald-700 border-emerald-200/50',
 };
+
+interface LifecycleCTA {
+  label: string;
+  icon: React.ElementType;
+  cls: string;
+}
+
+function getLifecycleCTA(lifecycle: RacmLifecycle): LifecycleCTA {
+  switch (lifecycle) {
+    case 'Draft Review':
+      return { label: 'Edit Draft', icon: Pencil, cls: 'bg-amber-50 text-amber-700 hover:bg-amber-100' };
+    case 'Needs Setup':
+      return { label: 'Configure', icon: Settings, cls: 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100' };
+    case 'Setup In Progress':
+      return { label: 'Continue Setup', icon: Play, cls: 'bg-blue-50 text-blue-700 hover:bg-blue-100' };
+    case 'Ready':
+      return { label: 'Open RACM', icon: FolderOpen, cls: 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100' };
+  }
+}
 
 // ─── Seed Data ──────────────────────────────────────────────────────────────
 
@@ -59,11 +74,18 @@ interface Props {
   initialMappingRacm?: { id: string; name: string; process: string } | null;
   onMappingOpened?: () => void;
   extraRacms?: RacmEntry[];
+  /** Called when user clicks Edit Draft on a draft RACM — opens the Excel editing page */
+  onEditDraft?: (racm: RacmEntry) => void;
 }
 
-export default function RacmListTable({ processFilter, initialMappingRacm, onMappingOpened, extraRacms }: Props) {
+export default function RacmListTable({ processFilter, initialMappingRacm, onMappingOpened, extraRacms, onEditDraft }: Props) {
   const [racmList] = useState<RacmEntry[]>(RACM_SEED_DATA);
-  const allRacms = extraRacms && extraRacms.length > 0 ? [...racmList, ...extraRacms] : racmList;
+  // Merge seed + extra, deduplicating by id (extras override seeds)
+  const allRacms = (() => {
+    if (!extraRacms || extraRacms.length === 0) return racmList;
+    const extraIds = new Set(extraRacms.map(r => r.id));
+    return [...racmList.filter(r => !extraIds.has(r.id)), ...extraRacms];
+  })();
   const [showMappingWorkspace, setShowMappingWorkspace] = useState(false);
   const [mappingRacm, setMappingRacm] = useState<RacmEntry | null>(null);
 
@@ -101,16 +123,16 @@ export default function RacmListTable({ processFilter, initialMappingRacm, onMap
     );
   }
 
-  const notReadyCount = filtered.filter(r => getReadiness(r) !== 'Ready').length;
+  const actionNeededCount = filtered.filter(r => getRacmLifecycle(r) !== 'Ready').length;
 
   return (
     <div className="space-y-3">
       {/* Insight banner */}
-      {notReadyCount > 0 && (
+      {actionNeededCount > 0 && (
         <div className="rounded-lg border border-amber-200/50 bg-amber-50/30 px-4 py-3 flex items-center gap-3">
           <AlertTriangle size={14} className="text-amber-500 shrink-0" />
           <span className="text-[12px] text-amber-800 flex-1">
-            <span className="font-semibold">{notReadyCount} RACM{notReadyCount !== 1 ? 's' : ''}</span> {notReadyCount !== 1 ? 'require' : 'requires'} attention — complete mapping and workflow setup before execution.
+            <span className="font-semibold">{actionNeededCount} RACM{actionNeededCount !== 1 ? 's' : ''}</span> {actionNeededCount !== 1 ? 'require' : 'requires'} attention — complete setup before execution.
           </span>
         </div>
       )}
@@ -120,25 +142,49 @@ export default function RacmListTable({ processFilter, initialMappingRacm, onMap
           <table className="w-full text-[12px]">
             <thead>
               <tr className="border-b border-border bg-surface-2/50">
-                {['RACM', 'Process', 'Framework', 'Risks', 'Controls', 'Key Controls', 'Mapping Status', 'Readiness', ''].map(h => (
+                {['RACM', 'Status', 'Process', 'Framework', 'Risks', 'Controls', 'Key Controls', ''].map(h => (
                   <th key={h || 'action'} className="px-3 py-2.5 text-left text-[10px] font-semibold text-text-muted uppercase tracking-wide whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={9} className="px-4 py-10 text-center text-[12px] text-text-muted">No RACMs found</td></tr>
+                <tr><td colSpan={8} className="px-4 py-10 text-center text-[12px] text-text-muted">No RACMs found</td></tr>
               ) : filtered.map((racm, i) => {
-                const mapping = getMappingStatus(racm);
-                const readiness = getReadiness(racm);
+                const lifecycle = getRacmLifecycle(racm);
+                const cta = getLifecycleCTA(lifecycle);
+                const isDraftRacm = lifecycle === 'Draft Review';
+
+                const handleRowClick = () => {
+                  if (isDraftRacm && onEditDraft) {
+                    onEditDraft(racm);
+                  } else {
+                    setMappingRacm(racm);
+                    setShowMappingWorkspace(true);
+                  }
+                };
+
+                const handleCTAClick = () => {
+                  if (isDraftRacm && onEditDraft) {
+                    onEditDraft(racm);
+                  } else {
+                    setMappingRacm(racm);
+                    setShowMappingWorkspace(true);
+                  }
+                };
+
                 return (
                   <motion.tr key={racm.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }}
-                    className="border-b border-border/50 hover:bg-gray-50/60 transition-colors">
+                    onClick={handleRowClick}
+                    className="border-b border-border/50 hover:bg-gray-50/60 transition-colors cursor-pointer">
                     <td className="px-3 py-3">
                       <div className="flex items-center gap-1.5">
                         {racm.linkedToEngagement && <Lock size={10} className="text-gray-400 shrink-0" />}
                         <span className="text-[12px] font-medium text-text">{racm.name}</span>
                       </div>
+                    </td>
+                    <td className="px-3 py-3">
+                      <span className={`px-2 h-5 rounded-full text-[9px] font-semibold inline-flex items-center border ${LIFECYCLE_BADGE[lifecycle]}`}>{lifecycle}</span>
                     </td>
                     <td className="px-3 py-3">
                       <span className="inline-flex items-center px-2 h-5 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-600 border border-gray-200/60">{racm.process}</span>
@@ -147,17 +193,19 @@ export default function RacmListTable({ processFilter, initialMappingRacm, onMap
                     <td className="px-3 py-3"><span className="text-[12px] text-text tabular-nums">{racm.risks}</span></td>
                     <td className="px-3 py-3"><span className="text-[12px] text-text tabular-nums">{racm.controls}</span></td>
                     <td className="px-3 py-3"><span className="text-[12px] text-gray-500 tabular-nums">{racm.keyControls}</span></td>
-                    <td className="px-3 py-3">
-                      <span className={`px-2 h-5 rounded-full text-[9px] font-semibold inline-flex items-center ${MAPPING_STYLES[mapping]}`}>{mapping}</span>
-                    </td>
-                    <td className="px-3 py-3">
-                      <span className={`px-2 h-5 rounded-full text-[9px] font-semibold inline-flex items-center ${READINESS_STYLES[readiness]}`}>{readiness}</span>
-                    </td>
-                    <td className="px-3 py-3 text-right">
-                      <button onClick={() => { setMappingRacm(racm); setShowMappingWorkspace(true); }}
-                        className="px-2 py-1 rounded-lg text-[10px] font-bold cursor-pointer transition-colors inline-flex items-center gap-1 bg-gray-100 text-gray-600 hover:bg-gray-200/70">
-                        View<ChevronRight size={8} />
-                      </button>
+                    <td className="px-3 py-3 text-right" onClick={e => e.stopPropagation()}>
+                      <div className="flex items-center gap-1.5 justify-end">
+                        {!isDraftRacm && onEditDraft && (
+                          <button onClick={() => onEditDraft(racm)}
+                            className="px-2 py-1 rounded-lg text-[10px] font-bold cursor-pointer transition-colors inline-flex items-center gap-1 bg-gray-100 text-gray-600 hover:bg-gray-200/70">
+                            <Pencil size={9} />Edit
+                          </button>
+                        )}
+                        <button onClick={handleCTAClick}
+                          className={`px-2.5 py-1 rounded-lg text-[10px] font-bold cursor-pointer transition-colors inline-flex items-center gap-1 ${cta.cls}`}>
+                          <cta.icon size={10} />{cta.label}<ChevronRight size={8} />
+                        </button>
+                      </div>
                     </td>
                   </motion.tr>
                 );
