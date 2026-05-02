@@ -18,6 +18,9 @@ import FloatingLines from '../shared/FloatingLines';
 // Persona removed — Rive WebGL crashes in some browsers
 import ClarificationCard from './ClarificationCard';
 import DataPickerModal, { type AttachmentSelection } from './DataPickerModal';
+import { AddToDashboardModal } from './AddToDashboardModal';
+import { AddToReportModal } from './AddToReportModal';
+import { ConfigurableChart } from '../dashboard/add-widget/ConfigurableChart';
 
 interface ChatMessage {
   id: string;
@@ -31,6 +34,11 @@ interface ChatMessage {
   // Rich inline components
   richType?: 'summary-kpi' | 'audit-result' | 'audit-loading' | 'clarification' | 'save-workflow-prompt' | 'workflow-checkpoint';
   richData?: Record<string, unknown>;
+  // Tracks which dashboards/reports this result was added to
+  addedTo?: {
+    dashboards?: { id: string; name: string }[];
+    reports?: { id: string; name: string }[];
+  };
 }
 
 // Clarification interaction shape (one per IRA message of richType 'clarification')
@@ -121,6 +129,32 @@ interface ChatViewProps {
    * builder opens directly on the clarification screen.
    */
   onLaunchWorkflowBuilder?: (prompt: string) => void;
+  /** Available dashboards for "Add to Dashboard" modal */
+  availableDashboards?: import('./AddToDashboardModal').DashboardOption[];
+  /** Available reports for "Add to Report" modal */
+  availableReports?: import('./AddToReportModal').ReportOption[];
+  /** Called when user adds result to a dashboard */
+  onAddResultToDashboard?: (payload: {
+    dashboardId: string;
+    dashboardName: string;
+    isNew: boolean;
+    newName?: string;
+    newDescription?: string;
+    selection: import('./AddToDashboardModal').GranularSelection;
+  }) => void;
+  /** Called when user adds result to a report */
+  onAddResultToReport?: (payload: {
+    reportId: string;
+    reportName: string;
+    isNew: boolean;
+    newName?: string;
+    newDescription?: string;
+    selection: import('./AddToDashboardModal').GranularSelection;
+  }) => void;
+  /** Navigate to a dashboard detail view */
+  onViewDashboard?: (dashboardId: string) => void;
+  /** Navigate to a report view */
+  onViewReport?: (reportId: string) => void;
 }
 
 // Step labels for the subtle inline audit loader. The artifact panel renders
@@ -149,51 +183,21 @@ const detectWorkflowType = (msg: string): WorkflowTypeId => {
   return 'detection';
 };
 
-// ─── Chart primitives ────────────────────────────────────────────────────────
-
-type ChartDatum = { bucket: string; count: number; tone: string };
-
-function VerticalBars({ data, maxBarHeight = 140 }: { data: ChartDatum[]; maxBarHeight?: number }) {
-  const max = Math.max(...data.map(d => d.count), 1);
-  return (
-    <div className="flex items-end justify-around gap-3 px-2" style={{ height: maxBarHeight + 32 }}>
-      {data.map(d => {
-        const h = (d.count / max) * maxBarHeight;
-        return (
-          <div key={d.bucket} className="flex-1 flex flex-col items-center gap-1.5 min-w-0">
-            <div className="text-[12px] font-semibold text-ink-700 tabular-nums">{d.count}</div>
-            <div className={`w-full rounded-t-md ${d.tone}`} style={{ height: Math.max(h, 2) }} />
-            <div className="text-[11px] text-ink-500 truncate w-full text-center">{d.bucket}</div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function HorizontalBars({ data }: { data: ChartDatum[] }) {
-  const max = Math.max(...data.map(d => d.count), 1);
-  return (
-    <div className="flex flex-col gap-2 px-2 py-3">
-      {data.map(d => {
-        const w = (d.count / max) * 100;
-        return (
-          <div key={d.bucket} className="flex items-center gap-3">
-            <div className="w-32 text-[12px] text-ink-700 truncate shrink-0">{d.bucket}</div>
-            <div className="flex-1 h-5 bg-paper-100 rounded-md overflow-hidden">
-              <div className={`h-full rounded-md ${d.tone}`} style={{ width: `${w}%` }} />
-            </div>
-            <div className="w-6 text-right text-[12px] font-semibold text-ink-700 tabular-nums">{d.count}</div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
+// ─── Chart rendering (reuses dashboard ConfigurableChart) ─────────────────────
 
 function renderChart(chart: typeof AUDIT_RESULT.charts[number], variant: 'inline' | 'fullscreen') {
-  if (chart.id === 'confidence') return <VerticalBars data={chart.data} maxBarHeight={variant === 'fullscreen' ? 280 : 140} />;
-  return <HorizontalBars data={chart.data} />;
+  const isConfidence = chart.id === 'confidence';
+  return (
+    <div style={variant === 'fullscreen' ? { width: '100%', height: '100%' } : { height: 240 }}>
+      <ConfigurableChart
+        type={isConfidence ? 'bar' : 'pie'}
+        xAxis={isConfidence ? 'Quarter' : 'Department'}
+        color={isConfidence ? '#7C3AED' : '#3d68ee'}
+        showTarget={false}
+        showLegend={!isConfidence}
+      />
+    </div>
+  );
 }
 
 // ─── ChartGroup with chip toggle + fullscreen ────────────────────────────────
@@ -235,7 +239,7 @@ function ChartGroup({ charts }: { charts: typeof AUDIT_RESULT.charts }) {
             <Maximize2 size={14} />
           </button>
         </div>
-        <div className="py-3">{renderChart(active, 'inline')}</div>
+        <div>{renderChart(active, 'inline')}</div>
       </div>
       <AnimatePresence>
         {fullscreen && (
@@ -265,18 +269,25 @@ function FullscreenChartModal({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.15 }}
-      className="fixed inset-0 z-50 flex items-center justify-center"
+      transition={{ duration: 0.2 }}
+      className="fixed inset-0 z-[9999] flex items-center justify-center"
+      onClick={onClose}
     >
-      <div className="absolute inset-0 bg-ink-900/40 backdrop-blur-sm" onClick={onClose} />
+      {/* Backdrop — same as dashboard */}
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+
+      {/* Dialog — same ratio as dashboard ExpandedWidgetModal */}
       <motion.div
-        initial={{ scale: 0.96, y: 8 }}
-        animate={{ scale: 1, y: 0 }}
-        exit={{ scale: 0.96, y: 8 }}
-        transition={{ duration: 0.15, ease: [0.2, 0, 0, 1] }}
-        className="relative w-[960px] max-w-[90vw] bg-canvas-elevated rounded-2xl border border-canvas-border shadow-xl overflow-hidden"
+        initial={{ opacity: 0, scale: 0.96, y: 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.96, y: 8 }}
+        transition={{ duration: 0.2 }}
+        className="relative bg-canvas-elevated rounded-2xl border border-canvas-border shadow-2xl flex flex-col overflow-hidden"
+        style={{ width: '96vw', height: '94vh' }}
+        onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-5 py-3 border-b border-canvas-border">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-3 border-b border-canvas-border shrink-0">
           {charts.length > 1 ? (
             <div className="inline-flex items-center gap-1 p-0.5 rounded-md bg-paper-100">
               {charts.map(c => {
@@ -285,7 +296,7 @@ function FullscreenChartModal({
                   <button
                     key={c.id}
                     onClick={() => onActiveChange(c.id)}
-                    className={`px-3 h-7 rounded text-[12px] font-medium transition-colors ${
+                    className={`px-3 h-7 rounded text-[12px] font-medium transition-colors cursor-pointer ${
                       isActive ? 'bg-canvas-elevated text-brand-700 shadow-sm' : 'text-ink-500 hover:text-ink-700'
                     }`}
                   >
@@ -301,8 +312,10 @@ function FullscreenChartModal({
             <X size={16} />
           </button>
         </div>
-        <div className="overflow-x-auto p-6">
-          <div className="min-w-[600px]">{renderChart(active, 'fullscreen')}</div>
+
+        {/* Chart — fills remaining space, same as dashboard */}
+        <div className="relative flex-1 overflow-hidden" style={{ minHeight: 200 }}>
+          {renderChart(active, 'fullscreen')}
         </div>
       </motion.div>
     </motion.div>
@@ -780,7 +793,7 @@ function SaveAsWorkflowModal({ open, defaultName, defaultDescription, onCancel, 
   );
 }
 
-export default function ChatView({ showChatHistory, toggleChatHistory, setShowArtifacts, setActiveArtifactTab, setArtifactMode, setWorkflowType, initialQuery, onInitialQueryProcessed, selectedChatId, onChatLoaded, setView, pendingDashboard, onAddToDashboard, onDismissPendingDashboard, onLaunchWorkflowBuilder }: ChatViewProps) {
+export default function ChatView({ showChatHistory, toggleChatHistory, setShowArtifacts, setActiveArtifactTab, setArtifactMode, setWorkflowType, initialQuery, onInitialQueryProcessed, selectedChatId, onChatLoaded, setView, pendingDashboard, onAddToDashboard, onDismissPendingDashboard, onLaunchWorkflowBuilder, availableDashboards, availableReports, onAddResultToDashboard, onAddResultToReport, onViewDashboard, onViewReport }: ChatViewProps) {
   const { addToast } = useToast();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -811,6 +824,14 @@ export default function ChatView({ showChatHistory, toggleChatHistory, setShowAr
   // and live alongside the legacy `files` array (raw fresh uploads).
   const [showDataPicker, setShowDataPicker] = useState(false);
   const [attachedSources, setAttachedSources] = useState<AttachmentSelection[]>([]);
+
+  // Add-to-dashboard / add-to-report modals
+  const [showDashboardModal, setShowDashboardModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  // Which message's result we're adding (tracks the message id)
+  const [activeAddMsgId, setActiveAddMsgId] = useState<string | null>(null);
+  // Dropdown on already-added buttons: "msg-id:dashboard" or "msg-id:report"
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
 
   // Track whether the progressive loader is rendering an audit-query response
   const activeQueryFlowRef = useRef<'audit-query' | null>(null);
@@ -1165,16 +1186,108 @@ export default function ChatView({ showChatHistory, toggleChatHistory, setShowAr
     }, 20000);
   };
 
-  const handleAuditAction = (action: 'workflow' | 'report' | 'dashboard') => {
-    const labels: Record<typeof action, { in_progress: string; done: string }> = {
-      workflow: { in_progress: 'Adding to workflow library…', done: 'Saved as workflow “AQ-2026-04-24”.' },
-      report: { in_progress: 'Adding to report draft…', done: 'Added to report “FY26 Q1 — Findings”.' },
-      dashboard: { in_progress: 'Adding to dashboard…', done: 'Added to dashboard “P2P health”.' },
-    };
-    addToast({ type: 'info', message: labels[action].in_progress });
+  const handleAuditAction = (action: 'workflow' | 'report' | 'dashboard', msgId?: string) => {
+    if (action === 'dashboard') {
+      setActiveAddMsgId(msgId || null);
+      setShowDashboardModal(true);
+      return;
+    }
+    if (action === 'report') {
+      setActiveAddMsgId(msgId || null);
+      setShowReportModal(true);
+      return;
+    }
+    // workflow — keep existing toast behaviour
+    addToast({ type: 'info', message: 'Adding to workflow library…' });
     setTimeout(() => {
-      addToast({ type: 'success', message: labels[action].done });
+      addToast({ type: 'success', message: 'Saved as workflow “AQ-2026-04-24”.' });
     }, 1200);
+  };
+
+  // Callback: user confirmed “Add to Dashboard” from modal
+  const handleDashboardConfirm = (payload: Parameters<NonNullable<ChatViewProps['onAddResultToDashboard']>>[0]) => {
+    if (activeAddMsgId) {
+      setMessages(prev => prev.map(m => {
+        if (m.id !== activeAddMsgId) return m;
+        const existing = m.addedTo?.dashboards || [];
+        return {
+          ...m,
+          addedTo: {
+            ...m.addedTo,
+            dashboards: [...existing, { id: payload.dashboardId, name: payload.dashboardName }],
+          },
+        };
+      }));
+    }
+    onAddResultToDashboard?.(payload);
+    const itemCount = payload.selection.kpis.length + payload.selection.charts.length + payload.selection.columns.length;
+    // No Undo on dashboard toast: removeFromDashboard would only clear the
+    // chat pill, leaving the persisted widgets orphaned on the dashboard.
+    // Users remove widgets from the dashboard view itself.
+    addToast({
+      type: 'success',
+      message: `Added ${itemCount} item${itemCount === 1 ? '' : 's'} to dashboard “${payload.dashboardName}”.`,
+      action: { label: 'View Dashboard', onClick: () => onViewDashboard?.(payload.dashboardId) },
+    });
+    setActiveAddMsgId(null);
+  };
+
+  // Callback: user confirmed “Add to Report” from modal
+  const handleReportConfirm = (payload: Parameters<NonNullable<ChatViewProps['onAddResultToReport']>>[0]) => {
+    if (activeAddMsgId) {
+      setMessages(prev => prev.map(m => {
+        if (m.id !== activeAddMsgId) return m;
+        const existing = m.addedTo?.reports || [];
+        return {
+          ...m,
+          addedTo: {
+            ...m.addedTo,
+            reports: [...existing, { id: payload.reportId, name: payload.reportName }],
+          },
+        };
+      }));
+    }
+    onAddResultToReport?.(payload);
+    const undoMsgId = activeAddMsgId;
+    const itemCount = payload.selection.kpis.length + payload.selection.charts.length + payload.selection.columns.length;
+    addToast({
+      type: 'success',
+      message: `Added ${itemCount} item${itemCount === 1 ? '' : 's'} to report “${payload.reportName}”.`,
+      action: { label: 'View Report', onClick: () => onViewReport?.(payload.reportId) },
+      secondaryAction: undoMsgId
+        ? { label: 'Undo', onClick: () => removeFromReport(undoMsgId, payload.reportId) }
+        : undefined,
+    });
+    setActiveAddMsgId(null);
+  };
+
+  // Remove a dashboard/report link from a message
+  const removeFromDashboard = (msgId: string, dashId: string) => {
+    setMessages(prev => prev.map(m => {
+      if (m.id !== msgId) return m;
+      return {
+        ...m,
+        addedTo: {
+          ...m.addedTo,
+          dashboards: (m.addedTo?.dashboards || []).filter(d => d.id !== dashId),
+        },
+      };
+    }));
+    addToast({ type: 'info', message: 'Removed from dashboard.' });
+  };
+
+  const removeFromReport = (msgId: string, rptId: string) => {
+    setMessages(prev => prev.map(m => {
+      if (m.id !== msgId) return m;
+      return {
+        ...m,
+        addedTo: {
+          ...m.addedTo,
+          reports: (m.addedTo?.reports || []).filter(r => r.id !== rptId),
+        },
+      };
+    }));
+    addToast({ type: 'info', message: 'Removed from report.' });
   };
 
   // Path 3 entry — open the Save-as-Workflow modal from the audit-result action bar.
@@ -1357,8 +1470,19 @@ export default function ChatView({ showChatHistory, toggleChatHistory, setShowAr
   // Picker → composer: source picks become labelled chips; fresh uploads
   // become a stub File so the existing `files` chip rendering picks them up.
   const handleDataPickerConfirm = (selections: AttachmentSelection[]) => {
-    const sources = selections.filter(s => s.kind === 'source');
-    const uploads = selections.filter(s => s.kind === 'upload');
+    // Exhaustive over AttachmentSelection.kind. 'connect-db' is a Knowledge Hub-
+    // only variant and unreachable here (chat opens the picker without `mode`,
+    // so the Connect tab isn't rendered) — narrowing it explicitly keeps the
+    // type contract honest if the picker is ever embedded differently.
+    const sources:  Extract<AttachmentSelection, { kind: 'source' }>[] = [];
+    const uploads:  Extract<AttachmentSelection, { kind: 'upload' }>[] = [];
+    for (const s of selections) {
+      switch (s.kind) {
+        case 'source':     sources.push(s);  break;
+        case 'upload':     uploads.push(s);  break;
+        case 'connect-db': /* not reachable in chat mode; intentionally ignored */ break;
+      }
+    }
     if (sources.length > 0) setAttachedSources(prev => [...prev, ...sources]);
     if (uploads.length > 0) {
       const stubFiles = uploads.map(u => new File([''], u.name, { type: 'application/octet-stream' }));
@@ -1810,18 +1934,114 @@ export default function ChatView({ showChatHistory, toggleChatHistory, setShowAr
                           >
                             <Download size={13} /> Export
                           </button>
-                          <button
-                            onClick={() => handleAuditAction('dashboard')}
-                            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md bg-canvas-elevated border border-canvas-border text-[12px] font-semibold text-ink-700 hover:border-brand-200 hover:text-ink-800 transition-colors cursor-pointer"
-                          >
-                            <BarChart3 size={13} /> Dashboard
-                          </button>
-                          <button
-                            onClick={() => handleAuditAction('report')}
-                            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md bg-canvas-elevated border border-canvas-border text-[12px] font-semibold text-ink-700 hover:border-brand-200 hover:text-ink-800 transition-colors cursor-pointer"
-                          >
-                            <FileText size={13} /> Reports
-                          </button>
+                          {/* Dashboard button — shows added state with dropdown if linked */}
+                          {(() => {
+                            const dashLinks = msg.addedTo?.dashboards || [];
+                            const hasDash = dashLinks.length > 0;
+                            const dropKey = `${msg.id}:dashboard`;
+                            const isOpen = openDropdown === dropKey;
+                            return (
+                              <div className="relative">
+                                <button
+                                  onClick={() => hasDash ? setOpenDropdown(isOpen ? null : dropKey) : handleAuditAction('dashboard', msg.id)}
+                                  className={`inline-flex items-center gap-1.5 h-9 px-3 rounded-md border text-[12px] font-semibold transition-colors cursor-pointer ${
+                                    hasDash
+                                      ? 'bg-brand-50 border-brand-200 text-brand-700 hover:bg-brand-100'
+                                      : 'bg-canvas-elevated border-canvas-border text-ink-700 hover:border-brand-200 hover:text-ink-800'
+                                  }`}
+                                >
+                                  {hasDash ? <CheckCircle size={13} /> : <BarChart3 size={13} />}
+                                  {hasDash
+                                    ? dashLinks.length === 1
+                                      ? `In "${dashLinks[0].name}"`
+                                      : `In ${dashLinks.length} dashboards`
+                                    : 'Dashboard'}
+                                  {hasDash && <ChevronDown size={12} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />}
+                                </button>
+                                {isOpen && (
+                                  <>
+                                    <div className="fixed inset-0 z-40" onClick={() => setOpenDropdown(null)} />
+                                    <div className="absolute left-0 top-full mt-1 z-50 w-56 bg-white rounded-lg shadow-lg border border-canvas-border py-1">
+                                      {dashLinks.map(d => (
+                                        <div key={d.id} className="px-3 py-1.5 flex items-center gap-2 text-[12px] text-ink-700">
+                                          <BarChart3 size={12} className="text-brand-600 shrink-0" />
+                                          <span className="flex-1 truncate font-medium">{d.name}</span>
+                                          <button onClick={() => { onViewDashboard?.(d.id); setOpenDropdown(null); }} className="text-brand-600 hover:text-brand-700 cursor-pointer" title="View">
+                                            <ExternalLink size={12} />
+                                          </button>
+                                          <button onClick={() => { removeFromDashboard(msg.id, d.id); setOpenDropdown(null); }} className="text-ink-400 hover:text-red-600 cursor-pointer" title="Remove">
+                                            <X size={12} />
+                                          </button>
+                                        </div>
+                                      ))}
+                                      <div className="border-t border-canvas-border mt-1 pt-1">
+                                        <button
+                                          onClick={() => { setOpenDropdown(null); handleAuditAction('dashboard', msg.id); }}
+                                          className="w-full px-3 py-1.5 flex items-center gap-2 text-[12px] font-medium text-brand-600 hover:bg-brand-50 cursor-pointer"
+                                        >
+                                          <Plus size={12} /> Add to another
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            );
+                          })()}
+                          {/* Report button — shows added state with dropdown if linked */}
+                          {(() => {
+                            const rptLinks = msg.addedTo?.reports || [];
+                            const hasRpt = rptLinks.length > 0;
+                            const dropKey = `${msg.id}:report`;
+                            const isOpen = openDropdown === dropKey;
+                            return (
+                              <div className="relative">
+                                <button
+                                  onClick={() => hasRpt ? setOpenDropdown(isOpen ? null : dropKey) : handleAuditAction('report', msg.id)}
+                                  className={`inline-flex items-center gap-1.5 h-9 px-3 rounded-md border text-[12px] font-semibold transition-colors cursor-pointer ${
+                                    hasRpt
+                                      ? 'bg-violet-50 border-violet-200 text-violet-700 hover:bg-violet-100'
+                                      : 'bg-canvas-elevated border-canvas-border text-ink-700 hover:border-brand-200 hover:text-ink-800'
+                                  }`}
+                                >
+                                  {hasRpt ? <CheckCircle size={13} /> : <FileText size={13} />}
+                                  {hasRpt
+                                    ? rptLinks.length === 1
+                                      ? `In "${rptLinks[0].name}"`
+                                      : `In ${rptLinks.length} reports`
+                                    : 'Reports'}
+                                  {hasRpt && <ChevronDown size={12} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />}
+                                </button>
+                                {isOpen && (
+                                  <>
+                                    <div className="fixed inset-0 z-40" onClick={() => setOpenDropdown(null)} />
+                                    <div className="absolute left-0 top-full mt-1 z-50 w-56 bg-white rounded-lg shadow-lg border border-canvas-border py-1">
+                                      {rptLinks.map(r => (
+                                        <div key={r.id} className="px-3 py-1.5 flex items-center gap-2 text-[12px] text-ink-700">
+                                          <FileText size={12} className="text-violet-600 shrink-0" />
+                                          <span className="flex-1 truncate font-medium">{r.name}</span>
+                                          <button onClick={() => { onViewReport?.(r.id); setOpenDropdown(null); }} className="text-violet-600 hover:text-violet-700 cursor-pointer" title="View">
+                                            <ExternalLink size={12} />
+                                          </button>
+                                          <button onClick={() => { removeFromReport(msg.id, r.id); setOpenDropdown(null); }} className="text-ink-400 hover:text-red-600 cursor-pointer" title="Remove">
+                                            <X size={12} />
+                                          </button>
+                                        </div>
+                                      ))}
+                                      <div className="border-t border-canvas-border mt-1 pt-1">
+                                        <button
+                                          onClick={() => { setOpenDropdown(null); handleAuditAction('report', msg.id); }}
+                                          className="w-full px-3 py-1.5 flex items-center gap-2 text-[12px] font-medium text-violet-600 hover:bg-violet-50 cursor-pointer"
+                                        >
+                                          <Plus size={12} /> Add to another
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            );
+                          })()}
                           <div className="ml-auto">
                             <button
                               onClick={openSaveAsWorkflowModal}
@@ -2158,6 +2378,34 @@ export default function ChatView({ showChatHistory, toggleChatHistory, setShowAr
         open={showDataPicker}
         onClose={() => setShowDataPicker(false)}
         onConfirm={handleDataPickerConfirm}
+      />
+
+      {/* Add to Dashboard modal */}
+      <AddToDashboardModal
+        open={showDashboardModal}
+        onClose={() => { setShowDashboardModal(false); setActiveAddMsgId(null); }}
+        dashboards={availableDashboards || []}
+        alreadyAddedIds={activeAddMsgId ? (messages.find(m => m.id === activeAddMsgId)?.addedTo?.dashboards || []).map(d => d.id) : []}
+        resultData={{
+          kpis: AUDIT_RESULT.kpis,
+          charts: AUDIT_RESULT.charts,
+          table: { columns: AUDIT_RESULT.table.columns, rows: AUDIT_RESULT.table.rows },
+        }}
+        onConfirm={handleDashboardConfirm}
+      />
+
+      {/* Add to Report modal */}
+      <AddToReportModal
+        open={showReportModal}
+        onClose={() => { setShowReportModal(false); setActiveAddMsgId(null); }}
+        reports={availableReports || []}
+        alreadyAddedIds={activeAddMsgId ? (messages.find(m => m.id === activeAddMsgId)?.addedTo?.reports || []).map(r => r.id) : []}
+        resultData={{
+          kpis: AUDIT_RESULT.kpis,
+          charts: AUDIT_RESULT.charts,
+          table: { columns: AUDIT_RESULT.table.columns, rows: AUDIT_RESULT.table.rows },
+        }}
+        onConfirm={handleReportConfirm}
       />
     </div>
   );

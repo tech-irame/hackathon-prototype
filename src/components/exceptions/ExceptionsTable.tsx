@@ -22,6 +22,8 @@ import {
   AlertCircle,
   Plus,
   Download,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 import {
   GRC_CASE_DETAILS,
@@ -32,6 +34,7 @@ import {
   type GrcActionStatus,
 } from '../../data/mockData';
 import type { ExceptionRole } from '../../hooks/useAppState';
+import { useToast } from '../shared/Toast';
 
 // ─── Tokens ───
 const SEVERITY_STYLE: Record<GrcExceptionSeverity, string> = {
@@ -380,7 +383,7 @@ function HeaderMenu({
           <Popover
             open={filterOpen}
             onClose={() => setFilterOpen(false)}
-            align="end"
+            align={pin === 'right' ? 'end' : 'start'}
             className="w-[220px] py-1.5 normal-case tracking-normal"
           >
             {col.filterMode === 'text' ? (
@@ -594,6 +597,9 @@ export interface ExceptionsTableProps {
   onOpenActionable?: (bulkId: string) => void;
   headerLeading?: React.ReactNode;
   headerExtras?: React.ReactNode;
+  sampleSheets?: { id: string; name: string }[];
+  activeSheetId?: string;
+  onChangeSheet?: (id: string) => void;
 }
 
 type VisibilityMap = Record<ColumnKey, boolean>;
@@ -611,6 +617,9 @@ export default function ExceptionsTable({
   onOpenActionable,
   headerLeading,
   headerExtras,
+  sampleSheets = [],
+  activeSheetId = 'all',
+  onChangeSheet,
 }: ExceptionsTableProps) {
   const riskCategories = useMemo(
     () => Array.from(new Set(exceptions.map(e => e.riskCategory))).sort(),
@@ -733,11 +742,23 @@ export default function ExceptionsTable({
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSizeMenuOpen, setPageSizeMenuOpen] = useState(false);
 
+  const { addToast } = useToast();
+
   // Filter Set + Export CSV menus
   const [filterSetOpen, setFilterSetOpen] = useState(false);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const filterSetRef = useOutsideClick<HTMLDivElement>(() => setFilterSetOpen(false));
   const exportMenuRef = useOutsideClick<HTMLDivElement>(() => setExportMenuOpen(false));
+
+  // Saved Filter Sets (max 10)
+  type SavedFilterSet = { id: string; name: string; filters: FiltersMap };
+  const [savedFilterSets, setSavedFilterSets] = useState<SavedFilterSet[]>([]);
+  const [activeFilterSetId, setActiveFilterSetId] = useState<string | null>(null);
+  const [generateModalOpen, setGenerateModalOpen] = useState(false);
+  const [generateName, setGenerateName] = useState('');
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [expandedSetIds, setExpandedSetIds] = useState<Set<string>>(new Set());
   const totalPages = Math.max(1, Math.ceil(filteredExceptions.length / pageSize));
 
   // Snap currentPage when filters change or page size shrinks below current page.
@@ -825,9 +846,53 @@ export default function ExceptionsTable({
     [filters],
   );
 
+  const activeFilterEntries = useMemo(
+    () => (Object.entries(filters) as [ColumnKey, FilterValue][])
+      .filter(([, v]) => v.length > 0)
+      .map(([k, v]) => ({ key: k, label: defByKey[k]?.label || k, values: v.join(', ') })),
+    [filters, defByKey],
+  );
+
+  const openGenerateModal = () => {
+    setGenerateName('');
+    setGenerateModalOpen(true);
+    setFilterSetOpen(false);
+  };
+  const closeGenerateModal = () => setGenerateModalOpen(false);
+  const saveFilterSet = () => {
+    const name = generateName.trim();
+    if (!name || activeFilterCount === 0 || savedFilterSets.length >= 10) return;
+    const id = `fs-${Date.now()}`;
+    setSavedFilterSets(prev => [...prev, { id, name, filters: { ...filters } }]);
+    setActiveFilterSetId(id);
+    closeGenerateModal();
+    addToast({ type: 'success', message: 'Filter set has been created successfully' });
+  };
+  const applyFilterSet = (set: SavedFilterSet) => {
+    setFilters(set.filters);
+    setActiveFilterSetId(set.id);
+    setFilterSetOpen(false);
+  };
+  const deleteFilterSet = (id: string) => {
+    setSavedFilterSets(prev => prev.filter(s => s.id !== id));
+    if (activeFilterSetId === id) setActiveFilterSetId(null);
+    if (renamingId === id) setRenamingId(null);
+  };
+  const startRename = (set: SavedFilterSet) => {
+    setRenamingId(set.id);
+    setRenameValue(set.name);
+  };
+  const commitRename = () => {
+    const name = renameValue.trim();
+    if (!name || !renamingId) { setRenamingId(null); return; }
+    setSavedFilterSets(prev => prev.map(s => s.id === renamingId ? { ...s, name } : s));
+    setRenamingId(null);
+  };
+  const cancelRename = () => setRenamingId(null);
+
   return (
-    <div className="space-y-3">
-    <div className="bg-canvas-elevated border border-canvas-border rounded-[12px] overflow-hidden">
+    <div className="flex-1 flex flex-col min-h-0">
+    <div className="bg-canvas-elevated border border-canvas-border rounded-[12px] overflow-hidden flex-1 flex flex-col min-h-0">
       <div className="flex items-center justify-between px-5 py-3 border-b border-canvas-border gap-3">
         <div className="flex items-center gap-3 min-w-0">
           {/* Filter Set dropdown — replaces the previous "N Exceptions" label */}
@@ -845,21 +910,143 @@ export default function ExceptionsTable({
             >
               <LayoutGrid size={13} />
               Filter Set
+              {savedFilterSets.length > 0 && (
+                <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10.5px] font-semibold text-white bg-brand-700 rounded-full tabular-nums">
+                  {savedFilterSets.length}
+                </span>
+              )}
               {filterSetOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
             </button>
             {filterSetOpen && (
               <div className="absolute z-30 left-0 top-9 w-[300px] bg-canvas-elevated border border-canvas-border rounded-[10px] shadow-xl overflow-hidden">
                 <div className="flex items-center justify-between px-4 py-2.5 border-b border-canvas-border">
                   <span className="text-[12.5px] font-medium text-ink-700">Saved Sets</span>
-                  <span className="text-[11.5px] text-ink-500 tabular-nums">0/10</span>
+                  <span className="text-[11.5px] text-ink-500 tabular-nums">{savedFilterSets.length}/10</span>
                 </div>
-                <div className="px-4 py-8 flex flex-col items-center justify-center text-center">
-                  <AlertCircle size={20} className="text-ink-400 mb-2.5" />
-                  <span className="text-[12.5px] text-ink-500">No filter sets saved yet</span>
-                </div>
+                {savedFilterSets.length === 0 ? (
+                  <div className="px-4 py-8 flex flex-col items-center justify-center text-center">
+                    <AlertCircle size={20} className="text-ink-400 mb-2.5" />
+                    <span className="text-[12.5px] text-ink-500">No filter sets saved yet</span>
+                  </div>
+                ) : (
+                  <ul className="max-h-[320px] overflow-y-auto py-1">
+                    {savedFilterSets.map(set => {
+                      const isActive = activeFilterSetId === set.id;
+                      const isRenaming = renamingId === set.id;
+                      const isExpanded = expandedSetIds.has(set.id);
+                      const setEntries = (Object.entries(set.filters) as [ColumnKey, FilterValue][])
+                        .filter(([, v]) => v.length > 0)
+                        .map(([k, v]) => ({ key: k, label: defByKey[k]?.label || k, values: v.join(', ') }));
+                      const toggleExpand = (e: React.MouseEvent) => {
+                        e.stopPropagation();
+                        setExpandedSetIds(prev => {
+                          const next = new Set(prev);
+                          if (next.has(set.id)) next.delete(set.id);
+                          else next.add(set.id);
+                          return next;
+                        });
+                      };
+                      return (
+                        <li key={set.id}>
+                          <div
+                            className="group flex items-center gap-1.5 px-2 py-2 text-[12.5px] cursor-pointer hover:bg-[#FAFAFB]"
+                            onClick={() => { if (!isRenaming) applyFilterSet(set); }}
+                          >
+                            {isRenaming ? (
+                              <>
+                                <input
+                                  autoFocus
+                                  value={renameValue}
+                                  onChange={e => setRenameValue(e.target.value)}
+                                  onKeyDown={e => {
+                                    if (e.key === 'Enter') { e.preventDefault(); commitRename(); }
+                                    else if (e.key === 'Escape') { e.preventDefault(); cancelRename(); }
+                                  }}
+                                  onClick={e => e.stopPropagation()}
+                                  className="flex-1 min-w-0 px-2 py-1 text-[12.5px] rounded border border-brand-200 focus:outline-none focus:border-brand-400 bg-white"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={e => { e.stopPropagation(); commitRename(); }}
+                                  className="text-brand-700 hover:text-brand-800 cursor-pointer"
+                                  aria-label="Confirm rename"
+                                >
+                                  <Check size={13} />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={e => { e.stopPropagation(); cancelRename(); }}
+                                  className="text-ink-500 hover:text-ink-700 cursor-pointer"
+                                  aria-label="Cancel rename"
+                                >
+                                  <X size={13} />
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={toggleExpand}
+                                  className="p-1 text-ink-500 hover:text-brand-700 cursor-pointer shrink-0"
+                                  aria-label={isExpanded ? `Collapse ${set.name}` : `Expand ${set.name}`}
+                                  aria-expanded={isExpanded}
+                                >
+                                  {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                                </button>
+                                <span className={`flex-1 min-w-0 truncate ${isActive ? 'text-brand-700 font-medium' : 'text-ink-700'}`}>{set.name}</span>
+                                <span className="text-[11px] text-ink-500 tabular-nums shrink-0">{setEntries.length}</span>
+                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                                  <button
+                                    type="button"
+                                    onClick={e => { e.stopPropagation(); startRename(set); }}
+                                    className="p-1 text-ink-500 hover:text-brand-700 cursor-pointer"
+                                    aria-label={`Rename ${set.name}`}
+                                  >
+                                    <Pencil size={12} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={e => { e.stopPropagation(); deleteFilterSet(set.id); }}
+                                    className="p-1 text-ink-500 hover:text-risk-700 cursor-pointer"
+                                    aria-label={`Delete ${set.name}`}
+                                  >
+                                    <Trash2 size={12} />
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                          {isExpanded && !isRenaming && setEntries.length > 0 && (
+                            <ul className="pl-9 pr-3 pb-2 space-y-1">
+                              {setEntries.map(entry => (
+                                <li
+                                  key={entry.key}
+                                  title={`${entry.label}: ${entry.values}`}
+                                  className="text-[11.5px] text-ink-500 truncate"
+                                >
+                                  <span className="text-ink-700 font-medium">{entry.label}:</span>{' '}
+                                  <span>{entry.values}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
                 <button
                   type="button"
-                  className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 text-[12.5px] font-medium text-ink-500 border-t border-canvas-border hover:bg-[#FAFAFB] hover:text-brand-700 cursor-pointer"
+                  onClick={openGenerateModal}
+                  disabled={activeFilterCount === 0 || savedFilterSets.length >= 10}
+                  title={
+                    savedFilterSets.length >= 10
+                      ? 'Maximum of 10 saved sets reached'
+                      : activeFilterCount === 0
+                        ? 'Apply at least one filter to save a set'
+                        : undefined
+                  }
+                  className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 text-[12.5px] font-medium text-ink-500 border-t border-canvas-border hover:bg-[#FAFAFB] hover:text-brand-700 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-ink-500 disabled:hover:bg-transparent"
                 >
                   <Plus size={13} />
                   Generate Filter Set
@@ -867,15 +1054,29 @@ export default function ExceptionsTable({
               </div>
             )}
           </div>
-          {activeFilterCount > 0 && (
-            <button
-              onClick={() => setFilters(emptyFilters)}
-              className="inline-flex items-center gap-1.5 h-6 px-2 text-[11px] font-medium bg-brand-50 text-brand-700 rounded-full hover:bg-brand-100 cursor-pointer"
-            >
-              <Filter size={10} />
-              {activeFilterCount} filter{activeFilterCount > 1 ? 's' : ''}
-              <X size={10} />
-            </button>
+          {activeFilterEntries.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {activeFilterEntries.map(entry => (
+                <button
+                  key={entry.key}
+                  onClick={() => setFilters(prev => ({ ...prev, [entry.key]: [] }))}
+                  title={`${entry.label}: ${entry.values}`}
+                  className="inline-flex items-center gap-1.5 h-6 px-2 text-[11px] font-medium bg-brand-50 text-brand-700 rounded-full hover:bg-brand-100 cursor-pointer max-w-[260px]"
+                >
+                  <Filter size={10} className="shrink-0" />
+                  <span className="truncate">{entry.values}</span>
+                  <X size={10} className="shrink-0" />
+                </button>
+              ))}
+              {activeFilterEntries.length > 1 && (
+                <button
+                  onClick={() => setFilters(emptyFilters)}
+                  className="inline-flex items-center h-6 px-2 text-[11px] font-medium text-ink-500 hover:text-brand-700 cursor-pointer"
+                >
+                  Clear all
+                </button>
+              )}
+            </div>
           )}
         </div>
         <div className="flex items-center gap-2">
@@ -890,7 +1091,7 @@ export default function ExceptionsTable({
         </div>
       </div>
 
-      <div className="overflow-x-auto">
+      <div className="overflow-auto flex-1 min-h-0">
         <table className="w-full text-[12.5px]">
           <thead>
             <tr className="bg-[#FAFAFB] border-b border-canvas-border text-left text-ink-500 uppercase tracking-wider">
@@ -1065,10 +1266,10 @@ export default function ExceptionsTable({
           </tbody>
         </table>
       </div>
-    </div>
 
-      {/* Pagination footer — sticks to the bottom of the viewport while scrolling */}
-      <div className="sticky bottom-0 z-20 flex items-center justify-between gap-5 px-5 py-3 bg-canvas-elevated border border-canvas-border rounded-[12px] shadow-[0_-4px_12px_rgba(15,15,30,0.04)] text-[12.5px] text-ink-700">
+      {/* Pagination footer — sits inside the table card, attached at the bottom */}
+      <div className="flex items-center justify-between gap-5 px-5 py-3 border-t border-canvas-border bg-canvas-elevated text-[12.5px] text-ink-700">
+        <div className="flex items-center gap-3 min-w-0">
         {/* Export CSV split button — left side */}
         <div className="relative inline-flex items-stretch" ref={exportMenuRef}>
           <button
@@ -1099,6 +1300,38 @@ export default function ExceptionsTable({
               </button>
             </div>
           )}
+        </div>
+
+        {sampleSheets.length > 0 && (
+          <div className="flex items-center gap-1 min-w-0 overflow-x-auto">
+            <button
+              type="button"
+              onClick={() => onChangeSheet?.('all')}
+              className={`shrink-0 inline-flex items-center h-7 px-3 text-[12px] font-medium rounded-[6px] cursor-pointer transition-colors ${
+                activeSheetId === 'all'
+                  ? 'bg-brand-50 text-brand-700'
+                  : 'text-ink-500 hover:text-ink-700'
+              }`}
+            >
+              All Data
+            </button>
+            {sampleSheets.map(sheet => (
+              <button
+                key={sheet.id}
+                type="button"
+                onClick={() => onChangeSheet?.(sheet.id)}
+                className={`shrink-0 inline-flex items-center h-7 px-3 text-[12px] font-medium rounded-[6px] cursor-pointer transition-colors max-w-[160px] ${
+                  activeSheetId === sheet.id
+                    ? 'bg-brand-50 text-brand-700'
+                    : 'text-ink-500 hover:text-ink-700'
+                }`}
+                title={sheet.name}
+              >
+                <span className="truncate">{sheet.name}</span>
+              </button>
+            ))}
+          </div>
+        )}
         </div>
 
         <div className="flex items-center gap-5">
@@ -1172,6 +1405,88 @@ export default function ExceptionsTable({
         </div>
         </div>
       </div>
+    </div>
+
+      {generateModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          onClick={closeGenerateModal}
+        >
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
+          <div
+            className="relative bg-canvas-elevated rounded-[14px] shadow-2xl w-[520px] max-h-[80vh] overflow-hidden flex flex-col"
+            onClick={e => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Generate Filter Set"
+          >
+            <div className="flex items-center justify-between px-5 py-4 border-b border-canvas-border">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-full bg-brand-50 text-brand-700 flex items-center justify-center">
+                  <LayoutGrid size={15} />
+                </div>
+                <h3 className="text-[14px] font-semibold text-ink-900">Generate Filter Set</h3>
+              </div>
+              <button
+                type="button"
+                onClick={closeGenerateModal}
+                className="p-1.5 hover:bg-[#F4F2F7] rounded-md text-ink-500 cursor-pointer"
+                aria-label="Close"
+              >
+                <X size={15} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-5 py-5 space-y-4">
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-[12.5px] font-semibold text-ink-700">Filter Set Name</label>
+                  <span className="text-[11.5px] text-ink-500 tabular-nums">{savedFilterSets.length} of 10 created</span>
+                </div>
+                <input
+                  autoFocus
+                  value={generateName}
+                  onChange={e => setGenerateName(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); saveFilterSet(); } }}
+                  placeholder="Enter filter set name"
+                  className="w-full px-3 py-2.5 rounded-[8px] border border-canvas-border text-[13px] focus:outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-200 bg-canvas-elevated"
+                />
+              </div>
+              <div className="rounded-[10px] border border-canvas-border bg-[#FAFAFB] p-3.5">
+                <div className="text-[12px] font-semibold text-ink-700 mb-2">Active Filters:</div>
+                {activeFilterEntries.length === 0 ? (
+                  <p className="text-[12px] text-ink-500">No filters currently applied.</p>
+                ) : (
+                  <ul className="space-y-1">
+                    {activeFilterEntries.map(entry => (
+                      <li key={entry.key} className="flex items-start gap-2 text-[12.5px] text-ink-700">
+                        <span className="mt-1.5 w-1 h-1 rounded-full bg-ink-400 shrink-0" />
+                        <span><span className="text-ink-500">{entry.label}:</span> {entry.values}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-canvas-border">
+              <button
+                type="button"
+                onClick={closeGenerateModal}
+                className="px-4 py-2 text-[12.5px] font-medium text-ink-700 border border-canvas-border rounded-[8px] hover:bg-[#F4F2F7] cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={saveFilterSet}
+                disabled={!generateName.trim() || activeFilterCount === 0 || savedFilterSets.length >= 10}
+                className="px-5 py-2 text-[12.5px] font-semibold text-white bg-brand-600 rounded-[8px] hover:bg-brand-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

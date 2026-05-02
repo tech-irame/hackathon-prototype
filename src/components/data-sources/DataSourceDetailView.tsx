@@ -26,6 +26,10 @@ interface Props {
   source: DataSource;
   onBack: () => void;
   onRename: (newName: string) => void;
+  // When true on mount, drop straight into the inline rename input so the
+  // 'Rename' menu action lands the user with focus on the name.
+  startRenaming?: boolean;
+  onStartRenamingConsumed?: () => void;
 }
 
 const TYPE_ICON: Record<SourceType, React.ElementType> = {
@@ -57,7 +61,7 @@ interface UploadingFile {
   progress: number;
 }
 
-export default function DataSourceDetailView({ source, onBack, onRename }: Props) {
+export default function DataSourceDetailView({ source, onBack, onRename, startRenaming, onStartRenamingConsumed }: Props) {
   const { addToast } = useToast();
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('uploaded');
@@ -73,8 +77,21 @@ export default function DataSourceDetailView({ source, onBack, onRename }: Props
 
   useEffect(() => { setDraftName(source.name); }, [source.name]);
   useEffect(() => {
-    if (editingName) renameInputRef.current?.focus();
+    if (editingName) {
+      renameInputRef.current?.focus();
+      renameInputRef.current?.select();
+    }
   }, [editingName]);
+
+  // If the parent says "open in rename mode", trip the same path the pencil
+  // button uses, then notify so the parent flag can be cleared.
+  useEffect(() => {
+    if (startRenaming) {
+      setDraftName(source.name);
+      setEditingName(true);
+      onStartRenamingConsumed?.();
+    }
+  }, [startRenaming, source.name, onStartRenamingConsumed]);
 
   // Reset uploading state when source changes (drilling between sources)
   useEffect(() => {

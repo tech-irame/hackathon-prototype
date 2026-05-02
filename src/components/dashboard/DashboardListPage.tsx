@@ -7,8 +7,12 @@ import {
 } from 'lucide-react';
 import { useToast } from '../shared/Toast';
 import { SEED, TYPE_META, formatDate, type DataSource } from '../data-sources/sources';
+import { DB_SCHEMAS, INTEGRATION_CONFIGS } from '../data-sources/datasetFiles';
+import { QUERY_SESSIONS, FAVOURITES } from '../../data/queryHistory';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
+
+export type DashboardSourceType = 'excel' | 'csv' | 'sql' | 'query' | 'combo';
 
 interface Dashboard {
   id: string;
@@ -18,18 +22,34 @@ interface Dashboard {
   creator: string;
   accent: string;
   sharedBy?: string;
-  dataSource?: 'excel' | 'csv' | 'sql' | 'query' | 'combo';
+  dataSource?: DashboardSourceType;
   dataSourceNames?: string[];
+  /** SEED id of the source picked at creation. Required for live-SQL dashboards. */
+  sourceId?: string;
+}
+
+export interface DashboardCreateOpts {
+  customFields?: string[];
+  sourceType?: DashboardSourceType;
+  sourceId?: string;
+  sourceName?: string;
 }
 
 type SortOption = 'recently' | 'oldest' | 'nameAZ' | 'nameZA';
 
 interface DashboardListPageProps {
   onDashboardClick: (dashboardId: string, customFields?: string[]) => void;
+  /** When set (typically from a notification deep-link), the matching
+   *  dashboard card pulses briefly to draw the user's eye. Cleared by the
+   *  parent ~3s after navigation. */
+  focusedDashboardId?: string | null;
   onImportPowerBI?: () => void;
   createdDashboards?: Dashboard[];
   onCreateDashboard?: (dashboard: Dashboard) => void;
   onDeleteDashboard?: (id: string) => void;
+  /** Persist a source-binding change made via the kebab "Change data source"
+   *  menu. Fires with a partial patch of the dashboard's source fields. */
+  onUpdateDashboardSource?: (id: string, patch: { dataSource?: DashboardSourceType; sourceId?: string; dataSourceNames?: string[] }) => void;
   onOpenChat?: (pendingDashboard?: { name: string; description: string }) => void;
 }
 
@@ -129,36 +149,6 @@ const SORT_LABELS: Record<SortOption, string> = {
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
-// ─── Query data ─────────────────────────────────────────────────────────────
-
-const QUERY_SESSIONS = [
-  { group: 'TODAY', items: [
-    'What are the top 5 performing categories?',
-    'Compare year-over-year growth across all states',
-  ]},
-  { group: 'YESTERDAY', items: [
-    'Show customer acquisition cost by channel',
-    'What is the average order value by product category?',
-  ]},
-  { group: 'LAST 7 DAYS', items: [
-    'Analyze revenue trends for the last 12 months',
-    'Which sales person has the highest conversion rate?',
-    'Show me the distribution of products across different regions',
-    'What is the total revenue by country?',
-    'Compare Q1 vs Q2 performance metrics',
-  ]},
-];
-
-const FAVOURITES = [
-  { group: '', items: [
-    'Monthly revenue breakdown by region',
-    'Top 10 vendors by invoice volume',
-    'Compliance score trends Q1–Q4',
-    'Duplicate invoice detection summary',
-    'Department-wise spend analysis',
-    'Year-over-year procurement savings',
-  ]},
-];
 
 const QUERY_TEMPLATES = [
   { group: 'FINANCIAL', items: [
@@ -255,7 +245,7 @@ type AddDataTab = 'recent' | 'saved' | 'upload' | 'all' | 'files' | 'db';
 function CreateDashboardModal({ open, onClose, onCreate, onOpenChat }: {
   open: boolean;
   onClose: () => void;
-  onCreate: (name: string, description: string, customFields?: string[]) => void;
+  onCreate: (name: string, description: string, opts?: DashboardCreateOpts) => void;
   onOpenChat?: (pendingDashboard?: { name: string; description: string }) => void;
 }) {
   const [step, setStep] = useState<CreateStep>('details');
@@ -307,7 +297,13 @@ function CreateDashboardModal({ open, onClose, onCreate, onOpenChat }: {
   };
 
   const handleCreate = (withFields?: boolean) => {
-    onCreate(name, description, withFields ? parsedHeaders : undefined);
+    const fname = uploadedFile?.name || '';
+    const isCsv = fname.toLowerCase().endsWith('.csv');
+    onCreate(name, description, {
+      customFields: withFields ? parsedHeaders : undefined,
+      sourceType: uploadedFile ? (isCsv ? 'csv' : 'excel') : undefined,
+      sourceName: uploadedFile ? fname : undefined,
+    });
     handleClose();
   };
 
@@ -741,11 +737,27 @@ function CreateDashboardModal({ open, onClose, onCreate, onOpenChat }: {
                     <button
                       onClick={() => {
                         const source = allSources.find(s => s.id === selectedSource);
-                        if (source) {
-                          const mockFields = ['Date', 'Region', 'Category', 'Vendor Name', 'Invoice Amount (₹)', 'Status', 'Department', 'Quantity'];
-                          onCreate(name, description, mockFields);
-                          handleClose();
-                        }
+                        if (!source) return;
+                        const isFile = source.type === 'file';
+                        const isCsv = isFile && source.name.toLowerCase().endsWith('.csv');
+                        const sourceType: DashboardSourceType = isFile ? (isCsv ? 'csv' : 'excel') : 'sql';
+                        // Pass non-empty customFields so the dashboard auto-opens the
+                        // Add Widget modal (DashboardView triggers on
+                        // initialCustomFields.length). For files we use the canonical
+                        // demo set; for SQL we flatten DB_SCHEMAS into a deduped column
+                        // label list so the same trigger fires.
+                        const customFields = isFile
+                          ? ['Date', 'Region', 'Category', 'Vendor Name', 'Invoice Amount (₹)', 'Status', 'Department', 'Quantity']
+                          : Array.from(new Set(
+                              (DB_SCHEMAS[source.id] ?? []).flatMap(t => t.columns.map(c => c.label))
+                            ));
+                        onCreate(name, description, {
+                          customFields,
+                          sourceType,
+                          sourceId: source.id,
+                          sourceName: source.name,
+                        });
+                        handleClose();
                       }}
                       disabled={!selectedSource}
                       className={`flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-[13px] font-semibold transition-colors cursor-pointer ${
@@ -782,7 +794,7 @@ function CreateDashboardModal({ open, onClose, onCreate, onOpenChat }: {
 
 // ─── Main Component ─────────────────────────────────────────────────────────
 
-export default function DashboardListPage({ onDashboardClick, onImportPowerBI, createdDashboards = [], onCreateDashboard, onDeleteDashboard, onOpenChat }: DashboardListPageProps) {
+export default function DashboardListPage({ onDashboardClick, onImportPowerBI, createdDashboards = [], onCreateDashboard, onDeleteDashboard, onUpdateDashboardSource, onOpenChat, focusedDashboardId }: DashboardListPageProps) {
   const { addToast } = useToast();
   const [activeTab, setActiveTab] = useState<'my' | 'shared'>('my');
   const [searchQuery, setSearchQuery] = useState('');
@@ -790,6 +802,9 @@ export default function DashboardListPage({ onDashboardClick, onImportPowerBI, c
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  /** Dashboard id whose source is being changed via the kebab "Change data
+   *  source" menu. Null when the picker is closed. */
+  const [changeSourceDashboardId, setChangeSourceDashboardId] = useState<string | null>(null);
   const myDashboards = [...createdDashboards, ...MY_DASHBOARDS];
   const [sharedDashboards, setSharedDashboards] = useState(SHARED_DASHBOARDS);
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -915,7 +930,9 @@ export default function DashboardListPage({ onDashboardClick, onImportPowerBI, c
                 exit={{ opacity: 0 }}
                 transition={{ delay: i * 0.04 }}
                 onClick={() => onDashboardClick(dashboard.id)}
-                className="glass-card rounded-xl p-5 cursor-pointer group relative flex flex-col"
+                className={`glass-card rounded-xl p-5 cursor-pointer group relative flex flex-col transition-shadow ${
+                  focusedDashboardId === dashboard.id ? 'ring-2 ring-brand-400 shadow-lg' : ''
+                }`}
               >
                 {/* Context menu trigger */}
                 <div className="absolute top-4 right-4 z-10">
@@ -941,6 +958,17 @@ export default function DashboardListPage({ onDashboardClick, onImportPowerBI, c
                         >
                           <Download size={14} /> Download
                         </button>
+                        {/* Change data source — only on user-created dashboards in
+                            the "my" tab (seed dashboards have hardcoded fixtures
+                            and shared dashboards aren't ours to mutate). */}
+                        {activeTab === 'my' && createdDashboards.some(d => d.id === dashboard.id) && (
+                          <button
+                            onClick={e => { e.stopPropagation(); setChangeSourceDashboardId(dashboard.id); setOpenMenuId(null); }}
+                            className="w-full px-3 py-2 text-left flex items-center gap-2 hover:bg-brand-50 text-[13px] text-ink-700 transition-colors cursor-pointer"
+                          >
+                            <Database size={14} /> Change data source
+                          </button>
+                        )}
                         <button
                           onClick={e => { e.stopPropagation(); setDeleteConfirmId(dashboard.id); setOpenMenuId(null); }}
                           className="w-full px-3 py-2 text-left flex items-center gap-2 hover:bg-risk-50 text-risk-700 text-[13px] transition-colors cursor-pointer"
@@ -983,15 +1011,25 @@ export default function DashboardListPage({ onDashboardClick, onImportPowerBI, c
                       <Clock size={13} className="text-ink-400" />
                       <span className="text-[12px] text-ink-400">{dashboard.timeAgo}</span>
                     </div>
-                    {dashboard.dataSourceNames && dashboard.dataSourceNames.length > 0 && (
+                    {(dashboard.dataSource || (dashboard.dataSourceNames && dashboard.dataSourceNames.length > 0)) && (
                       <div className="flex items-center gap-1 flex-wrap">
                         {(() => {
+                          // Prefer the explicit dataSource field. For combo dashboards
+                          // (or legacy entries without it), fall back to inferring
+                          // each badge from the individual data-source name.
                           const types = new Set<string>();
-                          dashboard.dataSourceNames!.forEach(name => {
-                            if (name.endsWith('.xlsx') || name.endsWith('.xls') || name.endsWith('.csv')) types.add('file');
-                            else if (name.includes('query')) types.add('query');
-                            else types.add('sql');
-                          });
+                          const ds = dashboard.dataSource;
+                          if (ds === 'excel' || ds === 'csv') {
+                            types.add('file');
+                          } else if (ds === 'sql' || ds === 'query') {
+                            types.add(ds);
+                          } else {
+                            (dashboard.dataSourceNames || []).forEach(name => {
+                              if (name.endsWith('.xlsx') || name.endsWith('.xls') || name.endsWith('.csv')) types.add('file');
+                              else if (name.includes('query')) types.add('query');
+                              else types.add('sql');
+                            });
+                          }
                           return Array.from(types).map(t => (
                             <span key={t} className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold ${
                               t === 'file' ? 'bg-green-50 text-green-700' :
@@ -1096,6 +1134,47 @@ export default function DashboardListPage({ onDashboardClick, onImportPowerBI, c
               </div>
             </div>
           </motion.div>
+
+          {/* Live SQL — Vendor Risk (sample bound to db-02) */}
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.04 }}
+            onClick={() => onDashboardClick('sql')}
+            className="glass-card rounded-xl p-5 cursor-pointer group relative flex flex-col"
+          >
+            <div className="mb-4">
+              <div className="inline-flex p-2.5 rounded-lg bg-purple-50 text-purple-700">
+                <Database size={18} />
+              </div>
+            </div>
+            <div className="mb-4 flex-1">
+              <h3 className="text-[15px] font-semibold text-ink-900 group-hover:text-brand-700 transition-colors mb-1.5">
+                Live SQL — Vendor Risk
+              </h3>
+              <p className="text-[12px] text-ink-500 leading-relaxed line-clamp-2">
+                Live database insights — vendor performance, invoice trends, risk distribution, and category-wise spend, sourced from Vendor Master (PostgreSQL).
+              </p>
+            </div>
+            <div className="flex items-center justify-between pt-3 border-t border-canvas-border mt-auto">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1.5">
+                  <Clock size={13} className="text-ink-400" />
+                  <span className="text-[12px] text-ink-400">Just now</span>
+                </div>
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-purple-50 text-purple-700">
+                  <Database size={8} />
+                  SQL
+                </span>
+              </div>
+              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <span className="text-[12px] font-semibold text-brand-600">Open</span>
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                  <path d="M6 12L10 8L6 4" stroke="currentColor" className="text-brand-600" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+            </div>
+          </motion.div>
         </div>
       </div>
       </div>
@@ -1143,24 +1222,105 @@ export default function DashboardListPage({ onDashboardClick, onImportPowerBI, c
         )}
       </AnimatePresence>
 
+      {/* ── Change data source picker ── */}
+      <AnimatePresence>
+        {changeSourceDashboardId && (() => {
+          const target = createdDashboards.find(d => d.id === changeSourceDashboardId);
+          if (!target) return null;
+          const dbOptions = SEED.filter(s => s.type === 'database');
+          return (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center">
+              <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setChangeSourceDashboardId(null)} />
+              <motion.div
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.96 }}
+                transition={{ duration: 0.2 }}
+                className="relative bg-canvas-elevated rounded-2xl border border-canvas-border shadow-2xl w-[440px] max-h-[80vh] flex flex-col mx-4"
+                onClick={e => e.stopPropagation()}
+              >
+                <div className="flex items-start justify-between px-6 pt-5 pb-3 border-b border-canvas-border">
+                  <div>
+                    <h3 className="text-[16px] font-bold text-ink-900">Change data source</h3>
+                    <p className="text-[12px] text-ink-500 mt-0.5 truncate max-w-[340px]">For dashboard "{target.name}"</p>
+                  </div>
+                  <button onClick={() => setChangeSourceDashboardId(null)} className="p-1 rounded-lg hover:bg-surface-2 transition-colors cursor-pointer shrink-0">
+                    <X size={18} className="text-ink-400" />
+                  </button>
+                </div>
+                <div className="flex-1 overflow-y-auto px-6 py-4">
+                  <div className="space-y-1.5">
+                    {dbOptions.map(db => {
+                      const cfg = INTEGRATION_CONFIGS[db.id];
+                      const tableCount = (DB_SCHEMAS[db.id] ?? []).length;
+                      const isCurrent = target.sourceId === db.id;
+                      return (
+                        <button
+                          key={db.id}
+                          onClick={() => {
+                            onUpdateDashboardSource?.(target.id, {
+                              dataSource: 'sql',
+                              sourceId: db.id,
+                              dataSourceNames: [db.name],
+                            });
+                            addToast({ message: `Source changed to ${db.name}`, type: 'success' });
+                            setChangeSourceDashboardId(null);
+                          }}
+                          className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-all cursor-pointer text-left ${
+                            isCurrent ? 'border-brand-500 bg-brand-50' : 'border-canvas-border bg-canvas-elevated hover:border-brand-200'
+                          }`}
+                        >
+                          <span className={`size-[8px] rounded-full shrink-0 ${
+                            cfg?.health === 'healthy' ? 'bg-emerald-500' :
+                            cfg?.health === 'degraded' ? 'bg-amber-500' :
+                            cfg?.health === 'failed' ? 'bg-red-500' :
+                            'bg-ink-300'
+                          }`} />
+                          <div className="flex-1 min-w-0">
+                            <div className={`text-[13px] truncate ${isCurrent ? 'text-brand-700 font-semibold' : 'text-ink-900 font-medium'}`}>{db.name}</div>
+                            <div className="text-[11px] text-ink-400 truncate">
+                              {cfg?.provider ?? 'Unknown provider'}
+                              {tableCount > 0 && ` · ${tableCount} ${tableCount === 1 ? 'table' : 'tables'}`}
+                            </div>
+                          </div>
+                          {isCurrent && <Check size={16} className="text-brand-600 shrink-0" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="flex items-center justify-end gap-3 px-6 py-3.5 border-t border-canvas-border">
+                  <button onClick={() => setChangeSourceDashboardId(null)} className="px-5 py-2 text-[13px] font-semibold text-ink-700 hover:text-ink-900 transition-colors cursor-pointer">
+                    Cancel
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          );
+        })()}
+      </AnimatePresence>
+
       {/* Create Dashboard Modal */}
       <CreateDashboardModal
         open={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
         onOpenChat={onOpenChat}
-        onCreate={(name, desc, customFields) => {
+        onCreate={(name, desc, opts) => {
           const newId = `custom-${Date.now()}`;
-          const newDashboard = {
+          const newDashboard: Dashboard = {
             id: newId,
             name,
             description: desc || 'Custom dashboard',
             timeAgo: 'Just now',
             creator: 'You',
             accent: 'bg-brand-50 text-brand-700',
+            ...(opts?.sourceType && { dataSource: opts.sourceType }),
+            ...(opts?.sourceName && { dataSourceNames: [opts.sourceName] }),
+            ...(opts?.sourceId && { sourceId: opts.sourceId }),
           };
           onCreateDashboard?.(newDashboard);
           addToast({ message: `Dashboard "${name}" created`, type: 'success' });
-          onDashboardClick(newId, customFields);
+          onDashboardClick(newId, opts?.customFields);
         }}
       />
     </div>

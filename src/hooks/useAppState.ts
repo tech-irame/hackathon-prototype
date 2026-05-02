@@ -1,5 +1,11 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import type { WorkflowTypeId } from '../data/mockData';
+import {
+  loadPersistedNotifications,
+  persistNotifications,
+  type PlatformNotification,
+  type NotificationActionState,
+} from '../data/notifications';
 
 export type View =
   | 'home'
@@ -9,6 +15,7 @@ export type View =
   | 'workflow-detail'
   | 'workflow-library'
   | 'workflow-executor'
+  | 'workflow-edit-in-chat'
   // Governance
   | 'business-processes'
   | 'bp-detail'
@@ -98,7 +105,18 @@ export interface AppState {
   // Persisted widgets per custom dashboard
   dashboardWidgets: Record<string, Array<{ chartType: string; title: string; xField: string; yField: string }>>;
   // User-created dashboards (persisted across navigation)
-  createdDashboards: Array<{ id: string; name: string; description: string; timeAgo: string; creator: string; accent: string }>;
+  createdDashboards: Array<{
+    id: string;
+    name: string;
+    description: string;
+    timeAgo: string;
+    creator: string;
+    accent: string;
+    dataSource?: 'excel' | 'csv' | 'sql' | 'query' | 'combo';
+    dataSourceNames?: string[];
+    /** SEED id of the picked source — required for live-SQL dashboards. */
+    sourceId?: string;
+  }>;
   // Pending dashboard — saved while user is in chat before creating
   pendingDashboard: { name: string; description: string } | null;
   // Execution panels
@@ -106,6 +124,18 @@ export interface AppState {
   executionPanelControlId: string | null;
   // Manage Exceptions (Case Mgmt) active role
   exceptionRole: ExceptionRole;
+  // When the user navigates to Knowledge Hub from a dashboard chip / Add
+  // Widget empty state, this carries the sourceId they came from so the
+  // Knowledge Hub view can highlight / scroll to that connection. Cleared
+  // when the user navigates away.
+  knowledgeHubFocusSourceId: string | null;
+  // Platform notification center
+  notifications: PlatformNotification[];
+  notificationDrawerOpen: boolean;
+  /** Set when the user clicks a notification with a `link.ref.id`. The
+   *  target view reads this on mount and highlights/scrolls the matching
+   *  row. Auto-cleared after the view consumes it (or after a navigation). */
+  focusedNotificationRefId: string | null;
 }
 
 const getInitialView = (): View => {
@@ -151,10 +181,27 @@ const INITIAL_STATE: AppState = {
   executionPanel: null,
   executionPanelControlId: null,
   exceptionRole: 'risk-owner',
+  knowledgeHubFocusSourceId: null,
+  // Initialised lazily from localStorage in `useAppState` below; the empty
+  // array here is just a type-correct placeholder the lazy init replaces.
+  notifications: [],
+  notificationDrawerOpen: false,
+  focusedNotificationRefId: null,
 };
 
 export function useAppState() {
-  const [state, setState] = useState<AppState>(INITIAL_STATE);
+  // Lazy init: hydrate notifications from localStorage on first mount only.
+  const [state, setState] = useState<AppState>(() => ({
+    ...INITIAL_STATE,
+    notifications: loadPersistedNotifications(),
+  }));
+
+  // Persist notifications to localStorage whenever they change. Read flags,
+  // dismissals, and (Phase 2+) action state / snooze / archive all flow
+  // through here so reload preserves the user's progress.
+  useEffect(() => {
+    persistNotifications(state.notifications);
+  }, [state.notifications]);
 
   const setView = useCallback((view: View) => {
     setState(prev => ({ ...prev, view, showChatHistory: false }));
@@ -189,7 +236,7 @@ export function useAppState() {
   }, []);
 
   const setSelectedBP = useCallback((id: string | null) => {
-    setState(prev => ({ ...prev, selectedBPId: id, view: id ? 'bp-detail' : 'business-processes' }));
+    setState(prev => ({ ...prev, selectedBPId: id, view: id ? 'bp-detail' : 'programs' }));
   }, []);
 
   const setSelectedEngagement = useCallback((id: string | null) => {
@@ -247,6 +294,18 @@ export function useAppState() {
   }, []);
 
   const enterWorkflowMode = useCallback((context?: { templateId?: string; workflowId?: string }) => {
+    // Editing an existing workflow → dedicated edit-in-chat journey with
+    // its own clarification phase + 4-tab workspace. Building from scratch
+    // keeps the inline chat artifact flow.
+    if (context?.workflowId) {
+      setState(prev => ({
+        ...prev,
+        view: 'workflow-edit-in-chat' as View,
+        selectedWorkflowId: context.workflowId!,
+        chatWorkflowContext: context,
+      }));
+      return;
+    }
     setState(prev => ({
       ...prev,
       view: 'chat' as View,
@@ -275,6 +334,31 @@ export function useAppState() {
 
   const deleteCreatedDashboard = useCallback((id: string) => {
     setState(prev => ({ ...prev, createdDashboards: prev.createdDashboards.filter(d => d.id !== id) }));
+  }, []);
+
+  /** Update the source binding of an already-created dashboard. Caller passes
+   *  any subset of `dataSource | sourceId | dataSourceNames`; missing fields
+   *  are left as-is. Used by the kebab "Change data source" action and by
+   *  AddDataModal's onAttach / onSetPrimary. */
+  const updateDashboardSource = useCallback((
+    id: string,
+    patch: Partial<Pick<AppState['createdDashboards'][number], 'dataSource' | 'sourceId' | 'dataSourceNames'>>,
+  ) => {
+    setState(prev => ({
+      ...prev,
+      createdDashboards: prev.createdDashboards.map(d => d.id === id ? { ...d, ...patch } : d),
+    }));
+  }, []);
+
+  /** Navigate to Knowledge Hub, optionally focusing a connection. The view
+   *  reads `knowledgeHubFocusSourceId` to highlight / scroll to the right
+   *  connection if present. */
+  const openKnowledgeHub = useCallback((sourceId?: string) => {
+    setState(prev => ({
+      ...prev,
+      view: 'knowledge-hub' as View,
+      knowledgeHubFocusSourceId: sourceId ?? null,
+    }));
   }, []);
 
   const setPendingDashboard = useCallback((pending: AppState['pendingDashboard']) => {
@@ -311,6 +395,70 @@ export function useAppState() {
     setState(prev => ({ ...prev, workflowBuilderSeedPrompt: prompt }));
   }, []);
 
+  // ── Notifications ──
+  const openNotificationDrawer = useCallback(() => {
+    setState(prev => ({ ...prev, notificationDrawerOpen: true }));
+  }, []);
+
+  const closeNotificationDrawer = useCallback(() => {
+    setState(prev => ({ ...prev, notificationDrawerOpen: false }));
+  }, []);
+
+  const markNotificationRead = useCallback((id: string) => {
+    setState(prev => ({
+      ...prev,
+      notifications: prev.notifications.map(n => n.id === id ? { ...n, read: true } : n),
+    }));
+  }, []);
+
+  const markAllNotificationsRead = useCallback(() => {
+    setState(prev => ({
+      ...prev,
+      notifications: prev.notifications.map(n => n.read ? n : { ...n, read: true }),
+    }));
+  }, []);
+
+  // Extension point: module actions push real events into the feed.
+  // Not wired anywhere in v1 — left intentionally for follow-up PRs.
+  const addNotification = useCallback((n: PlatformNotification) => {
+    setState(prev => ({ ...prev, notifications: [n, ...prev.notifications] }));
+  }, []);
+
+  // ── Phase 2: action lifecycle ──────────────────────────────────────────
+  // Notifications are no longer destructively dismissed on action. Instead
+  // the row records its `actionState` (and gets a confirmation pill in the
+  // UI), or is moved to Snoozed / Archived. Every mutation is reversible
+  // via undoLastAction(id, snapshot).
+
+  /** Record the user's response (Accept / Decline / Comment). The row stays
+   *  in the list but renders a pill instead of action buttons. */
+  const setNotificationActionState = useCallback((id: string, actionState: NotificationActionState | undefined) => {
+    setState(prev => ({
+      ...prev,
+      notifications: prev.notifications.map(n =>
+        n.id === id ? { ...n, actionState, read: true } : n,
+      ),
+    }));
+  }, []);
+
+  /** Restore a notification to a previous snapshot — used by Undo on toasts.
+   *  The snapshot is captured before the mutation; this overwrites the
+   *  current entry with the prior state. */
+  const restoreNotification = useCallback((snapshot: PlatformNotification) => {
+    setState(prev => ({
+      ...prev,
+      notifications: prev.notifications.map(n =>
+        n.id === snapshot.id ? snapshot : n,
+      ),
+    }));
+  }, []);
+
+  /** Set the focused ref id when a user clicks a notification. The matching
+   *  target view reads this on mount and highlights/scrolls the row. */
+  const setFocusedNotificationRefId = useCallback((id: string | null) => {
+    setState(prev => ({ ...prev, focusedNotificationRefId: id }));
+  }, []);
+
   return {
     state,
     setView,
@@ -340,11 +488,21 @@ export function useAppState() {
     saveDashboardWidgets,
     addCreatedDashboard,
     deleteCreatedDashboard,
+    updateDashboardSource,
+    openKnowledgeHub,
     setPendingDashboard,
     openExecutionPanel,
     closeExecutionPanel,
     setExceptionRole,
     launchWorkflowBuilderWithPrompt,
     setWorkflowBuilderSeedPrompt,
+    openNotificationDrawer,
+    closeNotificationDrawer,
+    markNotificationRead,
+    markAllNotificationsRead,
+    addNotification,
+    setNotificationActionState,
+    restoreNotification,
+    setFocusedNotificationRefId,
   };
 }

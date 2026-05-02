@@ -312,14 +312,14 @@ interface Props {
   engagementId?: string;
   freshActivation?: boolean;
   onBack: () => void;
-  onOpenControl: (controlId: string) => void;
+  onOpenControl: (controlId: string, controlData?: ControlDetail) => void;
 }
 
 export default function EngagementDetailView({ engagementId, freshActivation, onBack, onOpenControl }: Props) {
   const eng = ENGAGEMENT;
 
-  // Use seeded data only for the demo engagement; all others start fresh
-  const isDemoEngagement = engagementId === 'ap-1' || engagementId === 'eng-sox-fy26' || !engagementId;
+  // Use seeded data ONLY for explicit demo engagement IDs; everything else starts fresh
+  const isDemoEngagement = engagementId === 'ap-1' || engagementId === 'eng-sox-fy26';
   const isFreshEngagement = !isDemoEngagement || freshActivation;
   const sourceControls = isFreshEngagement ? resetControlsToClean(CONTROLS) : CONTROLS;
 
@@ -543,7 +543,7 @@ export default function EngagementDetailView({ engagementId, freshActivation, on
 
                       return (
                         <motion.tr key={row.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.02 }}
-                          onClick={() => onOpenControl(row.id)}
+                          onClick={() => onOpenControl(row.id, row)}
                           className="border-b border-border/50 hover:bg-brand-50/30 transition-colors cursor-pointer group">
                           <td className="px-3 py-3">
                             <span className="text-[10px] font-mono text-text-muted">{row.controlId}</span>
@@ -637,7 +637,7 @@ export default function EngagementDetailView({ engagementId, freshActivation, on
                       </div>
                       {ctrl.conclusion && <div className="p-3 bg-surface-2/40 rounded-lg mb-3"><span className="text-[10px] font-bold text-text-muted uppercase">Tester Conclusion</span><p className="text-[12px] text-text-secondary mt-0.5">{ctrl.conclusion}</p></div>}
                       <div className="flex items-center gap-3">
-                        <button onClick={() => onOpenControl(ctrl.id)} className="flex items-center gap-1.5 px-3 py-2 bg-primary/10 text-primary rounded-lg text-[11px] font-semibold hover:bg-primary/20 transition-colors cursor-pointer"><Eye size={12} />Review Detail</button>
+                        <button onClick={() => onOpenControl(ctrl.id, ctrl)} className="flex items-center gap-1.5 px-3 py-2 bg-primary/10 text-primary rounded-lg text-[11px] font-semibold hover:bg-primary/20 transition-colors cursor-pointer"><Eye size={12} />Review Detail</button>
                         <button className="flex items-center gap-1.5 px-3 py-2 bg-compliant hover:brightness-110 text-white rounded-lg text-[11px] font-semibold transition-all cursor-pointer"><CheckCircle2 size={12} />Approve</button>
                         <button className="flex items-center gap-1.5 px-3 py-2 border border-risk text-risk-700 hover:bg-risk-50 rounded-lg text-[11px] font-semibold transition-all cursor-pointer"><XCircle size={12} />Reject</button>
                       </div>
@@ -662,7 +662,7 @@ export default function EngagementDetailView({ engagementId, freshActivation, on
               <div className="space-y-3">
                 {FINDINGS.map(f => (
                   <div key={f.id} className="glass-card rounded-xl p-5 border-l-4 border-risk hover:border-risk/80 transition-colors cursor-pointer"
-                    onClick={() => { const ctrl = sourceControls.find(c => c.controlId === f.controlId); if (ctrl) onOpenControl(ctrl.id); }}>
+                    onClick={() => { const ctrl = sourceControls.find(c => c.controlId === f.controlId); if (ctrl) onOpenControl(ctrl.id, ctrl); }}>
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <span className="text-[13px] font-mono font-bold text-risk-700">{f.id}</span>

@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { FileText, ChevronDown, LayoutGrid, GripVertical } from "lucide-react";
+import { FileText, ChevronDown, LayoutGrid, GripVertical, Database } from "lucide-react";
 
 export interface FileTreeSheet { name: string; columns: string[]; }
-export interface FileTreeFile { name: string; icon?: 'excel' | 'csv'; sheets: FileTreeSheet[]; }
+export interface FileTreeFile { name: string; icon?: 'excel' | 'csv' | 'database'; sheets: FileTreeSheet[]; }
 
 export const FILE_TREE_DATA: FileTreeFile[] = [
   {
@@ -53,7 +53,9 @@ export function FileTreeView({ files, search, draggable, fieldIdMap }: {
               className="w-full flex items-center justify-between px-3 py-2.5 bg-gradient-to-r from-[#faf5ff] to-white hover:from-[#f5f0ff] transition-all cursor-pointer"
             >
               <div className="flex items-center gap-2">
-                <FileText size={14} className="text-[#6a12cd]" />
+                {file.icon === 'database'
+                  ? <Database size={14} className="text-[#6a12cd]" />
+                  : <FileText size={14} className="text-[#6a12cd]" />}
                 <span className="text-[12px] font-semibold text-[#26064a]">{file.name}</span>
               </div>
               <ChevronDown

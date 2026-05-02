@@ -96,8 +96,6 @@ export const REPORT_TEMPLATES = [
   { id: "rt-internal-audit", name: "Internal Audit Report", desc: "End-to-end audit report with executive summary, audit queries, findings, and recommendations", category: "Audit", icon: "file-text", sections: [
     { name: 'Executive Summary', icon: 'file-text' },
     { name: 'Audit Queries', icon: 'check-circle' },
-    { name: 'Findings & Observations', icon: 'alert-triangle' },
-    { name: 'Risk Analysis', icon: 'shield' },
     { name: 'Recommendations', icon: 'trending-up' },
     { name: 'Appendix', icon: 'file-text' },
   ]},
@@ -109,12 +107,13 @@ export const REPORT_TEMPLATES = [
     { name: 'Remediation Status', icon: 'shield' },
     { name: 'Appendix', icon: 'file-text' },
   ]},
-  { id: "rt-007", name: "ATR Report", desc: "Action Taken Report with query summary, risk details, action plan, and resolution status", category: "Audit", icon: "clipboard-check", sections: [
+  { id: "rt-007", name: "ATR Report", desc: "Action Taken Report with query-wise summary, closure status, key insights, auditor comments, and sign-off", category: "Audit", icon: "clipboard-check", sections: [
     { name: 'Report Information', icon: 'file-text' },
-    { name: 'Query Summary', icon: 'file-text' },
-    { name: 'Risk Details', icon: 'alert-triangle' },
-    { name: 'Action Plan', icon: 'check-circle' },
-    { name: 'Resolution Status', icon: 'clipboard-check' },
+    { name: 'Query-wise Summary', icon: 'check-circle' },
+    { name: 'Summary of Closure Status', icon: 'bar-chart' },
+    { name: 'Key Insights & Recommendations', icon: 'lightbulb' },
+    { name: 'Auditor Comments', icon: 'book-open' },
+    { name: 'Approvals & Sign-Off', icon: 'shield' },
   ]},
   // { id: "rt-002", name: "Risk Assessment Summary", desc: "Overview of all identified risks, their ratings, and mitigation status", category: "Risk", icon: "alert-triangle", sections: [
   //   { name: 'Executive Summary', icon: 'file-text' },

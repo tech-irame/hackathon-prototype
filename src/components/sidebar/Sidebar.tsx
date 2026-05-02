@@ -6,7 +6,7 @@ import {
   AlertTriangle, Sparkles, Building2, Home, Calendar,
   Shield, Search as SearchIcon, Settings, Clock, Check,
   Wand2, MoreHorizontal, LogOut, HelpCircle, ExternalLink,
-  ClipboardCheck, FileText, Target, Layers
+  ClipboardCheck, FileText, Target, Layers, Bell
 } from 'lucide-react';
 import type { View } from '../../hooks/useAppState';
 
@@ -16,11 +16,14 @@ interface SidebarProps {
   expanded: boolean;
   toggleSidebar: () => void;
   setSidebarExpanded: (v: boolean) => void;
+  unreadNotifications: number;
+  notificationDrawerOpen: boolean;
+  onOpenNotifications: () => void;
 }
 
 /* ── Flat nav item ── */
-function NavItem({ icon: Icon, label, active, expanded, onClick, badge }: {
-  icon: React.ElementType; label: string; active: boolean; expanded: boolean; onClick: () => void; badge?: string;
+function NavItem({ icon: Icon, label, active, expanded, onClick, badge, dot }: {
+  icon: React.ElementType; label: string; active: boolean; expanded: boolean; onClick: () => void; badge?: string; dot?: boolean;
 }) {
   return (
     <button
@@ -38,7 +41,15 @@ function NavItem({ icon: Icon, label, active, expanded, onClick, badge }: {
       {active && (
         <span className="absolute left-0 top-0 bottom-0 w-[3px] bg-sidebar-accent rounded-r-lg" />
       )}
-      <Icon size={18} className="shrink-0" />
+      <span className="relative shrink-0 flex items-center justify-center">
+        <Icon size={18} />
+        {dot && !expanded && (
+          <span
+            className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-brand-400 ring-2 ring-sidebar-bg"
+            aria-hidden="true"
+          />
+        )}
+      </span>
       <AnimatePresence>
         {expanded && (
           <motion.span
@@ -92,7 +103,7 @@ const TEAMS = [
   { id: 'irame-india', name: 'Irame India' },
 ];
 
-export default function Sidebar({ view, setView, expanded, toggleSidebar }: SidebarProps) {
+export default function Sidebar({ view, setView, expanded, toggleSidebar, unreadNotifications, notificationDrawerOpen, onOpenNotifications }: SidebarProps) {
   const [hoverExpanded, setHoverExpanded] = useState(false);
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [teamOpen, setTeamOpen] = useState(false);
@@ -156,21 +167,26 @@ export default function Sidebar({ view, setView, expanded, toggleSidebar }: Side
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      {/* ── Logo row + team switcher ── */}
-      <div className={`border-b border-sidebar-border shrink-0 relative h-[59px] flex items-center ${isExpanded ? 'px-4' : 'px-0 justify-center'}`} ref={teamRef}>
-        <div className={`flex items-center ${isExpanded ? 'gap-3' : 'justify-center'}`}>
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-500 to-brand-400 flex items-center justify-center shrink-0" style={{ boxShadow: '0 2px 8px rgb(106 18 205 / 0.30)' }}>
-            <Sparkles size={14} className="text-white" />
-          </div>
-          <AnimatePresence>
-            {isExpanded && (
-              <motion.div
-                initial={{ opacity: 0, width: 0 }}
-                animate={{ opacity: 1, width: 'auto' }}
-                exit={{ opacity: 0, width: 0 }}
-                transition={{ duration: 0.15 }}
-                className="overflow-hidden"
-              >
+      {/* ── Sidebar header: collapsed shows ONLY the bell (centered in 64px);
+          expanded shows logo + IRAME.AI + Audit Intelligence on the left,
+          bell on the right. The bell uses Framer Motion's `layout` prop so
+          it slides smoothly between the two positions in lockstep with the
+          sidebar's width animation — no manual position calculations. ── */}
+      <div className={`border-b border-sidebar-border shrink-0 relative h-[59px] flex items-center ${isExpanded ? 'px-4 justify-between gap-3' : 'px-0 justify-center'}`} ref={teamRef}>
+        {/* Logo + IRAME.AI label + team switcher — expanded only */}
+        <AnimatePresence initial={false}>
+          {isExpanded && (
+            <motion.div
+              initial={{ opacity: 0, width: 0 }}
+              animate={{ opacity: 1, width: 'auto' }}
+              exit={{ opacity: 0, width: 0 }}
+              transition={{ duration: 0.22, ease: [0.22, 0.68, 0, 1] }}
+              className="flex items-center gap-3 overflow-hidden"
+            >
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-500 to-brand-400 flex items-center justify-center shrink-0" style={{ boxShadow: '0 2px 8px rgb(106 18 205 / 0.30)' }}>
+                <Sparkles size={14} className="text-white" />
+              </div>
+              <div>
                 <div className="text-[14px] font-bold text-sidebar-accent leading-tight whitespace-nowrap">IRAME.AI</div>
                 <button
                   onClick={() => { setTeamOpen(p => !p); setTeamSearch(''); }}
@@ -179,10 +195,58 @@ export default function Sidebar({ view, setView, expanded, toggleSidebar }: Side
                   Audit Intelligence
                   <ChevronDown size={8} className={`text-white transition-transform duration-150 ${teamOpen ? 'rotate-180' : ''}`} />
                 </button>
-              </motion.div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Notification bell — uses motion `layout` to smoothly transition
+            position between collapsed (centered, 64px) and expanded (right
+            edge, 256px). The `layout` system measures the DOM before/after
+            and animates the transform — no slide-in-from-the-right glitch. */}
+        <motion.button
+          layout
+          transition={{ duration: 0.28, ease: [0.22, 0.68, 0, 1] }}
+          onMouseEnter={() => {
+            // Hovering the bell should not auto-expand the sidebar.
+            // Cancelling the pending expand timer keeps the bell stationary
+            // under the user's cursor so the click target doesn't slide away.
+            if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+          }}
+          onMouseDown={(e) => { e.stopPropagation(); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            // Cancel any pending hover-expand and clear the hover state so
+            // clicking the bell doesn't drag the sidebar open under the user.
+            if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+            setHoverExpanded(false);
+            onOpenNotifications();
+          }}
+          title="Notifications"
+          aria-label="Notifications"
+          className={`relative shrink-0 w-8 h-8 rounded-lg flex items-center justify-center cursor-pointer transition-colors
+            ${notificationDrawerOpen
+              ? 'bg-sidebar-surface-active text-sidebar-accent'
+              : 'text-white hover:bg-sidebar-surface-hover hover:text-sidebar-accent'}
+          `}
+        >
+          <Bell size={17} />
+          <AnimatePresence>
+            {unreadNotifications > 0 && (
+              <motion.span
+                key={unreadNotifications}
+                initial={{ scale: 0.6, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.6, opacity: 0 }}
+                transition={{ duration: 0.2, ease: [0.34, 1.56, 0.64, 1] }}
+                className="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-[4px] rounded-full bg-sidebar-accent text-brand-600 text-[10px] font-semibold leading-none flex items-center justify-center tabular-nums"
+                aria-hidden="true"
+              >
+                {unreadNotifications > 99 ? '99+' : unreadNotifications}
+              </motion.span>
             )}
           </AnimatePresence>
-        </div>
+        </motion.button>
 
         {/* Team switcher dropdown */}
         <AnimatePresence>
