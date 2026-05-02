@@ -39,6 +39,9 @@ interface ClarificationData {
   questions: { question: string; options: string[] }[];
   answers: Record<number, string>;
   status: 'open' | 'submitted'; // 'submitted' freezes the UI into a recap
+  // 'audit-query' (default) feeds the audit run; 'save-workflow' captures
+  // tolerance/threshold config and then opens the Save-as-Workflow modal.
+  purpose?: 'audit-query' | 'save-workflow';
 }
 
 // ─── Audit-query result fixture ──────────────────────────────────────────────
@@ -805,6 +808,12 @@ export default function ChatView({ showChatHistory, toggleChatHistory, setShowAr
   // Save-as-workflow flow state (Path 3 — query → workflow flip)
   const [showSaveAsWfModal, setShowSaveAsWfModal] = useState(false);
   const [lockedAsWorkflow, setLockedAsWorkflow] = useState(false);
+  // Captured tolerance/threshold config from the pre-modal clarification —
+  // drives the modal's prefilled name + description so the user sees their
+  // choices reflected before they commit to the workflow.
+  const saveWorkflowConfigRef = useRef<{ amount: string; date: string; threshold: string }>({
+    amount: '', date: '', threshold: '',
+  });
 
   // Data picker modal — replaces the raw file-input click on the upload buttons.
   // attachedSources are picks from existing data (files / DBs / APIs / cloud / session)
@@ -950,9 +959,14 @@ export default function ChatView({ showChatHistory, toggleChatHistory, setShowAr
   // ─── Submit the clarification — freeze it, drop a single user msg, start the run ───
   const submitClarification = (msgId: string, fromSkip = false) => {
     let consolidated: { question: string; answer: string }[] = [];
+    // Holder object — TS narrows bare `let` initialized to a literal, but
+    // assignments inside the setMessages callback aren't visible to its flow
+    // analysis. Wrapping in an object property defeats that narrowing.
+    const flow: { purpose: 'audit-query' | 'save-workflow' } = { purpose: 'audit-query' };
     setMessages(prev => prev.map(m => {
       if (m.id !== msgId || m.richType !== 'clarification') return m;
       const data = m.richData as unknown as ClarificationData;
+      flow.purpose = data.purpose ?? 'audit-query';
       consolidated = data.questions
         .map((q, qi) => ({ question: q.question, answer: data.answers[qi] }))
         .filter(p => !!p.answer);
@@ -973,6 +987,19 @@ export default function ChatView({ showChatHistory, toggleChatHistory, setShowAr
         timestamp: new Date(),
       }]);
     }, 80);
+
+    if (flow.purpose === 'save-workflow') {
+      // Stash answers so the modal's prefilled name/description echo them.
+      const findAnswer = (kw: string) =>
+        consolidated.find(c => c.question.toLowerCase().includes(kw))?.answer ?? '';
+      saveWorkflowConfigRef.current = {
+        amount: findAnswer('amount') || '±₹1,000',
+        date: findAnswer('date') || '±3 days',
+        threshold: findAnswer('threshold') || '≥90%',
+      };
+      schedule(() => setShowSaveAsWfModal(true), 360);
+      return;
+    }
 
     schedule(() => startAuditQueryRun(), 240);
   };
@@ -1177,8 +1204,53 @@ export default function ChatView({ showChatHistory, toggleChatHistory, setShowAr
     }, 1200);
   };
 
-  // Path 3 entry — open the Save-as-Workflow modal from the audit-result action bar.
-  const openSaveAsWorkflowModal = () => setShowSaveAsWfModal(true);
+  // Path 3 entry — instead of jumping straight to the metadata modal, IRA first
+  // posts an inline clarification asking for tolerance / threshold config.
+  // submitClarification (purpose: 'save-workflow') opens the modal once
+  // those choices are captured.
+  const openSaveAsWorkflowModal = () => {
+    // If a save-workflow clarification is already open, don't stack another.
+    const hasOpenSaveClarify = messages.some(
+      m => m.richType === 'clarification' &&
+        (m.richData as unknown as ClarificationData)?.purpose === 'save-workflow' &&
+        (m.richData as unknown as ClarificationData)?.status === 'open'
+    );
+    if (hasOpenSaveClarify) return;
+
+    const data: ClarificationData = {
+      intro: "Before I save this as a re-runnable workflow, let me confirm the matching tolerances and thresholds. Pick what fits, or type your own.",
+      questions: [
+        {
+          question: 'Amount tolerance for duplicate matching',
+          options: ['Exact match (₹0)', '±₹1,000', '±₹5,000', '±2% of invoice value'],
+        },
+        {
+          question: 'Date tolerance for duplicate matching',
+          options: ['Same day only', '±3 days (current)', '±7 days', '±14 days'],
+        },
+        {
+          question: 'Match-score threshold to flag',
+          options: ['≥90% (current)', '≥85%', '≥80%', '≥95%'],
+        },
+      ],
+      answers: {},
+      status: 'open',
+      purpose: 'save-workflow',
+    };
+    setMessages(prev => [...prev, {
+      id: `msg-clarify-savewf-${Date.now()}`,
+      role: 'assistant',
+      text: '',
+      thinking: [
+        'User asked to save as workflow',
+        'Identified tolerances + threshold as configurable parameters',
+        'Asking before locking the workflow definition',
+      ],
+      timestamp: new Date(),
+      richType: 'clarification',
+      richData: data as unknown as Record<string, unknown>,
+    }]);
+  };
 
   // Path 3 commit — modal confirmed. Lock the thread into workflow mode,
   // swap the IRA Workspace canvas (parent App.tsx handles the Y-spin), and
@@ -1720,8 +1792,11 @@ export default function ChatView({ showChatHistory, toggleChatHistory, setShowAr
                     {msg.role === 'assistant' && msg.thinking && msg.thinking.length > 0 && (
                       <ThinkingTrail
                         summary={
-                          msg.richType === 'clarification' ? 'Identified ambiguity, asking for inputs' :
-                          msg.richType === 'audit-loading' ? 'Running query through plan → SQL → sources → results' :
+                          msg.richType === 'clarification'
+                            ? ((msg.richData as unknown as ClarificationData)?.purpose === 'save-workflow'
+                                ? 'Confirming tolerances + threshold before saving'
+                                : 'Identified ambiguity, asking for inputs')
+                            : msg.richType === 'audit-loading' ? 'Running query through plan → SQL → sources → results' :
                           msg.richType === 'audit-result' ? 'Completed query — running through plan → SQL → sources → results' :
                           `Thought for ${msg.thinking.length} steps`
                         }
@@ -1739,7 +1814,9 @@ export default function ChatView({ showChatHistory, toggleChatHistory, setShowAr
                       <div className="max-w-[66ch]">
                         {(msg.richData as unknown as ClarificationData).status === 'submitted' ? (
                           <div className="text-[13px] text-ink-700 leading-relaxed">
-                            Got it — running with these inputs.
+                            {(msg.richData as unknown as ClarificationData).purpose === 'save-workflow'
+                              ? 'Got it — saving as workflow with these settings.'
+                              : 'Got it — running with these inputs.'}
                           </div>
                         ) : (
                           <div className="text-[15px] leading-[1.65] text-ink-800">
@@ -2140,17 +2217,27 @@ export default function ChatView({ showChatHistory, toggleChatHistory, setShowAr
         </div>
       </div>
 
-      {/* Save-as-Workflow modal — Path 3 commit step */}
+      {/* Save-as-Workflow modal — Path 3 commit step. Defaults pull from the
+          tolerance/threshold answers captured in the pre-modal clarification
+          so the prefilled name + description echo what the user just chose. */}
       <AnimatePresence>
-        {showSaveAsWfModal && (
-          <SaveAsWorkflowModal
-            open={showSaveAsWfModal}
-            defaultName="Duplicate Invoice Detection — Q1 ±3 days"
-            defaultDescription="Detects duplicate invoices in Q1 2026 with same vendor, amount, and date within ±3 days at 90% match threshold."
-            onCancel={() => setShowSaveAsWfModal(false)}
-            onConfirm={handleSaveAsWorkflowConfirm}
-          />
-        )}
+        {showSaveAsWfModal && (() => {
+          const cfg = saveWorkflowConfigRef.current;
+          const dateShort = (cfg.date || '±3 days').replace(/\s*\(current\)\s*/i, '').trim();
+          const amountShort = (cfg.amount || '±₹1,000').replace(/\s*\(current\)\s*/i, '').trim();
+          const thresholdShort = (cfg.threshold || '≥90%').replace(/\s*\(current\)\s*/i, '').trim();
+          const defaultName = `Duplicate Invoice Detection — Q1 ${dateShort}`;
+          const defaultDescription = `Detects duplicate invoices in Q1 2026 with same vendor, ${amountShort} amount tolerance, and ${dateShort} date tolerance at ${thresholdShort} match threshold.`;
+          return (
+            <SaveAsWorkflowModal
+              open={showSaveAsWfModal}
+              defaultName={defaultName}
+              defaultDescription={defaultDescription}
+              onCancel={() => setShowSaveAsWfModal(false)}
+              onConfirm={handleSaveAsWorkflowConfirm}
+            />
+          );
+        })()}
       </AnimatePresence>
 
       {/* Data picker modal — attach existing sources or upload fresh files */}
