@@ -3,9 +3,10 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   X, ChevronDown, FileCode,
   Database, BarChart3, Sparkles, Copy, Download,
-  Maximize2, AlertTriangle
+  AlertTriangle, LayoutDashboard
 } from 'lucide-react';
 import type { ArtifactTab } from '../../hooks/useAppState';
+import OutputConfigTab from './OutputConfigTab';
 
 interface ArtifactPanelProps {
   activeTab: ArtifactTab;
@@ -20,21 +21,31 @@ const TABS: { id: ArtifactTab; label: string; icon: React.ElementType }[] = [
   { id: 'plan', label: 'Plan', icon: Sparkles },
   { id: 'code', label: 'Code', icon: FileCode },
   { id: 'sources', label: 'Sources', icon: Database },
+  { id: 'output', label: 'Output', icon: LayoutDashboard },
 ];
 
-function CollapsibleSection({ title, icon: Icon, defaultOpen = true, children }: { title: string; icon: React.ElementType; defaultOpen?: boolean; children: React.ReactNode }) {
+function CollapsibleSection({ title, icon: Icon, defaultOpen = true, children, actions }: { title: string; icon: React.ElementType; defaultOpen?: boolean; children: React.ReactNode; actions?: React.ReactNode }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div className="border border-border-light rounded-xl bg-white overflow-hidden">
-      <button
-        onClick={() => setOpen(p => !p)}
-        aria-expanded={open}
-        className="w-full flex items-center gap-2 px-4 py-3 text-sm font-medium text-text hover:bg-paper-50 transition-colors cursor-pointer"
-      >
-        <Icon size={14} className="text-primary" />
-        <span className="flex-1 text-left">{title}</span>
-        <ChevronDown size={14} className={`text-text-muted transition-transform ${open ? '' : '-rotate-90'}`} />
-      </button>
+      <div className="flex items-center px-4 py-3 hover:bg-paper-50 transition-colors">
+        <button
+          onClick={() => setOpen(p => !p)}
+          aria-expanded={open}
+          className="flex-1 flex items-center gap-2 text-sm font-medium text-text cursor-pointer"
+        >
+          <Icon size={14} className="text-primary" />
+          <span className="flex-1 text-left">{title}</span>
+        </button>
+        {actions && <div className="flex items-center gap-1 ml-2">{actions}</div>}
+        <button
+          onClick={() => setOpen(p => !p)}
+          aria-label={open ? 'Collapse' : 'Expand'}
+          className="ml-1 p-1 text-text-muted hover:text-text-secondary rounded cursor-pointer"
+        >
+          <ChevronDown size={14} className={`transition-transform ${open ? '' : '-rotate-90'}`} />
+        </button>
+      </div>
       <AnimatePresence>
         {open && (
           <motion.div
@@ -137,9 +148,20 @@ ORDER BY
           <pre className="bg-ink-900 text-paper-50 rounded-lg p-4 text-[12px] font-mono overflow-x-auto leading-relaxed">
             <code>{sql}</code>
           </pre>
-          <button className="absolute top-2 right-2 p-1.5 bg-ink-700 hover:bg-ink-600 text-paper-50 rounded-md transition-colors cursor-pointer">
-            <Copy size={12} />
-          </button>
+          <div className="absolute top-2 right-2 flex items-center gap-1">
+            <button
+              aria-label="Download SQL"
+              className="p-1.5 bg-ink-700 hover:bg-ink-600 text-paper-50 rounded-md transition-colors cursor-pointer"
+            >
+              <Download size={12} />
+            </button>
+            <button
+              aria-label="Copy SQL"
+              className="p-1.5 bg-ink-700 hover:bg-ink-600 text-paper-50 rounded-md transition-colors cursor-pointer"
+            >
+              <Copy size={12} />
+            </button>
+          </div>
         </div>
       </CollapsibleSection>
 
@@ -172,7 +194,19 @@ function SourcesTab() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-4">
       {sources.map((src, i) => (
-        <CollapsibleSection key={i} title={src.name} icon={Database}>
+        <CollapsibleSection
+          key={i}
+          title={src.name}
+          icon={Database}
+          actions={
+            <button
+              aria-label={`Download ${src.name}`}
+              className="p-1 text-text-muted hover:text-text-secondary rounded cursor-pointer"
+            >
+              <Download size={13} />
+            </button>
+          }
+        >
           <div className="pt-3 space-y-2">
             <div className="flex items-center justify-between text-[12px]">
               <span className="text-text-muted">Type</span>
@@ -207,16 +241,17 @@ export default function ArtifactPanel({ activeTab, setActiveTab, onClose }: Arti
       className="h-full w-full bg-surface-2 border-l border-border-light flex flex-col overflow-hidden"
     >
       {/* Header */}
-      <div className="h-12 border-b border-border-light bg-white flex items-center justify-between px-4 shrink-0">
-        <div className="flex items-center gap-1">
+      <div className="h-12 bg-white flex items-center justify-between px-4 shrink-0">
+        <div className="flex items-center gap-2">
           {TABS.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors cursor-pointer ${
+              aria-pressed={activeTab === tab.id}
+              className={`flex items-center gap-1.5 h-8 px-3 rounded-md border text-[12px] font-semibold transition-colors cursor-pointer ${
                 activeTab === tab.id
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-text-muted hover:text-text-secondary hover:bg-paper-50'
+                  ? 'bg-brand-600 text-white border-brand-600 hover:bg-brand-500'
+                  : 'bg-white text-ink-700 border-paper-200 hover:bg-paper-50 hover:text-ink-800'
               }`}
             >
               <tab.icon size={13} />
@@ -224,17 +259,13 @@ export default function ArtifactPanel({ activeTab, setActiveTab, onClose }: Arti
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-1">
-          <button className="p-1.5 text-text-muted hover:text-text-secondary rounded-md hover:bg-paper-50 transition-colors cursor-pointer">
-            <Download size={14} />
-          </button>
-          <button className="p-1.5 text-text-muted hover:text-text-secondary rounded-md hover:bg-paper-50 transition-colors cursor-pointer">
-            <Maximize2 size={14} />
-          </button>
-          <button onClick={onClose} className="p-1.5 text-text-muted hover:text-text-secondary rounded-md hover:bg-paper-50 transition-colors cursor-pointer">
-            <X size={14} />
-          </button>
-        </div>
+        <button
+          onClick={onClose}
+          aria-label="Close"
+          className="p-1.5 text-text-muted hover:text-text-secondary rounded-md hover:bg-paper-50 transition-colors cursor-pointer"
+        >
+          <X size={14} />
+        </button>
       </div>
 
       {/* Content */}
@@ -250,6 +281,7 @@ export default function ArtifactPanel({ activeTab, setActiveTab, onClose }: Arti
             {activeTab === 'plan' && <PlanTab />}
             {activeTab === 'code' && <CodeTab />}
             {activeTab === 'sources' && <SourcesTab />}
+            {activeTab === 'output' && <OutputConfigTab />}
           </motion.div>
         </AnimatePresence>
       </div>
