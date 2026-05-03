@@ -399,15 +399,15 @@ const MAPPING_STYLES: Record<MappingStatus, string> = {
   'In Progress': 'bg-amber-50 text-amber-600',
   'Complete': 'bg-emerald-50 text-emerald-600',
 };
-type Readiness = 'Needs Mapping' | 'Needs Workflow Setup' | 'Ready';
+type Readiness = 'Mapping Incomplete' | 'Workflow Missing' | 'Ready';
 function getReadiness(racm: RacmEntry): Readiness {
-  if (racm.unmappedRisks > 0 || racm.mappedRisks < racm.risks) return 'Needs Mapping';
-  if (racm.workflowCoverage < 100) return 'Needs Workflow Setup';
+  if (racm.unmappedRisks > 0 || racm.mappedRisks < racm.risks) return 'Mapping Incomplete';
+  if (racm.workflowCoverage < 100) return 'Workflow Missing';
   return 'Ready';
 }
 const READINESS_STYLES: Record<Readiness, string> = {
-  'Needs Mapping': 'bg-amber-50 text-amber-700',
-  'Needs Workflow Setup': 'bg-amber-50/60 text-amber-600',
+  'Mapping Incomplete': 'bg-amber-50 text-amber-700',
+  'Workflow Missing': 'bg-amber-50/60 text-amber-600',
   'Ready': 'bg-emerald-50 text-emerald-700',
 };
 
