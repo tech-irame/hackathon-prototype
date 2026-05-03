@@ -57,17 +57,17 @@ interface MappedControl {
   workflows?: ControlWorkflow[];
 }
 
-type ControlReadiness = 'Setup Incomplete' | 'Needs Attributes' | 'Ready';
+type ControlReadiness = 'Workflow Missing' | 'Configuration Pending' | 'Ready';
 
 function getControlReadiness(ctrl: MappedControl): ControlReadiness {
-  if (!ctrl.workflowLinked || !ctrl.workflows || ctrl.workflows.length === 0) return 'Setup Incomplete';
-  if (ctrl.workflows.every(w => w.attributes.length === 0)) return 'Needs Attributes';
+  if (!ctrl.workflowLinked || !ctrl.workflows || ctrl.workflows.length === 0) return 'Workflow Missing';
+  if (ctrl.workflows.every(w => w.attributes.length === 0)) return 'Configuration Pending';
   return 'Ready';
 }
 
 const READINESS_CLS: Record<ControlReadiness, string> = {
-  'Setup Incomplete': 'bg-red-50/60 text-red-600',
-  'Needs Attributes': 'bg-amber-50/60 text-amber-600',
+  'Workflow Missing': 'bg-red-50/60 text-red-600',
+  'Configuration Pending': 'bg-amber-50/60 text-amber-600',
   'Ready': 'bg-emerald-50/60 text-emerald-600',
 };
 const WF_STATUS_CLS: Record<string, string> = {
@@ -101,6 +101,8 @@ interface Props {
   racmName?: string;
   racmProcess?: string;
   isEmpty?: boolean;
+  /** When true, renders as a compact inline panel (no back button, no page header, reduced spacing) */
+  inline?: boolean;
 }
 
 // ─── Seed Data ──────────────────────────────────────────────────────────────
@@ -206,7 +208,7 @@ const BP_DOTS: Record<string, string> = { P2P: '#6a12cd', O2C: '#0284c7', R2R: '
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
-export default function RacmMappingWorkspace({ onBack, onGoToExecution, racmId, racmName, racmProcess, isEmpty: isEmptyRacm }: Props) {
+export default function RacmMappingWorkspace({ onBack, onGoToExecution, racmId, racmName, racmProcess, isEmpty: isEmptyRacm, inline }: Props) {
   const { addToast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [risks, setRisks] = useState<RiskItem[]>([]);
@@ -386,7 +388,7 @@ export default function RacmMappingWorkspace({ onBack, onGoToExecution, racmId, 
     { label: 'All controls have workflows', done: racmComputed.checks.allControlsHaveWorkflows },
     { label: 'All workflows have attributes', done: racmComputed.checks.allWorkflowsHaveAttributes },
   ];
-  const allValPassed = racmComputed.readiness === 'Ready to Validate' || racmComputed.readiness === 'Ready';
+  const allValPassed = racmComputed.readiness === 'Ready';
 
   const handleValidate = () => {
     if (!allValPassed) return;
@@ -439,17 +441,16 @@ export default function RacmMappingWorkspace({ onBack, onGoToExecution, racmId, 
   // Fallback guard — no RACM context
   if (!racmId && !isLoading && risks.length === 0) {
     return (
-      <div className="space-y-4">
-        <button onClick={onBack} className="flex items-center gap-1.5 text-[12px] text-text-muted hover:text-primary font-medium cursor-pointer transition-colors">
-          <ArrowLeft size={14} />Back to RACM
-        </button>
-        <div className="glass-card rounded-xl p-12 text-center space-y-3">
-          <AlertTriangle size={32} className="mx-auto text-amber-400" />
-          <h3 className="text-[15px] font-semibold text-text">Unable to load RACM</h3>
-          <p className="text-[12px] text-text-muted max-w-sm mx-auto">No RACM context was provided. Please go back and retry by selecting a RACM from the list.</p>
-          <button onClick={onBack} className="mt-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-[12px] font-semibold transition-colors cursor-pointer">
-            Go Back
+      <div className={inline ? 'px-5 py-4' : 'space-y-4'}>
+        {!inline && (
+          <button onClick={onBack} className="flex items-center gap-1.5 text-[12px] text-text-muted hover:text-primary font-medium cursor-pointer transition-colors">
+            <ArrowLeft size={14} />Back to RACM
           </button>
+        )}
+        <div className={`${inline ? 'rounded-lg p-6' : 'glass-card rounded-xl p-12'} text-center space-y-3`}>
+          <AlertTriangle size={inline ? 24 : 32} className="mx-auto text-amber-400" />
+          <h3 className={`${inline ? 'text-[13px]' : 'text-[15px]'} font-semibold text-text`}>Unable to load RACM</h3>
+          <p className="text-[12px] text-text-muted max-w-sm mx-auto">No RACM context was provided. Please go back and retry.</p>
         </div>
       </div>
     );
@@ -458,11 +459,13 @@ export default function RacmMappingWorkspace({ onBack, onGoToExecution, racmId, 
   // Loading state
   if (isLoading) {
     return (
-      <div className="space-y-4">
+      <div className={inline ? 'px-5 py-4 space-y-3' : 'space-y-4'}>
         <div>
-          <button onClick={onBack} className="flex items-center gap-1.5 text-[12px] text-text-muted hover:text-primary font-medium cursor-pointer transition-colors mb-2">
-            <ArrowLeft size={14} />Back to RACM
-          </button>
+          {!inline && (
+            <button onClick={onBack} className="flex items-center gap-1.5 text-[12px] text-text-muted hover:text-primary font-medium cursor-pointer transition-colors mb-2">
+              <ArrowLeft size={14} />Back to RACM
+            </button>
+          )}
           <div className="h-5 w-48 bg-gray-200 rounded animate-pulse" />
           <div className="h-3 w-64 bg-gray-100 rounded animate-pulse mt-2" />
         </div>
@@ -483,35 +486,65 @@ export default function RacmMappingWorkspace({ onBack, onGoToExecution, racmId, 
   }
 
   return (
-    <div className="space-y-4">
+    <div className={inline ? 'space-y-3 px-5 py-4' : 'space-y-4'}>
       {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <button onClick={onBack} className="flex items-center gap-1.5 text-[12px] text-text-muted hover:text-primary font-medium cursor-pointer transition-colors mb-2">
-            <ArrowLeft size={14} />Back to RACM
-          </button>
-          <h3 className="text-[16px] font-bold text-text">
-            Risk-Control Mapping
-            {racmName && <span className="text-[13px] font-medium text-text-muted ml-2">— {racmName}</span>}
-          </h3>
-          <p className="text-[12px] text-text-muted mt-0.5">Map risks to controls and prepare for execution.</p>
+      {inline ? (
+        /* Compact inline header — no back button, no page title */
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <h4 className="text-[13px] font-bold text-text">Risk-Control Mapping</h4>
+            <span className="text-[11px] text-text-muted">
+              {mappedCount} of {totalRisks} risks mapped
+            </span>
+            {unmappedCount > 0 && (
+              <span className="text-[10px] text-amber-600 font-medium flex items-center gap-1"><AlertTriangle size={10} />{unmappedCount} need controls</span>
+            )}
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {racmComputed.status === 'Active' ? (
+              <span className="flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 text-[11px] font-semibold"><CheckCircle2 size={12} />Validated</span>
+            ) : racmComputed.readiness === 'Ready' ? (
+              <button onClick={() => setShowValidateModal(true)}
+                className="flex items-center gap-1 px-3 py-1.5 bg-primary hover:bg-primary-hover text-white rounded-lg text-[11px] font-semibold transition-colors cursor-pointer">
+                <FileCheck size={11} />Validate RACM
+              </button>
+            ) : (
+              <button disabled className="flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-400 rounded-lg text-[11px] font-semibold cursor-not-allowed">
+                <FileCheck size={11} />Validate
+              </button>
+            )}
+          </div>
         </div>
-        <div className="flex items-center gap-3 shrink-0">
-          {racmComputed.status === 'Active' ? (
-            <span className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-50 text-emerald-700 text-[12px] font-semibold"><CheckCircle2 size={14} />Validated</span>
-          ) : racmComputed.readiness === 'Ready to Validate' ? (
-            <button onClick={() => setShowValidateModal(true)}
-              className="flex items-center gap-1.5 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-[12px] font-semibold transition-colors cursor-pointer">
-              <FileCheck size={13} />Validate RACM
+      ) : (
+        /* Standalone page header */
+        <div className="flex items-start justify-between">
+          <div>
+            <button onClick={onBack} className="flex items-center gap-1.5 text-[12px] text-text-muted hover:text-primary font-medium cursor-pointer transition-colors mb-2">
+              <ArrowLeft size={14} />Back to RACM
             </button>
-          ) : (
-            <button disabled
-              className="flex items-center gap-1.5 px-4 py-2 bg-gray-100 text-gray-400 rounded-lg text-[12px] font-semibold cursor-not-allowed">
-              <FileCheck size={13} />Validate RACM
-            </button>
-          )}
+            <h3 className="text-[16px] font-bold text-text">
+              Risk-Control Mapping
+              {racmName && <span className="text-[13px] font-medium text-text-muted ml-2">— {racmName}</span>}
+            </h3>
+            <p className="text-[12px] text-text-muted mt-0.5">Map risks to controls and prepare for execution.</p>
+          </div>
+          <div className="flex items-center gap-3 shrink-0">
+            {racmComputed.status === 'Active' ? (
+              <span className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-50 text-emerald-700 text-[12px] font-semibold"><CheckCircle2 size={14} />Validated</span>
+            ) : racmComputed.readiness === 'Ready' ? (
+              <button onClick={() => setShowValidateModal(true)}
+                className="flex items-center gap-1.5 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-[12px] font-semibold transition-colors cursor-pointer">
+                <FileCheck size={13} />Validate RACM
+              </button>
+            ) : (
+              <button disabled
+                className="flex items-center gap-1.5 px-4 py-2 bg-gray-100 text-gray-400 rounded-lg text-[12px] font-semibold cursor-not-allowed">
+                <FileCheck size={13} />Validate RACM
+              </button>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Empty RACM state */}
       {risks.length === 0 && !isLoading && (
@@ -536,12 +569,13 @@ export default function RacmMappingWorkspace({ onBack, onGoToExecution, racmId, 
           onLinkWorkflow={(ctrlId) => { setLinkWorkflowControlId(ctrlId); }}
           onCreateWorkflow={(ctrlId) => { setCreateWorkflowControlId(ctrlId); }}
           onAddRisk={() => setShowNewRiskDrawer(true)}
+          inline={inline}
         />
       )}
 
-      {/* Readiness + Validation (below grid) */}
-      {!racmValidated && risks.length > 0 && <RacmReadinessCard risks={risks} onGoToExecution={onGoToExecution} />}
-      {racmValidated && (
+      {/* Readiness + Validation (below grid) — compact in inline mode */}
+      {!inline && !racmValidated && risks.length > 0 && <RacmReadinessCard risks={risks} onGoToExecution={onGoToExecution} />}
+      {!inline && racmValidated && (
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
           className="rounded-2xl border-2 border-compliant/20 bg-gradient-to-br from-compliant-50/30 to-white p-5">
           <div className="flex items-center gap-3 mb-2">
@@ -560,11 +594,13 @@ export default function RacmMappingWorkspace({ onBack, onGoToExecution, racmId, 
         </motion.div>
       )}
 
-      {/* Helper */}
-      <div className="rounded-lg border border-canvas-border bg-canvas px-3 py-2 flex items-start gap-2">
-        <Shield size={11} className="text-ink-400 mt-0.5 shrink-0" />
-        <span className="text-[10px] text-ink-400">Controls are reusable objects from the Control Library. Workflows and attributes define execution readiness. Mapping creates a risk → control relationship only.</span>
-      </div>
+      {/* Helper — hidden in inline mode */}
+      {!inline && (
+        <div className="rounded-lg border border-canvas-border bg-canvas px-3 py-2 flex items-start gap-2">
+          <Shield size={11} className="text-ink-400 mt-0.5 shrink-0" />
+          <span className="text-[10px] text-ink-400">Controls are reusable objects from the Control Library. Workflows and attributes define execution readiness. Mapping creates a risk → control relationship only.</span>
+        </div>
+      )}
 
 
       {/* ── Link Existing Control Drawer ── */}
@@ -740,8 +776,8 @@ const MAPPING_STATUS_CLS: Record<string, string> = {
 };
 
 const WF_READINESS_CLS: Record<string, string> = {
-  'Setup Incomplete': 'bg-red-50/60 text-red-600',
-  'Needs Attributes': 'bg-amber-50/60 text-amber-600',
+  'Workflow Missing': 'bg-red-50/60 text-red-600',
+  'Configuration Pending': 'bg-amber-50/60 text-amber-600',
   Ready: 'bg-emerald-50/60 text-emerald-600',
   '—': 'bg-gray-50 text-gray-400',
 };
@@ -755,12 +791,12 @@ function getRowMappingStatus(r: RiskItem): string {
 function getRowWorkflowStatus(r: RiskItem): string {
   if (r.controls.length === 0) return '—';
   const readinesses = r.controls.map(c => getControlReadiness(c));
-  if (readinesses.some(s => s === 'Setup Incomplete')) return 'Setup Incomplete';
-  if (readinesses.some(s => s === 'Needs Attributes')) return 'Needs Attributes';
+  if (readinesses.some(s => s === 'Workflow Missing')) return 'Workflow Missing';
+  if (readinesses.some(s => s === 'Configuration Pending')) return 'Configuration Pending';
   return 'Ready';
 }
 
-function RacmGridView({ risks, onSelectRisk, onUpdateRisks, onLinkControl, onCreateControl, onLinkWorkflow, onCreateWorkflow, onAddRisk }: {
+function RacmGridView({ risks, onSelectRisk, onUpdateRisks, onLinkControl, onCreateControl, onLinkWorkflow, onCreateWorkflow, onAddRisk, inline }: {
   risks: RiskItem[];
   onSelectRisk: (id: string) => void;
   onUpdateRisks: (updater: (prev: RiskItem[]) => RiskItem[]) => void;
@@ -769,6 +805,7 @@ function RacmGridView({ risks, onSelectRisk, onUpdateRisks, onLinkControl, onCre
   onLinkWorkflow?: (controlId: string) => void;
   onCreateWorkflow?: (controlId: string) => void;
   onAddRisk?: () => void;
+  inline?: boolean;
 }) {
   const { addToast } = useToast();
   const [gridSearch, setGridSearch] = useState('');
@@ -870,23 +907,25 @@ function RacmGridView({ risks, onSelectRisk, onUpdateRisks, onLinkControl, onCre
   };
 
   return (
-    <div className="space-y-3" onClick={() => { if (controlPickerRiskId) setControlPickerRiskId(null); }}>
-      {/* Summary bar */}
-      <div className="glass-card rounded-xl p-3">
-        <div className="flex items-center justify-between mb-1.5">
-          <span className="text-[12px] font-semibold text-text">{mappedRiskCount} of {risks.length} risks mapped</span>
-          <span className="text-[11px] text-text-muted tabular-nums">{mappedPct}%</span>
+    <div className={inline ? 'space-y-2' : 'space-y-3'} onClick={() => { if (controlPickerRiskId) setControlPickerRiskId(null); }}>
+      {/* Summary bar — compact in inline mode */}
+      {!inline && (
+        <div className="glass-card rounded-xl p-3">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[12px] font-semibold text-text">{mappedRiskCount} of {risks.length} risks mapped</span>
+            <span className="text-[11px] text-text-muted tabular-nums">{mappedPct}%</span>
+          </div>
+          <div className="h-1.5 bg-surface-3 rounded-full overflow-hidden">
+            <div className="h-full rounded-full bg-gradient-to-r from-primary to-primary-medium transition-all" style={{ width: `${mappedPct}%` }} />
+          </div>
         </div>
-        <div className="h-1.5 bg-surface-3 rounded-full overflow-hidden">
-          <div className="h-full rounded-full bg-gradient-to-r from-primary to-primary-medium transition-all" style={{ width: `${mappedPct}%` }} />
-        </div>
-      </div>
+      )}
 
-      {/* Warning banner */}
+      {/* Warning banner — smaller in inline mode */}
       {unmappedRiskCount > 0 && (
-        <div className="rounded-lg border border-risk/20 bg-risk-50/30 px-4 py-2.5 flex items-center gap-2.5">
-          <AlertTriangle size={13} className="text-risk-700 shrink-0" />
-          <span className="text-[11px] text-risk-700">{unmappedRiskCount} risk{unmappedRiskCount !== 1 ? 's' : ''} not mapped to controls. Complete mapping before validation.</span>
+        <div className={`rounded-lg border border-risk/20 bg-risk-50/30 flex items-center gap-2 ${inline ? 'px-3 py-1.5' : 'px-4 py-2.5 gap-2.5'}`}>
+          <AlertTriangle size={inline ? 11 : 13} className="text-risk-700 shrink-0" />
+          <span className={`text-risk-700 ${inline ? 'text-[10px]' : 'text-[11px]'}`}>{unmappedRiskCount} risk{unmappedRiskCount !== 1 ? 's' : ''} not mapped to controls. Complete mapping before validation.</span>
         </div>
       )}
 
@@ -931,8 +970,8 @@ function RacmGridView({ risks, onSelectRisk, onUpdateRisks, onLinkControl, onCre
       </div>
 
       {/* Grid table */}
-      <div className="glass-card rounded-xl overflow-hidden">
-        <div className="overflow-x-auto" style={{ maxHeight: 560 }}>
+      <div className={`${inline ? 'rounded-lg border border-border/50' : 'glass-card rounded-xl'} overflow-hidden`}>
+        <div className="overflow-x-auto" style={{ maxHeight: inline ? 400 : 560 }}>
           <table className="w-full text-[11px] table-fixed" style={{ minWidth: 1100 }}>
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-border bg-surface-2/80 backdrop-blur-sm">
@@ -1441,7 +1480,7 @@ function RacmReadinessCard({ risks, onGoToExecution }: { risks: RiskItem[]; onGo
   ];
 
   const checksDone = checkList.filter(c => c.done).length;
-  const isReady = computed.readiness === 'Ready to Validate' || computed.readiness === 'Ready';
+  const isReady = computed.readiness === 'Ready';
 
   return (
     <div className={`rounded-xl border p-5 ${isReady ? 'border-emerald-200/50 bg-emerald-50/10' : 'border-border bg-white'}`}>
@@ -1905,7 +1944,7 @@ function CreateWorkflowBuilderDrawer({ control, onClose, onCreate }: {
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <label className={labelCls + ' mb-0'}>Test Attributes ({attrs.length})</label>
-                      {attrs.length === 0 && <span className="px-1.5 h-4 rounded text-[9px] font-bold bg-mitigated-50 text-mitigated-700 inline-flex items-center">Needs Attributes</span>}
+                      {attrs.length === 0 && <span className="px-1.5 h-4 rounded text-[9px] font-bold bg-mitigated-50 text-mitigated-700 inline-flex items-center">Configuration Pending</span>}
                       {attrs.length > 0 && <span className="px-1.5 h-4 rounded text-[9px] font-bold bg-compliant-50 text-compliant-700 inline-flex items-center">Ready</span>}
                     </div>
                     {!showAttrForm && <button onClick={() => { resetAttrForm(); setShowAttrForm(true); }} className="text-[11px] font-semibold text-brand-600 hover:underline cursor-pointer flex items-center gap-1"><Plus size={11} />Add Attribute</button>}
@@ -1966,7 +2005,7 @@ function CreateWorkflowBuilderDrawer({ control, onClose, onCreate }: {
         </div>
 
         <footer className="shrink-0 px-6 py-4 border-t border-canvas-border bg-canvas flex items-center justify-between">
-          <div className="text-[10px] text-ink-400">{attrs.length > 0 ? `${attrs.length} attribute${attrs.length !== 1 ? 's' : ''} → Ready` : 'No attributes → Needs Attributes'}</div>
+          <div className="text-[10px] text-ink-400">{attrs.length > 0 ? `${attrs.length} attribute${attrs.length !== 1 ? 's' : ''} → Ready` : 'No attributes → Configuration Pending'}</div>
           <div className="flex items-center gap-3">
             <button onClick={onClose} className="px-4 py-2.5 rounded-lg border border-canvas-border text-[13px] font-medium text-ink-600 hover:bg-canvas transition-colors cursor-pointer">Cancel</button>
             {mode === 'builder' && (

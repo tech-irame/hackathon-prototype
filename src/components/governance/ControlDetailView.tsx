@@ -4,7 +4,8 @@ import {
   ArrowLeft, Pencil, Star, Shield, User, Calendar, Clock,
   FileText, AlertTriangle, Workflow, Link2, Unlink, Search,
   Check, X, LayoutGrid, History, ClipboardList, Plus, Trash2,
-  Info, Lock, Paperclip, CheckCircle2, Zap, ArrowRight,
+  Info, Lock, Paperclip, CheckCircle2, Zap, ArrowRight, Play,
+  Settings, Eye, Repeat,
 } from 'lucide-react';
 import Orb from '../shared/Orb';
 import { useToast } from '../shared/Toast';
@@ -18,7 +19,7 @@ import {
 } from './controlTypes';
 
 /* ─── Types ─── */
-type TabId = 'definition' | 'classification' | 'execution-logic' | 'test-design' | 'usage' | 'change-history';
+type TabId = 'definition' | 'classification' | 'workflows' | 'execution-logic' | 'test-design' | 'usage' | 'change-history';
 
 interface Props {
   control: ControlRow;
@@ -93,7 +94,7 @@ export default function ControlDetailView({ control, onBack, onUpdate }: Props) 
   // Next steps logic
   const hasWorkflow = control.linkedWorkflowIds.length > 0;
   const hasAttributes = totalAttrCount > 0;
-  const canMarkReady = hasWorkflow && hasAttributes && control.status !== 'Ready';
+  const canMarkReady = hasWorkflow && hasAttributes && control.status === 'Draft';
   const nextSteps: { label: string; desc: string; icon: React.ElementType; cls: string; action: () => void }[] = [];
 
   if (!hasWorkflow) {
@@ -145,7 +146,7 @@ export default function ControlDetailView({ control, onBack, onUpdate }: Props) 
 
   const handleLinkWorkflow = (workflowId: string, workflowName: string) => {
     const wasEmpty = control.linkedWorkflowIds.length === 0;
-    const newStatus = wasEmpty && control.status === 'Missing Workflow' ? 'Active' : control.status;
+    const newStatus = wasEmpty && control.status === 'Draft' ? 'Active' : control.status;
     onUpdate({
       ...control,
       linkedWorkflowIds: [...control.linkedWorkflowIds, workflowId],
@@ -170,7 +171,7 @@ export default function ControlDetailView({ control, onBack, onUpdate }: Props) 
       ...control,
       linkedWorkflowIds: newIds,
       linkedWorkflows: newNames,
-      status: newIds.length === 0 ? 'Missing Workflow' : control.status,
+      status: newIds.length === 0 ? 'Draft' : control.status,
       updatedAt: 'Apr 26, 2026',
     });
     setWorkflowAttributes(prev => { const next = { ...prev }; delete next[workflowId]; return next; });
@@ -179,9 +180,9 @@ export default function ControlDetailView({ control, onBack, onUpdate }: Props) 
   };
 
   const handleMarkReady = () => {
-    onUpdate({ ...control, status: 'Ready', updatedAt: 'Apr 26, 2026' });
-    addHistoryEntry('Marked control as Ready');
-    addToast({ message: `${control.controlId} marked as Ready — available for engagement snapshots`, type: 'success' });
+    onUpdate({ ...control, status: 'Active', updatedAt: 'Apr 26, 2026' });
+    addHistoryEntry('Marked control as Active');
+    addToast({ message: `${control.controlId} marked as Active — available for engagement snapshots`, type: 'success' });
   };
 
   // Attribute handlers
@@ -232,7 +233,8 @@ export default function ControlDetailView({ control, onBack, onUpdate }: Props) 
   const tabs: { id: TabId; label: string; icon: React.ElementType; count?: number }[] = [
     { id: 'definition', label: 'Control Definition', icon: FileText },
     { id: 'classification', label: 'Classification', icon: Shield },
-    { id: 'execution-logic', label: 'Execution Logic', icon: Workflow, count: control.linkedWorkflowIds.length },
+    { id: 'workflows', label: 'Workflows', icon: Workflow, count: control.linkedWorkflowIds.length || undefined },
+    { id: 'execution-logic', label: 'Execution Logic', icon: Settings },
     { id: 'test-design', label: 'Test Design', icon: ClipboardList, count: totalAttrCount || undefined },
     { id: 'usage', label: 'Usage', icon: LayoutGrid, count: controlRACMs.length || undefined },
     { id: 'change-history', label: 'Change History', icon: History },
@@ -344,6 +346,163 @@ export default function ControlDetailView({ control, onBack, onUpdate }: Props) 
                 </div>
               </div>
             )}
+
+            {/* ═══ WORKFLOWS ═══ */}
+            {activeTab === 'workflows' && (() => {
+              // Compute workflow status
+              const wfStatus: 'No Workflow' | 'Partially Configured' | 'Ready' = (() => {
+                if (linkedWorkflowObjects.length === 0) return 'No Workflow';
+                const allAttrs = Object.values(workflowAttributes).flat();
+                if (allAttrs.length === 0) return 'Partially Configured';
+                // Check: every attribute is Active
+                const activeAttrs = allAttrs.filter(a => a.status === 'Active');
+                if (activeAttrs.length < allAttrs.length) return 'Partially Configured';
+                return 'Ready';
+              })();
+              const wfStatusStyle = wfStatus === 'Ready' ? 'bg-compliant-50 text-compliant-700 border-compliant/20'
+                : wfStatus === 'Partially Configured' ? 'bg-mitigated-50 text-mitigated-700 border-mitigated/20'
+                : 'bg-risk-50 text-risk-700 border-risk/20';
+
+              return (
+              <div className="space-y-5">
+                {/* Top status indicator */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="text-[13px] font-semibold text-ink-700">Workflow Status</span>
+                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold border ${wfStatusStyle}`}>
+                      {wfStatus === 'Ready' && <CheckCircle2 size={12} />}
+                      {wfStatus === 'Partially Configured' && <AlertTriangle size={12} />}
+                      {wfStatus === 'No Workflow' && <X size={12} />}
+                      {wfStatus}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => setShowLinkDrawer(true)}
+                      className="flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white rounded-lg text-[13px] font-semibold transition-colors cursor-pointer">
+                      <Plus size={14} />Add Workflow
+                    </button>
+                  </div>
+                </div>
+
+                {/* Warning — no workflow */}
+                {linkedWorkflowObjects.length === 0 && (
+                  <div className="rounded-xl border border-risk/20 bg-risk-50/30 p-5 flex items-start gap-3">
+                    <AlertTriangle size={18} className="text-risk-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-[13px] font-semibold text-risk-800 mb-0.5">No workflow linked</p>
+                      <p className="text-[12px] text-risk-600">This control cannot be tested until a workflow is added. Link an existing workflow or create a new one.</p>
+                      <div className="flex items-center gap-2 mt-3">
+                        <button onClick={() => setShowLinkDrawer(true)} className="px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-[12px] font-semibold cursor-pointer transition-colors flex items-center gap-1.5"><Link2 size={12} />Link Existing Workflow</button>
+                        <button onClick={() => addToast({ message: 'Opening Ask IRA to build a workflow for this control...', type: 'info' })} className="px-3 py-1.5 rounded-lg border border-border text-[12px] text-text-secondary hover:bg-white cursor-pointer transition-colors flex items-center gap-1.5"><Zap size={12} />Create New Workflow</button>
+                        <button onClick={() => addToast({ message: 'Workflow can be added later.', type: 'info' })} className="px-3 py-1.5 rounded-lg text-[12px] text-ink-400 hover:text-ink-600 cursor-pointer transition-colors">Create Later</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Workflow table */}
+                {linkedWorkflowObjects.length > 0 && (
+                  <div className="border border-border-light rounded-xl overflow-hidden">
+                    <table className="w-full text-[12px]">
+                      <thead className="bg-white border-b border-border-light">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-text-muted">Workflow Name</th>
+                          <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-text-muted w-[140px]">Type</th>
+                          <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-text-muted w-[250px]">Attributes Covered</th>
+                          <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-text-muted w-[120px]">Status</th>
+                          <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-text-muted w-[140px]"></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {linkedWorkflowObjects.map(wf => {
+                          const attrs = workflowAttributes[wf.id] || [];
+                          const activeAttrs = attrs.filter(a => a.status === 'Active');
+                          const wfRowStatus = attrs.length === 0 ? 'Missing Mapping' : activeAttrs.length < attrs.length ? 'Incomplete' : 'Ready';
+                          const rowStatusStyle = wfRowStatus === 'Ready' ? 'bg-compliant-50 text-compliant-700'
+                            : wfRowStatus === 'Incomplete' ? 'bg-mitigated-50 text-mitigated-700'
+                            : 'bg-risk-50 text-risk-700';
+
+                          return (
+                            <tr key={wf.id} className="border-t border-border-light hover:bg-surface-2/40 transition-colors">
+                              {/* Workflow Name — clickable */}
+                              <td className="px-4 py-3.5 align-top">
+                                <button onClick={() => addToast({ message: `Opening workflow "${wf.name}"`, type: 'info' })}
+                                  className="text-[13px] font-medium text-brand-700 hover:text-brand-600 hover:underline cursor-pointer text-left">
+                                  {wf.name}
+                                </button>
+                                <span className="text-[10px] font-mono text-ink-400 block mt-0.5">{wf.id}</span>
+                              </td>
+                              {/* Type */}
+                              <td className="px-4 py-3.5 align-top">
+                                <div className="flex flex-wrap gap-1">
+                                  <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${wf.type === 'automated' ? 'bg-evidence-50 text-evidence-700' : 'bg-gray-100 text-gray-600'}`}>
+                                    {wf.type === 'automated' ? 'Automated' : 'Manual'}
+                                  </span>
+                                  <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-surface-2 text-ink-600">
+                                    {(wf as Record<string, unknown>).controlNature as string || 'Detective'}
+                                  </span>
+                                </div>
+                              </td>
+                              {/* Attributes Covered */}
+                              <td className="px-4 py-3.5 align-top">
+                                {attrs.length === 0 ? (
+                                  <span className="text-[11px] text-ink-400 italic">No attributes mapped</span>
+                                ) : (
+                                  <div className="space-y-1">
+                                    {attrs.map(attr => (
+                                      <div key={attr.id} className="flex items-center gap-1.5 text-[11px]">
+                                        {attr.status === 'Active' ? (
+                                          <Check size={11} className="text-compliant-600 shrink-0" />
+                                        ) : (
+                                          <X size={11} className="text-risk-500 shrink-0" />
+                                        )}
+                                        <span className={attr.status === 'Active' ? 'text-ink-700' : 'text-ink-400'}>{attr.name}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </td>
+                              {/* Status */}
+                              <td className="px-4 py-3.5 align-top">
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold inline-flex items-center ${rowStatusStyle}`}>{wfRowStatus}</span>
+                              </td>
+                              {/* Actions */}
+                              <td className="px-4 py-3.5 align-top text-right">
+                                <div className="flex items-center gap-1 justify-end">
+                                  <button onClick={() => addToast({ message: `Opening workflow "${wf.name}"`, type: 'info' })}
+                                    className="w-8 h-8 rounded-md flex items-center justify-center text-text-muted hover:text-brand-700 hover:bg-brand-50 cursor-pointer transition-colors" title="View">
+                                    <Eye size={14} />
+                                  </button>
+                                  <button onClick={() => addToast({ message: `Replace workflow "${wf.name}"...`, type: 'info' })}
+                                    className="w-8 h-8 rounded-md flex items-center justify-center text-text-muted hover:text-brand-700 hover:bg-brand-50 cursor-pointer transition-colors" title="Replace">
+                                    <Repeat size={14} />
+                                  </button>
+                                  <button onClick={() => handleUnlinkWorkflow(wf.id, wf.name)}
+                                    className="w-8 h-8 rounded-md flex items-center justify-center text-text-muted hover:text-risk-600 hover:bg-risk-50 cursor-pointer transition-colors" title="Remove">
+                                    <Trash2 size={14} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* Validation note */}
+                {linkedWorkflowObjects.length > 0 && (
+                  <div className="rounded-lg border border-canvas-border bg-canvas p-3 flex items-start gap-2.5">
+                    <Info size={14} className="text-ink-400 mt-0.5 shrink-0" />
+                    <div className="text-[12px] text-ink-500">
+                      <span className="font-semibold text-ink-600">Validation:</span> Every test attribute must be covered by at least one workflow. Multiple workflows can share attributes, and one workflow can cover multiple attributes.
+                    </div>
+                  </div>
+                )}
+              </div>
+              );
+            })()}
 
             {/* ═══ EXECUTION LOGIC ═══ */}
             {activeTab === 'execution-logic' && (
