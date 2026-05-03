@@ -174,10 +174,10 @@ export default function RacmListTable({ processFilter, initialMappingRacm, onMap
                       <td className="px-3 py-3"><span className="text-[12px] text-text tabular-nums">{racm.controls}</span></td>
                       <td className="px-3 py-3 text-right" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center gap-1.5 justify-end">
-                          {isDraftRacm && onEditDraft && (
+                          {onEditDraft && (
                             <button onClick={() => onEditDraft(racm)}
-                              className="px-2 py-1 rounded-lg text-[10px] font-bold cursor-pointer transition-colors inline-flex items-center gap-1 bg-amber-50 text-amber-700 hover:bg-amber-100">
-                              <Pencil size={9} />Edit Draft
+                              className="px-2 py-1 rounded-lg text-[10px] font-bold cursor-pointer transition-colors inline-flex items-center gap-1 bg-primary/10 text-primary hover:bg-primary/20">
+                              <Pencil size={9} />Edit RACM
                             </button>
                           )}
                           <button onClick={toggleExpand}
