@@ -160,52 +160,59 @@ export function deriveTestingProgress(ctrl: ExecutionControl): TestingProgress {
   return { totalAttributeChecks, completedAttributeChecks: completed, failedAttributeChecks: failed, manualPending, automatedPending, completionPercent };
 }
 
+// ─── Evidence Matrix Readiness ────────────────────────────────────────────
+
+export interface EvidenceMatrixReadiness {
+  totalRequiredSlots: number;
+  completedSlots: number;
+  missingSlots: number;
+  isReady: boolean;
+}
+
+export function deriveEvidenceMatrixReadiness(ctrl: ExecutionControl): EvidenceMatrixReadiness {
+  const items = ctrl.execution.testItems;
+  const requiredAttrs = ctrl.attributes.filter(a => a.required);
+  const totalRequiredSlots = items.length * requiredAttrs.length;
+
+  if (totalRequiredSlots === 0) return { totalRequiredSlots: 0, completedSlots: 0, missingSlots: 0, isReady: true };
+
+  let completed = 0;
+  for (const item of items) {
+    for (const attr of requiredAttrs) {
+      const ar = item.attributeResults.find(r => r.attributeId === attr.id);
+      if (ar && ar.evidenceIds.length > 0) { completed++; continue; }
+      const mappedEvidence = item.evidence.some(e => e.mappedAttributeIds.includes(attr.id));
+      if (mappedEvidence) completed++;
+    }
+  }
+
+  return {
+    totalRequiredSlots: totalRequiredSlots,
+    completedSlots: completed,
+    missingSlots: totalRequiredSlots - completed,
+    isReady: completed >= totalRequiredSlots,
+  };
+}
+
 // ─── 7. deriveNextAction ──────────────────────────────────────────────────
+// Simplified flow: Overview → Samples → Attribute Testing → Working Paper → Review → Conclusion
 
 export function deriveNextAction(ctrl: ExecutionControl): string {
   const exec = ctrl.execution;
   const coverage = deriveWorkflowCoverage(ctrl);
-  const controlType = deriveControlType(ctrl);
-  const isManual = controlType === 'Manual';
 
   // Workflow coverage incomplete
   if (!coverage.isReadyForExecution && ctrl.attributes.length > 0) return 'Fix Workflow Mapping';
 
-  // Manual: no test items → create samples
-  if (isManual && exec.testItems.length === 0) return 'Create Samples';
+  // No samples/test items → upload samples
+  if (exec.testItems.length === 0) return 'Upload Samples';
 
-  // Automated/Hybrid: no population → build population
-  if (!isManual && exec.population === null) return 'Build Population';
+  // Samples exist but no testing started (all NOT_TESTED)
+  const anyTested = exec.testItems.some(ti => ti.attributeResults.some(ar => ar.result !== AttrResult.NOT_TESTED));
+  if (!anyTested) return 'Execute Testing';
 
-  // Population exists but no execution mode
-  if (!isManual && exec.population !== null && exec.executionMode === null) return 'Choose Execution Mode';
-
-  // Execution mode is SAMPLING but no test items
-  if (exec.executionMode === ExecutionMode.SAMPLING && exec.testItems.length === 0) return 'Generate Samples';
-
-  // Full run but no test items
-  if (exec.executionMode === ExecutionMode.FULL_RUN && exec.testItems.length === 0) return 'Run Full Population';
-
-  // Test items exist — check evidence for manual attributes
-  if (exec.testItems.length > 0) {
-    const manualAttrs = ctrl.attributes.filter(a => a.type === AttributeType.MANUAL && a.required);
-    if (manualAttrs.length > 0) {
-      const anyMissingEvidence = exec.testItems.some(item => {
-        const mapped = new Set(item.evidence.flatMap(e => e.mappedAttributeIds));
-        return manualAttrs.some(a => !mapped.has(a.id));
-      });
-      if (anyMissingEvidence) return 'Collect Evidence';
-    }
-  }
-
-  // Check testing status
+  // Testing in progress
   switch (exec.status) {
-    case ControlExecStatus.NOT_STARTED:
-    case ControlExecStatus.POPULATION_READY:
-    case ControlExecStatus.TEST_ITEMS_READY:
-    case ControlExecStatus.EVIDENCE_IN_PROGRESS:
-    case ControlExecStatus.EVIDENCE_READY:
-      return 'Start Testing';
     case ControlExecStatus.TESTING_IN_PROGRESS:
       return 'Continue Testing';
     case ControlExecStatus.TESTING_COMPLETE:
@@ -217,19 +224,16 @@ export function deriveNextAction(ctrl: ExecutionControl): string {
     case ControlExecStatus.CONCLUDED:
       return 'View Conclusion';
   }
+
+  return 'Continue Testing';
 }
 
 /** Maps a next-action label to the internal step ID for navigation */
 export function deriveNextStepId(actionLabel: string): string {
   const map: Record<string, string> = {
     'Fix Workflow Mapping': 'overview',
-    'Create Samples': 'create-samples',
-    'Build Population': 'population',
-    'Choose Execution Mode': 'execution-mode',
-    'Generate Samples': 'samples',
-    'Run Full Population': 'execution-mode',
-    'Collect Evidence': 'evidence',
-    'Start Testing': 'attr-testing',
+    'Upload Samples': 'samples',
+    'Execute Testing': 'samples',
     'Continue Testing': 'attr-testing',
     'Submit for Review': 'review',
     'Awaiting Review': 'review',
@@ -248,11 +252,7 @@ export interface StepState {
 
 export interface StepAvailability {
   overview: StepState;
-  population: StepState;
-  executionMode: StepState;
   samples: StepState;
-  createSamples: StepState;
-  evidence: StepState;
   attributeTesting: StepState;
   workingPaper: StepState;
   review: StepState;
@@ -278,48 +278,25 @@ function statusAtLeast(current: ControlExecStatus, threshold: ControlExecStatus)
 
 export function deriveStepAvailability(ctrl: ExecutionControl): StepAvailability {
   const s = ctrl.execution.status;
-  const controlType = deriveControlType(ctrl);
-  const isManual = controlType === 'Manual';
-  const hasPopulation = ctrl.execution.population !== null;
+  const coverage = deriveWorkflowCoverage(ctrl);
   const hasTestItems = ctrl.execution.testItems.length > 0;
-  const hasMode = ctrl.execution.executionMode !== null;
 
   return {
     overview: { enabled: true, reason: '' },
 
-    population: {
-      enabled: !isManual,
-      reason: isManual ? 'Manual controls do not require population' : '',
-    },
-
-    executionMode: {
-      enabled: !isManual && hasPopulation,
-      reason: !hasPopulation ? 'Upload population first' : isManual ? 'Manual controls skip execution mode' : '',
-    },
-
     samples: {
-      enabled: !isManual && hasMode && statusAtLeast(s, ControlExecStatus.TEST_ITEMS_READY),
-      reason: !hasMode ? 'Choose execution mode first' : '',
-    },
-
-    createSamples: {
-      enabled: isManual,
-      reason: !isManual ? 'Use population + sampling for automated controls' : '',
-    },
-
-    evidence: {
-      enabled: hasTestItems,
-      reason: !hasTestItems ? 'Generate or create test items first' : '',
+      enabled: coverage.isReadyForExecution || ctrl.attributes.length === 0,
+      reason: !coverage.isReadyForExecution && ctrl.attributes.length > 0 ? 'Complete workflow mapping before uploading samples.' : '',
     },
 
     attributeTesting: {
       enabled: hasTestItems,
-      reason: !hasTestItems ? 'No test items available' : '',
+      reason: !hasTestItems ? 'Upload sample data before testing.' : '',
     },
 
     workingPaper: {
-      enabled: hasTestItems && (statusAtLeast(s, ControlExecStatus.TESTING_COMPLETE) || s === ControlExecStatus.REJECTED),
-      reason: !hasTestItems ? 'No test items' : 'Complete all attribute testing first',
+      enabled: hasTestItems,
+      reason: !hasTestItems ? 'Upload samples first.' : '',
     },
 
     review: {

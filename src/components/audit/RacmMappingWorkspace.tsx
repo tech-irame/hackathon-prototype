@@ -1256,6 +1256,7 @@ function RacmGridView({ risks, onSelectRisk, onUpdateRisks, onLinkControl, onCre
             onClose={() => setWfDrawerRiskId(null)}
             onLinkWorkflow={(ctrlId) => { setWfDrawerRiskId(null); if (onLinkWorkflow) onLinkWorkflow(ctrlId); }}
             onCreateWorkflow={(ctrlId) => { setWfDrawerRiskId(null); if (onCreateWorkflow) onCreateWorkflow(ctrlId); }}
+            onUpdateRisks={onUpdateRisks}
           />
         )}
       </AnimatePresence>
@@ -1265,13 +1266,43 @@ function RacmGridView({ risks, onSelectRisk, onUpdateRisks, onLinkControl, onCre
 
 // ─── Workflow Readiness Drawer ──────────────────────────────────────────────
 
-function WorkflowReadinessDrawer({ risk, onClose, onLinkWorkflow, onCreateWorkflow }: {
+function WorkflowReadinessDrawer({ risk, onClose, onLinkWorkflow, onCreateWorkflow, onUpdateRisks }: {
   risk: RiskItem;
   onClose: () => void;
   onLinkWorkflow: (controlId: string) => void;
   onCreateWorkflow: (controlId: string) => void;
+  onUpdateRisks: (updater: (prev: RiskItem[]) => RiskItem[]) => void;
 }) {
   const { addToast } = useToast();
+  // Track which workflow is showing the add-attribute form: "ctrlId::wfId"
+  const [addingAttrFor, setAddingAttrFor] = useState<string | null>(null);
+  const [attrName, setAttrName] = useState('');
+  const [attrDesc, setAttrDesc] = useState('');
+  const [attrEvType, setAttrEvType] = useState('');
+  const [attrExpected, setAttrExpected] = useState('');
+  const [attrPassLogic, setAttrPassLogic] = useState('');
+  const [attrRequired, setAttrRequired] = useState(true);
+
+  const resetAttrForm = () => { setAttrName(''); setAttrDesc(''); setAttrEvType(''); setAttrExpected(''); setAttrPassLogic(''); setAttrRequired(true); setAddingAttrFor(null); };
+
+  const handleAddAttribute = (ctrlId: string, wfId: string) => {
+    if (!attrName.trim()) return;
+    const newAttr: ControlAttribute = {
+      id: `a-${Date.now()}`,
+      name: attrName.trim(),
+      description: attrDesc,
+      evidenceType: attrEvType,
+      expectedResult: attrExpected,
+      passLogic: attrPassLogic,
+    };
+    onUpdateRisks(prev => prev.map(r => r.id === risk.id ? {
+      ...r, controls: r.controls.map(c => c.id === ctrlId ? {
+        ...c, workflows: (c.workflows || []).map(wf => wf.id === wfId ? { ...wf, attributes: [...wf.attributes, newAttr] } : wf),
+      } : c),
+    } : r));
+    addToast({ message: `Attribute "${attrName.trim()}" added to workflow.`, type: 'success' });
+    resetAttrForm();
+  };
 
   return (
     <>
@@ -1279,7 +1310,7 @@ function WorkflowReadinessDrawer({ risk, onClose, onLinkWorkflow, onCreateWorkfl
         className="fixed inset-0 bg-ink-900/40 backdrop-blur-[2px] z-40" onClick={onClose} />
       <motion.aside initial={{ x: 24, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 24, opacity: 0 }}
         transition={{ duration: 0.2, ease: [0.2, 0, 0, 1] }}
-        className="fixed top-0 right-0 bottom-0 w-full max-w-[460px] bg-canvas-elevated shadow-xl border-l border-canvas-border flex flex-col z-50"
+        className="fixed top-0 right-0 bottom-0 w-full max-w-[520px] bg-canvas-elevated shadow-xl border-l border-canvas-border flex flex-col z-50"
         role="dialog" aria-label="Workflow Readiness">
 
         <header className="shrink-0 px-6 pt-5 pb-4 border-b border-canvas-border">
@@ -1324,17 +1355,74 @@ function WorkflowReadinessDrawer({ risk, onClose, onLinkWorkflow, onCreateWorkfl
                     </div>
                   ) : (
                     <div className="space-y-2 mb-2">
-                      {wfs.map(wf => (
-                        <div key={wf.id} className="rounded-lg border border-border px-3 py-2">
-                          <div className="flex items-center gap-2 mb-1">
-                            <Workflow size={11} className="text-brand-600 shrink-0" />
-                            <span className="text-[11px] font-medium text-text">{wf.name}</span>
-                            <span className="text-[9px] font-mono text-ink-400">{wf.version}</span>
-                            <span className={`px-1.5 h-4 rounded text-[8px] font-bold inline-flex items-center ${WF_STATUS_CLS[wf.status]}`}>{wf.status}</span>
+                      {wfs.map(wf => {
+                        const formKey = `${ctrl.id}::${wf.id}`;
+                        const isAdding = addingAttrFor === formKey;
+                        return (
+                          <div key={wf.id} className="rounded-lg border border-border overflow-hidden">
+                            <div className="px-3 py-2">
+                              <div className="flex items-center gap-2 mb-1">
+                                <Workflow size={11} className="text-brand-600 shrink-0" />
+                                <span className="text-[11px] font-medium text-text">{wf.name}</span>
+                                <span className="text-[9px] font-mono text-ink-400">{wf.version}</span>
+                                <span className={`px-1.5 h-4 rounded text-[8px] font-bold inline-flex items-center ${WF_STATUS_CLS[wf.status]}`}>{wf.status}</span>
+                              </div>
+                              <div className="text-[9px] text-ink-400 mb-1.5">{wf.attributes.length} attribute{wf.attributes.length !== 1 ? 's' : ''}</div>
+                              {/* Existing attributes list */}
+                              {wf.attributes.length > 0 && (
+                                <div className="space-y-1 mb-2">
+                                  {wf.attributes.map(a => (
+                                    <div key={a.id} className="flex items-center gap-2 text-[10px] px-2 py-1 rounded bg-surface-2/30">
+                                      <CheckCircle2 size={9} className="text-compliant-600 shrink-0" />
+                                      <span className="text-text">{a.name}</span>
+                                      {a.evidenceType && <span className="text-ink-400">({a.evidenceType})</span>}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              {/* Add Attribute button */}
+                              {!isAdding && (
+                                <button onClick={() => { resetAttrForm(); setAddingAttrFor(formKey); }}
+                                  className="flex items-center gap-1 px-2 py-1 rounded text-[9px] font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 cursor-pointer transition-colors">
+                                  <Plus size={9} />Add Attribute
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Add Attribute Form */}
+                            {isAdding && (
+                              <div className="px-3 py-3 border-t border-border bg-brand-50/10 space-y-2.5">
+                                <h6 className="text-[11px] font-bold text-brand-700">New Attribute</h6>
+                                <input value={attrName} onChange={e => setAttrName(e.target.value)} placeholder="Attribute name *"
+                                  className="w-full px-3 py-2 border border-border rounded-lg text-[12px] text-text bg-white outline-none focus:border-brand-500/40" autoFocus />
+                                <input value={attrDesc} onChange={e => setAttrDesc(e.target.value)} placeholder="Description"
+                                  className="w-full px-3 py-2 border border-border rounded-lg text-[12px] text-text bg-white outline-none focus:border-brand-500/40" />
+                                <div className="grid grid-cols-2 gap-2">
+                                  <input value={attrEvType} onChange={e => setAttrEvType(e.target.value)} placeholder="Evidence type (e.g. PO doc)"
+                                    className="w-full px-3 py-2 border border-border rounded-lg text-[12px] text-text bg-white outline-none focus:border-brand-500/40" />
+                                  <input value={attrExpected} onChange={e => setAttrExpected(e.target.value)} placeholder="Expected result"
+                                    className="w-full px-3 py-2 border border-border rounded-lg text-[12px] text-text bg-white outline-none focus:border-brand-500/40" />
+                                </div>
+                                <input value={attrPassLogic} onChange={e => setAttrPassLogic(e.target.value)} placeholder="Pass/fail rule (e.g. Amount ≤ threshold)"
+                                  className="w-full px-3 py-2 border border-border rounded-lg text-[12px] text-text bg-white outline-none focus:border-brand-500/40" />
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-1.5">
+                                    <button onClick={() => setAttrRequired(true)}
+                                      className={`px-2.5 py-1 rounded-full text-[10px] font-semibold cursor-pointer transition-colors ${attrRequired ? 'bg-primary text-white' : 'bg-gray-100 text-gray-500'}`}>Required</button>
+                                    <button onClick={() => setAttrRequired(false)}
+                                      className={`px-2.5 py-1 rounded-full text-[10px] font-semibold cursor-pointer transition-colors ${!attrRequired ? 'bg-primary text-white' : 'bg-gray-100 text-gray-500'}`}>Optional</button>
+                                  </div>
+                                  <div className="flex items-center gap-1.5">
+                                    <button onClick={resetAttrForm} className="px-3 py-1.5 rounded-lg text-[11px] font-medium text-ink-600 hover:bg-canvas cursor-pointer transition-colors">Cancel</button>
+                                    <button onClick={() => handleAddAttribute(ctrl.id, wf.id)} disabled={!attrName.trim()}
+                                      className="px-3 py-1.5 rounded-lg bg-primary hover:bg-primary/90 text-white text-[11px] font-semibold cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed">Add</button>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
                           </div>
-                          <div className="text-[9px] text-ink-400">{wf.attributes.length} attribute{wf.attributes.length !== 1 ? 's' : ''}</div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
 
@@ -1926,10 +2014,6 @@ function CreateWorkflowBuilderDrawer({ control, onClose, onCreate }: {
                 <button onClick={() => setMode(null)} className="flex items-center gap-1 text-[11px] text-text-muted hover:text-primary font-medium mb-3 cursor-pointer"><ArrowLeft size={12} />Back</button>
                 <div className="mb-3"><label className={labelCls}>Workflow Name *</label><input value={name} onChange={e => setName(e.target.value)} placeholder={`e.g. ${control.name} Test Workflow`} className={inputCls} /></div>
                 <div className="mb-3"><label className={labelCls}>Description</label><textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} placeholder="What does this workflow test?" className={inputCls + ' resize-none'} /></div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="mb-3"><label className={labelCls}>Version</label><input value={version} onChange={e => setVersion(e.target.value)} className={inputCls + ' font-mono'} /></div>
-                  <div className="mb-3"><label className={labelCls}>Owner</label><input value={owner} onChange={e => setOwner(e.target.value)} placeholder="e.g. Tushar Goel" className={inputCls} /></div>
-                </div>
                 <div className="mb-3">
                   <label className={labelCls}>Data Required</label>
                   <div className="flex gap-2">{[true, false].map(v => (<button key={String(v)} onClick={() => setDataRequired(v)} className={`px-3 py-1.5 rounded-lg border text-[12px] font-medium transition-all cursor-pointer ${dataRequired === v ? 'border-brand-500 bg-brand-50 text-brand-700 ring-2 ring-brand-500/20' : 'border-canvas-border bg-white text-ink-600 hover:bg-canvas'}`}>{v ? 'Yes' : 'No'}</button>))}</div>
