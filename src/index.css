@@ -352,6 +352,11 @@ h1, h2, h3 { letter-spacing: 0; line-height: 1.2; }
   border: 1px solid var(--color-brand-200);
   border-radius: var(--radius-xl);
   isolation: isolate;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+.ai-border:focus-within {
+  border-color: var(--color-brand-500);
+  box-shadow: 0 0 0 4px rgba(106, 18, 205, 0.16);
 }
 .ai-border::before,
 .ai-border::after,

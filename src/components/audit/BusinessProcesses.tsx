@@ -32,17 +32,15 @@ const HUB_TABS: { id: HubTabId; label: string; icon: React.ElementType }[] = [
 
 // ─── SOP Types & Extraction Mock Data ─────────────────────────────────────
 
-type SOPStatus = 'Uploaded' | 'Processing' | 'Ready for Review' | 'Partial' | 'Processed' | 'Failed' | 'Archived';
+type SOPStatus = 'Draft' | 'Processing' | 'Processed' | 'Linked' | 'Archived';
 
 // ─── SOP Status Display ───────────────────────────────────────────────────
 
 const SOP_STATUS_STYLES: Record<SOPStatus, string> = {
-  'Uploaded': 'bg-gray-100 text-gray-500',
-  'Processing': 'bg-gray-100 text-gray-600',
-  'Ready for Review': 'bg-amber-50/80 text-amber-600',
-  'Partial': 'bg-amber-50/60 text-amber-500',
+  'Draft': 'bg-gray-100 text-gray-500',
+  'Processing': 'bg-blue-50 text-blue-600',
   'Processed': 'bg-emerald-50/80 text-emerald-600',
-  'Failed': 'bg-red-50/60 text-red-500',
+  'Linked': 'bg-purple-50 text-purple-700',
   'Archived': 'bg-gray-50 text-gray-400',
 };
 
@@ -52,18 +50,16 @@ interface SOPAction {
 }
 
 function getSOPAction(status: SOPStatus, hasRacm: boolean, racmFrozen?: boolean): SOPAction {
-  if (hasRacm && (status === 'Ready for Review' || status === 'Partial' || status === 'Processed')) {
+  if (hasRacm && (status === 'Processed' || status === 'Linked')) {
     if (racmFrozen) return { label: 'Configure RACM', cls: 'bg-primary/10 text-primary hover:bg-primary/20' };
     return { label: 'Edit RACM Draft', cls: 'bg-primary/10 text-primary hover:bg-primary/20' };
   }
   switch (status) {
-    case 'Uploaded':         return { label: 'Start Processing',  cls: 'bg-primary/10 text-primary hover:bg-primary/20' };
-    case 'Processing':       return { label: 'View Progress',     cls: 'bg-gray-100 text-gray-500 hover:bg-gray-200/70' };
-    case 'Ready for Review': return { label: 'Create RACM',       cls: 'bg-primary/10 text-primary hover:bg-primary/20' };
-    case 'Partial':          return { label: 'Create RACM',       cls: 'bg-primary/10 text-primary hover:bg-primary/20' };
-    case 'Processed':        return { label: 'Create RACM',       cls: 'bg-primary/10 text-primary hover:bg-primary/20' };
-    case 'Failed':           return { label: 'Retry',             cls: 'bg-gray-100 text-gray-600 hover:bg-gray-200/70' };
-    case 'Archived':         return { label: 'View SOP',          cls: 'bg-gray-50 text-gray-400 hover:bg-gray-100' };
+    case 'Draft':      return { label: 'Start Processing',  cls: 'bg-primary/10 text-primary hover:bg-primary/20' };
+    case 'Processing': return { label: 'View Progress',     cls: 'bg-gray-100 text-gray-500 hover:bg-gray-200/70' };
+    case 'Processed':  return { label: 'Create RACM',       cls: 'bg-primary/10 text-primary hover:bg-primary/20' };
+    case 'Linked':     return { label: 'Edit RACM Draft',   cls: 'bg-primary/10 text-primary hover:bg-primary/20' };
+    case 'Archived':   return { label: 'View SOP',          cls: 'bg-gray-50 text-gray-400 hover:bg-gray-100' };
   }
 }
 
@@ -174,7 +170,7 @@ const STEP_STATE_STYLES: Record<StepState, { dot: string; text: string; line: st
 };
 
 function ProcessingStepperPanel({ sop }: { sop: LocalSOP }) {
-  const isFailed = sop.status === 'Failed';
+  const isFailed = sop.status === 'Draft';
   const progressPct = Math.round((sop.processingStep / (PROCESSING_STEPS.length - 1)) * 100);
 
   return (
@@ -258,7 +254,7 @@ function ExtractionReviewWorkspace({ sop, onBack, onAccept, onUpdateRisks, onUpd
   onUpdateControls: (controls: ExtractedControl[]) => void;
 }) {
   const { addToast } = useToast();
-  const isPartial = sop.status === 'Partial' || isPartialExtraction(sop);
+  const isPartial = sop.status === 'Processed' || isPartialExtraction(sop);
   const partialWarnings = isPartial ? getPartialWarnings(sop) : [];
   const [partialConfirmed, setPartialConfirmed] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -415,7 +411,7 @@ function ExtractionReviewWorkspace({ sop, onBack, onAccept, onUpdateRisks, onUpd
                     <div className="flex items-center gap-2">
                       <span className="text-[12px] font-semibold text-text">{sop.racmName || sop.racmId}</span>
                       <span className="px-1.5 h-4 rounded text-[8px] font-bold bg-gray-100 text-gray-600">Draft</span>
-                      <span className="px-1.5 h-4 rounded text-[8px] font-bold bg-amber-50 text-amber-600">Needs Mapping</span>
+                      <span className="px-1.5 h-4 rounded text-[8px] font-bold bg-amber-50 text-amber-600">Mapping Incomplete</span>
                     </div>
                     <div className="text-[10px] text-gray-500 mt-0.5">
                       {sop.risks} risks · {sop.controls} control references · Created from this SOP
@@ -683,7 +679,7 @@ function ExtractionReviewWorkspace({ sop, onBack, onAccept, onUpdateRisks, onUpd
                         `${activeRisks.length} extracted risks linked to RACM`,
                         `${controls.filter(c => c.accepted).length} control references preserved (not mapped to Control Library)`,
                         'Source SOP sections preserved for traceability',
-                        'RACM readiness set to "Needs Mapping"',
+                        'RACM readiness: Mapping Incomplete',
                         'SOP linked to the created RACM',
                       ].map((item, i) => (
                         <li key={i} className="text-[11px] text-text-secondary flex items-start gap-1.5">
@@ -1163,7 +1159,7 @@ function SOPTabContent({ bpId, bpAbbr, existingSops, existingRacms, onGoToRacm, 
       id: s.id, name: s.name, fileName: `${s.name.replace(/\s+/g, '_')}.pdf`, version: s.version,
       description: '', businessProcess: bpAbbr,
       uploadedBy: s.by, uploadedAt: s.at,
-      status: (s.racmId ? 'Processed' : idx % 3 === 0 ? 'Processed' : 'Uploaded') as SOPStatus,
+      status: (s.racmId ? 'Linked' : idx % 3 === 0 ? 'Processed' : 'Draft') as SOPStatus,
       progress: s.racmId ? 100 : 0, processingStep: s.racmId ? 6 : 0,
       risks: s.risks, controls: s.controls, racmId: s.racmId, racmName: s.racmId ? `FY26 ${bpAbbr} — ${s.name.replace(/\s*SOP\s*/i, '').trim()}` : null, failureReason: null,
       extractedRisks: s.racmId ? [] : buildMockExtractions().risks,
@@ -1229,7 +1225,7 @@ function SOPTabContent({ bpId, bpAbbr, existingSops, existingRacms, onGoToRacm, 
       id: newId, name: data.name, fileName: data.fileName, version: data.version,
       description: data.description, businessProcess: bpAbbr,
       uploadedBy: 'Current User', uploadedAt: uploadDate,
-      status: startProcessing ? 'Processing' : 'Uploaded',
+      status: startProcessing ? 'Processing' : 'Draft',
       progress: 0, processingStep: startProcessing ? 0 : 0,
       risks: 0, controls: 0, racmId: null, racmName: null, failureReason: null,
       extractedRisks: risks, extractedControls: controls,
@@ -1275,7 +1271,7 @@ function SOPTabContent({ bpId, bpAbbr, existingSops, existingRacms, onGoToRacm, 
   // Start processing for a draft SOP
   const handleStartProcessing = useCallback((sopId: string) => {
     const sop = localSops.find(s => s.id === sopId);
-    if (!sop || (sop.status !== 'Uploaded' && sop.status !== 'Failed')) return;
+    if (!sop || sop.status !== 'Draft') return;
 
     setLocalSops(prev => prev.map(s => s.id === sopId ? { ...s, status: 'Processing' as SOPStatus, progress: 0, processingStep: 0, failureReason: null } : s));
     addToast({ message: `Processing "${sop.name}"...`, type: 'info' });
@@ -1323,10 +1319,10 @@ function SOPTabContent({ bpId, bpAbbr, existingSops, existingRacms, onGoToRacm, 
     const name = racmName || `FY26 ${sop.businessProcess} — ${sop.name.replace(/\s*SOP\s*/i, '').trim()}`;
 
     setLocalSops(prev => prev.map(s => s.id === sopId ? {
-      ...s, status: 'Processed' as SOPStatus, racmId, racmName: name, risks: acceptedRisks, controls: acceptedControls,
+      ...s, status: 'Linked' as SOPStatus, racmId, racmName: name, risks: acceptedRisks, controls: acceptedControls,
     } : s));
     setReviewingSopId(null);
-    addToast({ message: `Draft RACM "${name}" created with ${acceptedRisks} risks and ${acceptedControls} control references. Status: Draft · Readiness: Needs Mapping. Open the RACM tab to continue.`, type: 'success' });
+    addToast({ message: `Draft RACM "${name}" created with ${acceptedRisks} risks and ${acceptedControls} control references. Open the RACM tab to continue.`, type: 'success' });
   };
 
   // Action click handlers — derived from status via getSOPAction
@@ -1338,7 +1334,6 @@ function SOPTabContent({ bpId, bpAbbr, existingSops, existingRacms, onGoToRacm, 
       case 'Create RACM':       setShowCreateRacmForSopId(sop.id); break;
       case 'Edit RACM Draft':   if (sop.racmId && onViewRacm) onViewRacm(sop.racmId); break;
       case 'Configure RACM':    if (sop.racmId && onViewRacm) onViewRacm(sop.racmId); break;
-      case 'Retry':             handleStartProcessing(sop.id); break;
       case 'View SOP':          setPreviewingSopId(sop.id); break;
     }
   };
@@ -1411,7 +1406,7 @@ function SOPTabContent({ bpId, bpAbbr, existingSops, existingRacms, onGoToRacm, 
               <table className="w-full text-[12px]">
                 <thead>
                   <tr className="border-b border-border bg-gray-50/50">
-                    {['SOP Name', 'Status', 'Uploaded', 'Actions'].map(h => (
+                    {['SOP Name', 'Status', 'Draft', 'Actions'].map(h => (
                       <th key={h} className="px-3 py-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -1420,7 +1415,7 @@ function SOPTabContent({ bpId, bpAbbr, existingSops, existingRacms, onGoToRacm, 
                   {sortedSops.map((sop, i) => {
                     const isProcessing = sop.status === 'Processing';
                     const action = getSOPAction(sop.status, !!sop.racmId, false);
-                    const showCounts = sop.status !== 'Uploaded' && sop.status !== 'Processing';
+                    const showCounts = sop.status !== 'Draft' && sop.status !== 'Processing';
                     return (<React.Fragment key={sop.id}>
                       <motion.tr initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.015 }}
                         className={`border-b border-border/40 transition-colors ${sop.status === 'Archived' ? 'opacity-50' : 'hover:bg-gray-50/50'}`}>
@@ -1443,7 +1438,7 @@ function SOPTabContent({ bpId, bpAbbr, existingSops, existingRacms, onGoToRacm, 
                               className={`px-2 py-1 rounded-lg text-[10px] font-bold cursor-pointer transition-colors ${action.cls}`}>
                               {action.label}
                             </button>
-                            {(sop.status === 'Processed' || sop.status === 'Ready for Review' || sop.status === 'Partial') && (
+                            {(sop.status === 'Processed' || sop.status === 'Linked') && (
                               <button onClick={() => setPreviewingSopId(sop.id)}
                                 className="px-2 py-1 rounded-lg text-[10px] font-medium text-gray-500 hover:bg-gray-100 cursor-pointer transition-colors">
                                 View SOP
@@ -1459,7 +1454,7 @@ function SOPTabContent({ bpId, bpAbbr, existingSops, existingRacms, onGoToRacm, 
                         )}
                       </AnimatePresence>
                       {/* Failed state */}
-                      {sop.status === 'Failed' && (
+                      {sop.status === 'Draft' && (
                         <tr>
                           <td colSpan={4} className="p-0">
                             <div className="px-4 py-3 bg-gray-50/50 border-t border-border/30">
@@ -1531,7 +1526,7 @@ function SOPTabContent({ bpId, bpAbbr, existingSops, existingRacms, onGoToRacm, 
       <AnimatePresence>
         {versionConflict && (() => {
           const { existing } = versionConflict;
-          const canReplace = existing.status === 'Uploaded' || existing.status === 'Failed';
+          const canReplace = existing.status === 'Draft';
           const isLinked = existing.status === 'Processed' && !!existing.racmId;
           return (
             <>
@@ -1633,9 +1628,8 @@ function ControlDesignTab({ bpAbbr }: { bpAbbr: string }) {
   const [controls, setControls] = useState<DesignControl[]>(SEED_DESIGN_CONTROLS);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const handleAttachWorkflow = (ctrlId: string) => {
-    setControls(prev => prev.map(c => c.id === ctrlId ? { ...c, workflows: [...c.workflows, { name: 'New Workflow', type: 'Manual', status: 'Draft', lastRun: '—', runs: 0 }] } : c));
-    addToast({ message: 'Workflow attached.', type: 'success' });
+  const handleCreateWorkflow = (ctrl: DesignControl) => {
+    addToast({ message: `Opening Ask IRA to create workflow for "${ctrl.name}" (${ctrl.id})`, type: 'info' });
   };
 
   const getDesignStatus = (ctrl: DesignControl): 'Complete' | 'Incomplete' => {
@@ -1677,7 +1671,7 @@ function ControlDesignTab({ bpAbbr }: { bpAbbr: string }) {
                     <td className="px-3 py-3"><span className="text-[11px] text-gray-500">{ctrl.nature}</span></td>
                     <td className="px-3 py-3">
                       {ctrl.workflows.length === 0 ? (
-                        <span className="text-[11px] text-amber-600 font-medium">Not Bound</span>
+                        <span className="text-[11px] text-amber-600 font-medium">No workflow mapped</span>
                       ) : ctrl.workflows.length === 1 ? (
                         <span className="text-[11px] text-emerald-700 font-medium">{ctrl.workflows[0].name}</span>
                       ) : ctrl.workflows.length <= 2 ? (
@@ -1698,7 +1692,7 @@ function ControlDesignTab({ bpAbbr }: { bpAbbr: string }) {
                     </td>
                     <td className="px-3 py-3 text-right" onClick={e => e.stopPropagation()}>
                       <div className="flex items-center gap-1 justify-end">
-                        {ctrl.workflows.length === 0 && <button onClick={() => handleAttachWorkflow(ctrl.id)} className="px-2 py-1 rounded text-[9px] font-semibold bg-amber-50 text-amber-700 hover:bg-amber-100 cursor-pointer">Attach</button>}
+                        {ctrl.workflows.length === 0 && <button onClick={() => handleCreateWorkflow(ctrl)} className="px-2 py-1 rounded text-[9px] font-semibold bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer">Create Workflow</button>}
                         <button onClick={() => setExpandedId(isExpanded ? null : ctrl.id)} className="px-2 py-1 rounded text-[9px] font-bold bg-gray-100 text-gray-600 hover:bg-gray-200/70 cursor-pointer">{isExpanded ? 'Close' : 'View'}</button>
                       </div>
                     </td>
@@ -1733,10 +1727,10 @@ function ControlDesignTab({ bpAbbr }: { bpAbbr: string }) {
                           <div>
                             <div className="flex items-center justify-between mb-1.5">
                               <span className="text-[9px] text-gray-400 uppercase font-bold">Workflows ({ctrl.workflows.length})</span>
-                              <button onClick={e => { e.stopPropagation(); handleAttachWorkflow(ctrl.id); }} className="text-[9px] font-semibold text-primary hover:underline cursor-pointer">+ Attach</button>
+                              <button onClick={e => { e.stopPropagation(); handleCreateWorkflow(ctrl); }} className="text-[9px] font-semibold text-primary hover:underline cursor-pointer">+ Create Workflow</button>
                             </div>
                             {ctrl.workflows.length === 0 ? (
-                              <div className="text-[10px] text-amber-600 py-2">No workflows bound. Attach a workflow to enable testing.</div>
+                              <div className="text-[10px] text-amber-600 py-2">No workflows mapped. Create a workflow to enable testing.</div>
                             ) : (
                               <div className="bg-white rounded-lg border border-border/50 overflow-hidden">
                                 <table className="w-full text-[11px]">
@@ -1788,15 +1782,15 @@ interface BPWorkflow {
   id: string; name: string; description: string;
   type: 'Automated' | 'Manual';
   nature: 'Preventive' | 'Detective';
-  status: 'Live' | 'Draft';
+  status: 'Draft' | 'Ready' | 'Active' | 'Archived';
   linkedControls: string[]; // control IDs
 }
 
 const SEED_BP_WF: BPWorkflow[] = [
-  { id: 'wf-c1', name: 'Three-Way PO Match', description: 'Automated matching of PO, GRN, and Invoice before payment release.', type: 'Automated', nature: 'Preventive', status: 'Live', linkedControls: ['C-001', 'C-006'] },
-  { id: 'wf-c2', name: 'Vendor Change Monitor', description: 'Monitors vendor master data changes and validates approval chain.', type: 'Automated', nature: 'Detective', status: 'Live', linkedControls: ['C-002'] },
-  { id: 'wf-c3', name: 'Duplicate Invoice Detector', description: 'Scans invoices against historical data to flag duplicates.', type: 'Automated', nature: 'Detective', status: 'Live', linkedControls: ['C-003'] },
-  { id: 'wf-c4', name: 'Payment Approval Review', description: 'Manual review of high-value payment approvals.', type: 'Manual', nature: 'Preventive', status: 'Live', linkedControls: ['C-004'] },
+  { id: 'wf-c1', name: 'Three-Way PO Match', description: 'Automated matching of PO, GRN, and Invoice before payment release.', type: 'Automated', nature: 'Preventive', status: 'Active', linkedControls: ['C-001', 'C-006'] },
+  { id: 'wf-c2', name: 'Vendor Change Monitor', description: 'Monitors vendor master data changes and validates approval chain.', type: 'Automated', nature: 'Detective', status: 'Active', linkedControls: ['C-002'] },
+  { id: 'wf-c3', name: 'Duplicate Invoice Detector', description: 'Scans invoices against historical data to flag duplicates.', type: 'Automated', nature: 'Detective', status: 'Active', linkedControls: ['C-003'] },
+  { id: 'wf-c4', name: 'Payment Approval Review', description: 'Manual review of high-value payment approvals.', type: 'Manual', nature: 'Preventive', status: 'Active', linkedControls: ['C-004'] },
   { id: 'wf-c5', name: 'PO Dual Sign-Off Check', description: 'Validates dual authorization for purchase orders above threshold.', type: 'Automated', nature: 'Preventive', status: 'Draft', linkedControls: [] },
 ];
 
@@ -1840,7 +1834,7 @@ function WorkflowGovernanceTab({ bpAbbr }: { bpAbbr: string }) {
 
   const handleBulkRun = () => {
     const selected = workflows.filter(w => selectedIds.has(w.id));
-    const runnable = selected.filter(w => w.type === 'Automated' && w.status === 'Live');
+    const runnable = selected.filter(w => w.type === 'Automated' && w.status === 'Active');
     const skipped = selected.length - runnable.length;
     if (runnable.length === 0) { addToast({ message: 'No runnable workflows selected. Only Live + Automated workflows can be run.', type: 'warning' }); return; }
     runnable.forEach(w => addToast({ message: `Running "${w.name}"...`, type: 'info' }));
@@ -1950,13 +1944,12 @@ function WorkflowGovernanceTab({ bpAbbr }: { bpAbbr: string }) {
                     <div className="flex flex-col gap-1.5">
                       <div className="flex items-start gap-2">
                         <span className="text-[13px] text-text font-medium leading-snug">{wf.name}</span>
-                        {wf.status === 'Live' ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium shrink-0 mt-0.5" style={{ backgroundColor: '#ECFEF3', color: '#047A48' }}>
-                            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#047A48' }} />Live
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 text-gray-500 shrink-0 mt-0.5">Draft</span>
-                        )}
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium shrink-0 mt-0.5 ${
+                          wf.status === 'Active' ? '' : wf.status === 'Ready' ? 'bg-blue-50 text-blue-700' : wf.status === 'Archived' ? 'bg-gray-50 text-gray-400' : 'bg-gray-100 text-gray-500'
+                        }`} style={wf.status === 'Active' ? { backgroundColor: '#ECFEF3', color: '#047A48' } : undefined}>
+                          {wf.status === 'Active' && <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#047A48' }} />}
+                          {wf.status}
+                        </span>
                       </div>
                       <span className="text-[11px] font-mono text-ink-500 tracking-tight">{wf.id.toUpperCase()}</span>
                     </div>
@@ -1986,7 +1979,7 @@ function WorkflowGovernanceTab({ bpAbbr }: { bpAbbr: string }) {
                   {/* Actions */}
                   <td className={`px-4 py-4 align-top ${bulkMode ? 'pointer-events-none opacity-40' : ''}`}>
                     <div className="flex items-center justify-end gap-0.5">
-                      {wf.type === 'Automated' && wf.status === 'Live' && (
+                      {wf.type === 'Automated' && wf.status === 'Active' && (
                         <button onClick={() => addToast({ message: `Running "${wf.name}"...`, type: 'info' })}
                           className="w-8 h-8 rounded-md flex items-center justify-center text-text-muted hover:text-primary hover:bg-primary/10 cursor-pointer transition-colors" title="Run">
                           <Play size={14} />
