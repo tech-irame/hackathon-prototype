@@ -43,6 +43,9 @@ import WorkflowExecutor from './components/workflow/WorkflowExecutor';
 import WorkflowEditInChatJourney from './components/workflow-edit-in-chat/WorkflowEditInChatJourney';
 import EngagementDetailView from './components/engagement/EngagementDetailView';
 import ControlDetailDrawer from './components/engagement/ControlDetailDrawer';
+// V2 Execution placeholder — old execution UI detached from main flow
+import EngagementExecutionV2Placeholder from './components/engagement-execution-v2/EngagementExecutionV2Placeholder';
+import EngagementExecutionV2 from './components/engagement-execution-v2/EngagementExecutionV2';
 import ManageExceptionsView from './components/exceptions/ManageExceptionsView';
 import WorkingPaperPanel from './components/execution/WorkingPaperPanel';
 import WorkflowExecutionPanel from './components/execution/WorkflowExecutionPanel';
@@ -416,11 +419,12 @@ export default function App() {
         return <AuditExecution />;
 
       case 'engagement-detail':
+        // Old execution UI detached — routed to Execution V2.
+        // Old EngagementDetailView + placeholder kept in repo but no longer rendered.
         return (
-          <EngagementDetailView
+          <EngagementExecutionV2
             engagementId={state.selectedEngagementId ?? undefined}
             onBack={() => setView(engagementBackView)}
-            onOpenControl={(controlId, controlData) => { setControlDrawerId(controlId); setControlDrawerData(controlData || null); }}
           />
         );
 
