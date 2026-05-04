@@ -236,7 +236,18 @@ export default function App() {
 
     switch (state.view) {
       case 'home':
-        return <HomeView setView={setView} />;
+        return (
+          <HomeView
+            setView={setView}
+            notifications={state.notifications}
+            onSelectNotification={handleNotificationSelect}
+            onOpenNotificationDrawer={openNotificationDrawer}
+            setChatInitialQuery={setChatInitialQuery}
+            setSelectedWorkflow={setSelectedWorkflow}
+            openAuditExecution={openAuditExecution}
+            setSelectedBP={setSelectedBP}
+          />
+        );
 
       case 'recents':
         return <RecentsView setView={setView} openChat={openChat} openWorkflowExecutor={openWorkflowExecutor} />;
