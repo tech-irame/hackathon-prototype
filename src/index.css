@@ -70,6 +70,12 @@
   --color-compliant-700:#166534;
   --color-evidence:     #0369A1;  /* Sources / Info-blue */
   --color-evidence-50:  #F0F9FF;
+  --color-evidence-100: #E0F2FE;
+  --color-evidence-200: #BAE6FD;
+  --color-evidence-300: #7DD3FC;
+  --color-evidence-400: #38BDF8;
+  --color-evidence-500: #0EA5E9;
+  --color-evidence-600: #0284C7;
   --color-evidence-700: #075985;
   --color-info:         #6A12CD;  /* Info (brand-tied) */
   --color-info-50:      #F7F0FF;
@@ -476,4 +482,42 @@ select.no-focus-ring:focus-visible {
 .recharts-surface {
   outline: none !important;
   box-shadow: none !important;
+}
+
+/* react-grid-layout — match Editorial GRC styling */
+.react-grid-item.react-grid-placeholder {
+  background: var(--color-brand-200) !important;
+  opacity: 0.4 !important;
+  border-radius: 16px !important;
+  transition-duration: 100ms !important;
+}
+.react-grid-item > .react-resizable-handle {
+  width: 18px;
+  height: 18px;
+  bottom: 4px;
+  right: 4px;
+  background-image: none;
+  cursor: se-resize;
+}
+.react-grid-item > .react-resizable-handle::after {
+  content: '';
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 9px;
+  height: 9px;
+  border-right: 2px solid #94A3B8;
+  border-bottom: 2px solid #94A3B8;
+  border-radius: 0 0 2px 0;
+}
+.react-grid-item:hover > .react-resizable-handle::after {
+  border-color: var(--color-brand-600);
+}
+.react-grid-item.react-draggable-dragging {
+  z-index: 50;
+  cursor: grabbing !important;
+}
+.react-grid-item.resizing {
+  z-index: 50;
+  opacity: 0.95;
 }
