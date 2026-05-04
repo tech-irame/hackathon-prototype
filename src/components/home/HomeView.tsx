@@ -2220,9 +2220,9 @@ function RecentReportsSection({
 // (forensics, table extraction, workflow building).
 
 const CONCIERGE_TOOLS: { view: View; label: string; description: string; icon: React.ElementType; tone: string }[] = [
-  { view: 'ai-concierge-forensics',        label: 'Forensics',        description: 'Investigate exceptions and trace anomalies',  icon: Search,           tone: 'bg-risk-50 text-risk-700' },
-  { view: 'ai-concierge-table-extractor',  label: 'Table extractor',  description: 'Pull structured data from PDFs and scans',    icon: TableProperties,  tone: 'bg-brand-50 text-brand-700' },
-  { view: 'ai-concierge-workflow-builder', label: 'Workflow builder', description: 'Compose new automations from a description',  icon: Wand2,            tone: 'bg-compliant-50 text-compliant-700' },
+  { view: 'ai-concierge-forensics',        label: 'Document Forensics', description: 'Investigate exceptions and trace anomalies',  icon: Search,           tone: 'bg-risk-50 text-risk-700' },
+  { view: 'ai-concierge-table-extractor',  label: 'Table Extractor',    description: 'Pull structured data from PDFs and scans',    icon: TableProperties,  tone: 'bg-brand-50 text-brand-700' },
+  { view: 'ai-concierge-workflow-builder', label: 'Workflow Builder',   description: 'Compose new automations from a description',  icon: Wand2,            tone: 'bg-compliant-50 text-compliant-700' },
 ];
 
 function ConciergeSection({ setView, rangeDays }: { setView: Props['setView']; rangeDays: number | null }) {
@@ -2310,6 +2310,11 @@ function usePinned(): {
 }
 
 function PinButton({ active, onToggle, label }: { active: boolean; onToggle: () => void; label: string }) {
+  // Always visible at rest so the affordance matches the Pinned widget's
+  // empty-state coaching ("click the star on any workflow or report to pin
+  // it here"). Resting state uses a faded ink stroke so it doesn't compete
+  // with row content; hover bumps to full opacity + amber tint; active is
+  // a fully filled gold star.
   return (
     <button
       type="button"
@@ -2319,7 +2324,7 @@ function PinButton({ active, onToggle, label }: { active: boolean; onToggle: () 
       className={`shrink-0 inline-flex items-center justify-center w-6 h-6 rounded-md transition-colors cursor-pointer ${
         active
           ? 'text-mitigated-700 hover:bg-mitigated-50'
-          : 'text-ink-400 hover:text-mitigated-700 hover:bg-mitigated-50 opacity-0 group-hover:opacity-100 focus-visible:opacity-100'
+          : 'text-ink-300 hover:text-mitigated-700 hover:bg-mitigated-50 group-hover:text-ink-400'
       } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mitigated-400`}
     >
       <Star size={13} fill={active ? 'currentColor' : 'none'} strokeWidth={2} />
@@ -3172,9 +3177,9 @@ function WidgetPreview({ kind }: { kind: WidgetKey }) {
 
   if (kind === 'concierge') {
     const tools = [
-      { label: 'Forensics',        tone: 'bg-risk-50 text-risk-700',           icon: Search },
-      { label: 'Table extractor',  tone: 'bg-brand-50 text-brand-700',         icon: TableProperties },
-      { label: 'Workflow builder', tone: 'bg-compliant-50 text-compliant-700', icon: Wand2 },
+      { label: 'Document Forensics', tone: 'bg-risk-50 text-risk-700',           icon: Search },
+      { label: 'Table Extractor',    tone: 'bg-brand-50 text-brand-700',         icon: TableProperties },
+      { label: 'Workflow Builder',   tone: 'bg-compliant-50 text-compliant-700', icon: Wand2 },
     ];
     return (
       <div className="absolute inset-0">
