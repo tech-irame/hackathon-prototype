@@ -178,20 +178,16 @@ Every control in a new engagement starts at:
 
 ## 8. UI Flow
 
-### Automated Control
+### All Control Types (Simplified Final Flow)
 ```
-Overview → Population → Execution Mode (Full Run / Sampling) → Samples/Test Items → Attribute Testing → Working Paper → Review → Conclusion
-```
-
-### Manual Control
-```
-Overview → Create Samples → Evidence Upload → Attribute Testing → Working Paper → Review → Conclusion
+Overview → Samples → Attribute Testing → Working Paper → Review → Conclusion
 ```
 
-### Hybrid Control
-```
-Overview → Population → Execution Mode → Samples/Test Items → Evidence Upload → Attribute Testing → Working Paper → Review → Conclusion
-```
+- User uploads/creates sample data in Samples step
+- "Execute Testing" runs automated checks and opens Attribute Testing
+- Manual attributes tested by user in Attribute Testing
+- Evidence attached contextually per attribute in Attribute Testing
+- Population Builder and Execution Mode removed from user-facing flow
 
 ### Step Availability Rules
 - Population step: available when status >= NOT_STARTED (except pure Manual which skips)
@@ -271,3 +267,8 @@ All helpers must be **pure functions** — no side effects, no state mutations. 
 | 2026-05-04 | Step 17 (Nav fix): Fixed broken step navigation. Added `deriveNextStepId` helper mapping action labels to step IDs. Added `initialStepId` prop to workspace (synced via useEffect). Table row action buttons now call `openControlWorkspace(controlId, stepId)`. Overview Next Step CTA now calls `onNavigate(deriveNextStepId(nextAction))`. All internal step CTAs (Build Population, Create Samples, etc.) properly navigate. Internal step IDs: overview, population, execution-mode, samples, create-samples, evidence, attr-testing, working-paper, review, conclusion. |
 | 2026-05-04 | Step 18: Added assertion/attribute/workflow management to Overview tab. Add Assertion (inline form, duplicate check). Add Attribute per assertion (name, desc, type Auto/Manual, required, evidence types, workflow link). Link/unlink attribute to workflow (inline dropdown per attribute row with save/cancel). Add Workflow (name, version, type, select attributes to cover). Workflow table shows covered attributes + assertion chips. Unmapped warning shows count. All changes persist to parent via onUpdateControl. Assertion=grouping only, workflow mapping=attribute-level. |
 | 2026-05-04 | Step 19: Added evidence from Attribute Testing. (1) Automated workflow run now creates system evidence per attribute (Workflow Run Log for pass, Exception Report for fail) stored on testItem.evidence with mappedAttributeIds. (2) Every attribute row has Attach/Evidence CTA → inline type selector (12 types incl. Exception Report, Workflow Run Log, Override Approval) → creates Evidence on testItem, links evidenceIds on attributeResult. (3) System evidence badge shown on auto-tested rows. (4) Helper text added. Evidence flows to Evidence tab + Working Paper. No types changes needed. |
+| 2026-05-04 | FINAL SIMPLIFICATION: Removed Population and Execution Mode from user-facing flow. New unified flow for ALL control types: Overview → Samples → Attribute Testing → Working Paper → Review → Conclusion. |
+| 2026-05-04 | Samples step: upload-only model. No manual entry, no demo button visible to user. Single "Upload Sample Data" CTA with file picker (CSV/XLSX). On upload: creates control-specific realistic testItems (invoices for C003, PO/GRN/INV for C002, budgets for C001). Preview table shows Sample ID, Reference, Value, Status. "Execute Testing" CTA after upload runs automated checks and navigates to Attribute Testing. |
+| 2026-05-04 | Bulk Evidence Upload: "Bulk Upload Evidence" button in Attribute Testing. Supports multi-file select (+ folder via webkitdirectory). Auto-matches files to samples (by referenceId/description keywords) and evidence types (by filename keywords). Review panel shows file→sample→type→attrs mapping with editable dropdowns and Matched/Needs Review/Unmatched status. Apply creates Evidence on matched testItems and links attributeResult.evidenceIds. Existing per-attribute attach flow preserved alongside bulk upload. |
+| 2026-05-04 | Evidence gating: Added `deriveEvidenceMatrixReadiness(ctrl)` helper — tracks sample × required attribute evidence completeness (e.g., 8/20). Run Automated Checks disabled until all required evidence slots filled. Progress bar shows "Evidence attached: X / Y" with amber/green states. Both bulk upload and individual attach update the readiness counter. |
+| 2026-05-04 | Bulk upload v2: True folder upload via webkitdirectory + multi-file fallback. Matching uses file path + name: bulkInferSampleMatch (referenceId + description keywords, tolerates hyphens/underscores), bulkInferEvidenceType (ordered keyword matching for 11 types), bulkInferAttrMapping (evidence type → attribute keywords). Review table now has editable attribute multi-select chips per row + relative path display. deriveBulkStatus recalculates on edits. Apply only processes Matched rows, keeps unmatched in review with warning. Unrelated files shown as Unmatched with manual mapping option. |
