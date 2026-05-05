@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Lock, CheckCircle2, Flag, Target, Calendar,
@@ -1966,7 +1966,7 @@ export default function AuditPlanningView({ onNavigateToExecution, embedded = fa
   const [signOffComment, setSignOffComment] = useState('');
   const [signerDropdownOpen, setSignerDropdownOpen] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<TabId>(embedded ? 'racm' : 'execution');
+  const [activeTab, setActiveTab] = useState<TabId>('execution');
   const [processFilter, setProcessFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
 
@@ -1974,6 +1974,8 @@ export default function AuditPlanningView({ onNavigateToExecution, embedded = fa
   const [drawerIsCreate, setDrawerIsCreate] = useState(false);
   const [setupPanelEngagement, setSetupPanelEngagement] = useState<AuditEngagement | null>(null);
   const [engFilter, setEngFilter] = useState('all');
+  const [engSearch, setEngSearch] = useState('');
+  const [expandedEngId, setExpandedEngId] = useState<string | null>(null);
   const [activating, setActivating] = useState(false);
   const [activationError, setActivationError] = useState<string | null>(null);
   const [activationLog, setActivationLog] = useState<string[]>([]);
@@ -2240,7 +2242,7 @@ export default function AuditPlanningView({ onNavigateToExecution, embedded = fa
     { id: 'execution', label: 'Execution', icon: Zap },
   ];
 
-  const processFilterOptions = ['All', ...PROCESSES];
+  const processFilterOptions = ['All', ...PROCESSES.filter(p => p !== 'Cross')];
   const statusFilterOptions = ['All', 'Active', 'Planned'];
 
   return (
@@ -2378,12 +2380,21 @@ export default function AuditPlanningView({ onNavigateToExecution, embedded = fa
               { key: 'active', label: 'Active', count: plan.filter(p => isExecutionPhase(p.status)).length },
               { key: 'planned', label: 'Planned', count: plan.filter(p => ['planned', 'frozen', 'signed-off'].includes(p.status)).length },
               { key: 'draft', label: 'Draft', count: plan.filter(p => p.status === 'draft').length },
-              { key: 'at-risk', label: 'At Risk', count: plan.filter(p => p.riskStatus === 'at-risk').length },
               { key: 'review', label: 'Pending Review', count: plan.filter(p => p.pendingReview > 0).length },
-              { key: 'overdue', label: 'Overdue', count: plan.filter(p => p.isOverdue).length },
+              { key: 'at-risk', label: 'At Risk', count: plan.filter(p => p.riskStatus === 'at-risk' || p.controlsFailed > 0).length },
             ];
 
             const filteredPlan = plan.filter(eng => {
+              // Search filter
+              if (engSearch) {
+                const q = engSearch.toLowerCase();
+                const matchesSearch = eng.name.toLowerCase().includes(q)
+                  || eng.owner.toLowerCase().includes(q)
+                  || eng.reviewer.toLowerCase().includes(q)
+                  || eng.businessProcess.toLowerCase().includes(q)
+                  || getRacmDisplayName(eng).toLowerCase().includes(q);
+                if (!matchesSearch) return false;
+              }
               // Process filter
               if (processFilter !== 'All' && eng.businessProcess !== processFilter) return false;
               // Status filter
@@ -2391,66 +2402,116 @@ export default function AuditPlanningView({ onNavigateToExecution, embedded = fa
               if (engFilter === 'active') return isExecutionPhase(eng.status);
               if (engFilter === 'planned') return ['planned', 'frozen', 'signed-off'].includes(eng.status);
               if (engFilter === 'draft') return eng.status === 'draft';
-              if (engFilter === 'at-risk') return eng.riskStatus === 'at-risk';
+              if (engFilter === 'at-risk') return eng.riskStatus === 'at-risk' || eng.controlsFailed > 0;
               if (engFilter === 'review') return eng.pendingReview > 0;
-              if (engFilter === 'overdue') return eng.isOverdue;
               return true;
             });
+
+            const getAttention = (eng: AuditEngagement): { label: string; cls: string } => {
+              if (eng.isOverdue) return { label: 'Overdue', cls: 'bg-red-50 text-red-700' };
+              if (eng.controlsFailed > 0) return { label: 'Failed Controls', cls: 'bg-red-50 text-red-600' };
+              if (eng.pendingReview > 0) return { label: 'Needs Review', cls: 'bg-amber-50 text-amber-700' };
+              if (!isExecutionPhase(eng.status)) return { label: 'Not Started', cls: 'bg-gray-50 text-gray-400' };
+              if (eng.riskStatus === 'at-risk') return { label: 'At Risk', cls: 'bg-amber-50 text-amber-700' };
+              return { label: 'On Track', cls: 'bg-emerald-50 text-emerald-700' };
+            };
 
             const getNextAction = (eng: AuditEngagement): { label: string; cls: string } => {
               if (eng.status === 'draft') return { label: 'Configure', cls: 'bg-gray-100 text-gray-600 hover:bg-gray-200/70' };
               if (['planned', 'frozen', 'signed-off'].includes(eng.status)) return { label: 'Activate', cls: 'bg-primary/10 text-primary hover:bg-primary/20' };
-              if (eng.controlsFailed > 0) return { label: 'View Failed', cls: 'bg-red-50 text-red-700 hover:bg-red-100/70' };
-              if (eng.pendingReview > 0) return { label: 'Review Pending', cls: 'bg-gray-100 text-gray-600 hover:bg-gray-200/70' };
+              if (eng.controlsFailed > 0) return { label: 'View Findings', cls: 'bg-red-50 text-red-700 hover:bg-red-100/70' };
+              if (eng.pendingReview > 0) return { label: 'Review Pending', cls: 'bg-amber-50 text-amber-700 hover:bg-amber-100/70' };
+              if (eng.controlsTested === 0 && isExecutionPhase(eng.status)) return { label: 'Start Testing', cls: 'bg-primary/10 text-primary hover:bg-primary/20' };
               if (eng.controlsTested < eng.controls) return { label: 'Continue Testing', cls: 'bg-primary/10 text-primary hover:bg-primary/20' };
-              return { label: 'View Execution', cls: 'bg-primary/10 text-primary hover:bg-primary/20' };
+              if (eng.status === 'closed') return { label: 'View Report', cls: 'bg-gray-100 text-gray-600 hover:bg-gray-200/70' };
+              return { label: 'View Engagement', cls: 'bg-primary/10 text-primary hover:bg-primary/20' };
+            };
+
+            // Summary card KPIs
+            const summaryCards = [
+              { label: 'Total Engagements', value: plan.length, cls: 'text-primary bg-primary-xlight' },
+              { label: 'Active / In Execution', value: plan.filter(p => isExecutionPhase(p.status)).length, cls: 'text-emerald-700 bg-emerald-50' },
+              { label: 'Pending Review', value: plan.filter(p => p.pendingReview > 0).length, cls: 'text-amber-700 bg-amber-50' },
+              { label: 'At Risk / Failed', value: plan.filter(p => p.riskStatus === 'at-risk' || p.controlsFailed > 0).length, cls: 'text-red-700 bg-red-50' },
+              { label: 'Planned', value: plan.filter(p => ['planned', 'frozen', 'signed-off'].includes(p.status)).length, cls: 'text-gray-600 bg-gray-100' },
+            ];
+
+            const formatAuditPeriod = (start: string, end: string) => {
+              if (!start || !end) return '';
+              const s = new Date(start);
+              const e = new Date(end);
+              return `${s.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })} — ${e.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`;
             };
 
             return (
               <motion.div key="execution" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
-                {/* Engagement Filters */}
-                <div className="flex items-center gap-4 mb-4 flex-wrap">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {filterOptions.map(f => (
-                      <button key={f.key} onClick={() => setEngFilter(f.key)}
-                        className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all cursor-pointer ${
-                          engFilter === f.key ? 'bg-primary text-white' : 'bg-surface-2 text-text-muted hover:bg-primary/10 hover:text-primary'
-                        }`}>
-                        {f.label}
-                        {f.count > 0 && <span className={`ml-1 text-[10px] tabular-nums ${engFilter === f.key ? 'text-white/80' : 'text-text-muted/60'}`}>{f.count}</span>}
-                      </button>
-                    ))}
+                {/* Summary Cards */}
+                <div className="grid grid-cols-5 gap-2.5 mb-4">
+                  {summaryCards.map((card, i) => (
+                    <motion.div key={card.label} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}
+                      className="glass-card rounded-lg px-3 py-2.5 flex items-center gap-2.5">
+                      <div className={`text-lg font-bold tabular-nums ${card.cls.split(' ')[0]}`}>{card.value}</div>
+                      <div className="text-[10px] text-text-muted leading-tight">{card.label}</div>
+                    </motion.div>
+                  ))}
+                </div>
+
+                {/* Filters + Search */}
+                <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
+                  <div className="flex items-center gap-4 flex-wrap">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {filterOptions.map(f => (
+                        <button key={f.key} onClick={() => setEngFilter(f.key)}
+                          className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all cursor-pointer ${
+                            engFilter === f.key ? 'bg-primary text-white' : 'bg-surface-2 text-text-muted hover:bg-primary/10 hover:text-primary'
+                          }`}>
+                          {f.label}
+                          {f.count > 0 && <span className={`ml-1 text-[10px] tabular-nums ${engFilter === f.key ? 'text-white/80' : 'text-text-muted/60'}`}>{f.count}</span>}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="w-px h-5 bg-border-light" />
+                    <div className="flex items-center gap-1.5">
+                      {processFilterOptions.map(opt => (
+                        <button key={opt} onClick={() => setProcessFilter(opt)}
+                          className={`px-2 py-1 rounded-full text-[10px] font-semibold transition-all cursor-pointer ${
+                            processFilter === opt ? 'bg-evidence-700 text-white' : 'bg-surface-2 text-text-muted hover:bg-evidence-50 hover:text-evidence-700'
+                          }`}>{opt}</button>
+                      ))}
+                    </div>
                   </div>
-                  <div className="w-px h-5 bg-border-light" />
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] font-bold text-text-muted">Filter by Primary Process:</span>
-                    {processFilterOptions.map(opt => (
-                      <button key={opt} onClick={() => setProcessFilter(opt)}
-                        className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all cursor-pointer ${
-                          processFilter === opt ? 'bg-evidence-700 text-white' : 'bg-surface-2 text-text-muted hover:bg-evidence-50 hover:text-evidence-700'
-                        }`}>{opt}</button>
-                    ))}
+                  <div className="relative">
+                    <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted" />
+                    <input type="text" placeholder="Search engagements, RACM, owner..." value={engSearch} onChange={e => setEngSearch(e.target.value)}
+                      className="pl-8 pr-3 py-1.5 text-[11px] border border-border rounded-lg bg-white text-text placeholder:text-text-muted/60 outline-none focus:border-primary/40 transition-colors w-56" />
                   </div>
                 </div>
 
-                {/* Engagement Execution Table */}
+                {/* Engagement Table */}
                 {filteredPlan.length === 0 ? (
                   <div className="glass-card rounded-xl p-12 text-center">
                     <ClipboardList size={32} className="text-text-muted mx-auto mb-3" />
-                    <p className="text-[14px] font-semibold text-text mb-1">No engagements found</p>
-                    <p className="text-[12px] text-text-muted max-w-sm mx-auto">
-                      {plan.length === 0
-                        ? 'No engagements yet. Create your first engagement by selecting a business process and RACM.'
-                        : 'No engagements match the selected filters. Try adjusting your filters above.'}
+                    <p className="text-[14px] font-semibold text-text mb-1">
+                      {plan.length === 0 ? 'No engagements planned yet' : 'No engagements match this filter'}
                     </p>
+                    <p className="text-[12px] text-text-muted max-w-sm mx-auto mb-4">
+                      {plan.length === 0
+                        ? 'Create your first engagement by selecting a business process and RACM.'
+                        : 'Try adjusting your filters or search query above.'}
+                    </p>
+                    {plan.length === 0 && (
+                      <button onClick={openCreateDrawer} className="inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-[12px] font-semibold transition-colors cursor-pointer">
+                        <Plus size={13} />Plan Engagement
+                      </button>
+                    )}
                   </div>
                 ) : (
                 <>
-                {/* Explanatory line */}
+                {/* Helper text */}
                 <div className="flex items-start gap-2 mb-3 px-1">
-                  <Info size={13} className="text-primary/60 shrink-0 mt-0.5" />
-                  <p className="text-[11px] text-text-muted leading-relaxed">
-                    Engagements are organized by <span className="font-semibold text-text-secondary">Primary Business Process</span>. Execution scope still comes from the linked RACM snapshot.
+                  <Info size={12} className="text-primary/50 shrink-0 mt-0.5" />
+                  <p className="text-[10px] text-text-muted leading-relaxed">
+                    Engagements are organized by primary business process. Execution details are available inside each engagement.
                   </p>
                 </div>
 
@@ -2458,95 +2519,100 @@ export default function AuditPlanningView({ onNavigateToExecution, embedded = fa
                   <div className="overflow-x-auto">
                     <table className="w-full text-[12px]">
                       <thead>
-                        <tr className="border-b border-border bg-surface-2/50">
-                          {['Engagement', 'Type', 'Primary Process', 'Owner', 'Progress', 'Effective', 'Failed', 'Pending', 'Remaining', 'Status', 'Action'].map(h => (
-                            <th key={h} className="px-3 py-2.5 text-left text-[10px] font-semibold text-text-muted uppercase tracking-wide whitespace-nowrap">
-                              {h === 'Primary Process' ? (
-                                <span className="group relative inline-flex items-center gap-1 cursor-help">
-                                  {h}
-                                  <Info size={10} className="text-text-muted/50" />
-                                  <span className="absolute left-0 top-full mt-1.5 z-50 hidden group-hover:block w-[220px] px-2.5 py-2 rounded-lg bg-ink-900 text-white text-[10px] font-normal normal-case tracking-normal leading-snug shadow-lg">
-                                    Used for planning, filtering, and ownership. Does not limit RACM execution scope.
-                                  </span>
-                                </span>
-                              ) : h}
-                            </th>
+                        <tr className="border-b border-border bg-surface-2/40">
+                          {['Engagement', 'Type / Framework', 'Owner', 'Status', 'Attention', 'Next Action'].map(h => (
+                            <th key={h} className="px-4 py-2.5 text-left text-[10px] font-semibold text-text-muted uppercase tracking-wide whitespace-nowrap">{h}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
                         {filteredPlan.map((eng, i) => {
-                          const isActive = isExecutionPhase(eng.status);
-                          const progress = eng.controls > 0 ? Math.round((eng.controlsTested / eng.controls) * 100) : 0;
                           const action = getNextAction(eng);
+                          const attention = getAttention(eng);
+                          const isExpanded = expandedEngId === eng.id;
+                          const auditPeriod = formatAuditPeriod(eng.auditPeriodStart, eng.auditPeriodEnd);
 
                           return (
-                            <motion.tr key={eng.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.02 }}
-                              onClick={() => {
-                                if (isActive && onNavigateToExecution) onNavigateToExecution(eng.id);
-                                else openEditDrawer(eng);
-                              }}
-                              className={`border-b border-border/50 hover:bg-gray-50/60 transition-colors cursor-pointer group ${eng.isOverdue ? 'border-l-[3px] border-l-red-400' : ''}`}>
-                              <td className="px-3 py-2.5">
-                                <div className="flex items-center gap-2">
-                                  <div className="min-w-0">
-                                    <div className="flex items-center gap-1.5">
-                                      <span className="text-[12px] font-semibold text-text truncate">{eng.name}</span>
-                                      {eng.isOverdue && <span className="px-1 h-4 rounded text-[8px] font-bold bg-red-50 text-red-600 inline-flex items-center shrink-0">OD</span>}
-                                    </div>
-                                    <div className="text-[10px] text-text-muted mt-0.5 truncate max-w-[220px]">
-                                      RACM: {getRacmDisplayName(eng)} · Scope: {getScopeLabel(eng)}
+                            <React.Fragment key={eng.id}>
+                              <motion.tr initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.02 }}
+                                onClick={() => {
+                                  if (isExecutionPhase(eng.status) && onNavigateToExecution) onNavigateToExecution(eng.id);
+                                  else openEditDrawer(eng);
+                                }}
+                                className={`border-b border-border/40 hover:bg-primary/[0.02] transition-colors cursor-pointer group ${eng.isOverdue ? 'border-l-[3px] border-l-red-400' : ''}`}>
+                                {/* Engagement — enriched with process chip, period, alert */}
+                                <td className="px-4 py-3.5">
+                                  <div className="min-w-0 max-w-[320px]">
+                                    <span className="text-[12.5px] font-semibold text-text leading-snug">{eng.name}</span>
+                                    <div className="text-[10px] text-text-muted/80 mt-0.5 truncate">RACM: {getRacmDisplayName(eng)}</div>
+                                    <div className="flex items-center gap-1.5 mt-1.5">
+                                      <span className={`px-1.5 h-[18px] rounded text-[9px] font-bold border inline-flex items-center ${PROCESS_BADGE_COLORS[eng.businessProcess]}`}>
+                                        {eng.businessProcess === 'Cross' ? 'Cross' : eng.businessProcess}
+                                      </span>
+                                      {auditPeriod && <span className="text-[9px] text-text-muted/60">{auditPeriod}</span>}
+                                      {eng.isOverdue && <span className="px-1.5 h-[18px] rounded text-[8px] font-bold bg-red-50 text-red-600 inline-flex items-center">OVERDUE</span>}
+                                      {eng.riskStatus === 'at-risk' && !eng.isOverdue && <span className="px-1.5 h-[18px] rounded text-[8px] font-bold bg-amber-50 text-amber-600 inline-flex items-center">AT RISK</span>}
                                     </div>
                                   </div>
-                                </div>
-                              </td>
-                              <td className="px-3 py-2.5">
-                                <span className="px-2 h-5 rounded-full text-[9px] font-medium bg-gray-50 text-gray-500 border border-gray-200/50 inline-flex items-center">{eng.auditType}</span>
-                              </td>
-                              <td className="px-3 py-2.5">
-                                <span className={`px-2.5 h-5 rounded-full text-[10px] font-bold border inline-flex items-center gap-1 ${PROCESS_BADGE_COLORS[eng.businessProcess]}`}>
-                                  {eng.businessProcess === 'Cross' ? 'Cross-Process' : eng.businessProcess}
-                                </span>
-                              </td>
-                              <td className="px-3 py-2.5"><span className="text-[11px] text-text-secondary">{eng.owner.split(' ')[0]}</span></td>
-                              <td className="px-3 py-2.5">
-                                {isActive ? (
-                                  <div className="flex items-center gap-2 min-w-[80px]">
-                                    <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                      <div className="h-full rounded-full bg-gray-400" style={{ width: `${progress}%` }} />
-                                    </div>
-                                    <span className="text-[10px] tabular-nums text-gray-400 w-7 text-right">{progress}%</span>
+                                </td>
+                                {/* Type / Framework */}
+                                <td className="px-4 py-3.5">
+                                  <div className="text-[11px] text-text-secondary leading-snug">{eng.auditType}</div>
+                                  <div className="text-[10px] text-text-muted/70 mt-0.5">{eng.framework}</div>
+                                </td>
+                                {/* Owner */}
+                                <td className="px-4 py-3.5">
+                                  <div className="text-[11px] font-medium text-text">{eng.owner.split(' ')[0]}</div>
+                                  <div className="text-[9.5px] text-text-muted/70 mt-0.5">{eng.reviewer.split(' ')[0]}</div>
+                                </td>
+                                {/* Status */}
+                                <td className="px-4 py-3.5">
+                                  <span className={`px-2 h-[20px] rounded-full text-[9px] font-semibold inline-flex items-center ${lifecycleTone(eng.status)}`}>{lifecycleLabel(eng.status)}</span>
+                                </td>
+                                {/* Attention */}
+                                <td className="px-4 py-3.5">
+                                  <span className={`px-2 h-[20px] rounded-full text-[9px] font-semibold inline-flex items-center ${attention.cls}`}>{attention.label}</span>
+                                </td>
+                                {/* Next Action */}
+                                <td className="px-4 py-3.5">
+                                  <div className="flex items-center gap-1">
+                                    <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold cursor-pointer transition-colors inline-flex items-center gap-1 ${action.cls}`}>
+                                      {action.label}<ChevronRight size={9} />
+                                    </span>
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); setExpandedEngId(isExpanded ? null : eng.id); }}
+                                      className="p-1 rounded hover:bg-gray-100 text-text-muted/50 hover:text-text transition-colors cursor-pointer"
+                                      title="Show details"
+                                    >
+                                      <ChevronDown size={11} className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                                    </button>
                                   </div>
-                                ) : <span className="text-gray-300 text-[10px]">—</span>}
-                              </td>
-                              <td className="px-3 py-2.5">
-                                {isActive ? <span className="text-[11px] font-medium tabular-nums text-gray-600">{eng.controlsEffective}</span> : <span className="text-gray-300 text-[10px]">—</span>}
-                              </td>
-                              <td className="px-3 py-2.5">
-                                {isActive ? <span className={`text-[11px] font-bold tabular-nums ${eng.controlsFailed > 0 ? 'text-red-600' : 'text-gray-400'}`}>{eng.controlsFailed}</span> : <span className="text-gray-300 text-[10px]">—</span>}
-                              </td>
-                              <td className="px-3 py-2.5">
-                                {isActive ? <span className="text-[11px] font-medium tabular-nums text-gray-600">{eng.pendingReview}</span> : <span className="text-gray-300 text-[10px]">—</span>}
-                              </td>
-                              <td className="px-3 py-2.5">
-                                {isActive ? <span className="text-[11px] tabular-nums text-text-muted">{eng.controls - eng.controlsTested}</span> : <span className="text-[11px] tabular-nums text-text-muted">{eng.controls}</span>}
-                              </td>
-                              <td className="px-3 py-2.5">
-                                <span className={`px-2 h-5 rounded-full text-[9px] font-semibold inline-flex items-center ${lifecycleTone(eng.status)}`}>{lifecycleLabel(eng.status)}</span>
-                              </td>
-                              <td className="px-3 py-2.5">
-                                <span className={`px-2 py-1 rounded-lg text-[10px] font-bold cursor-pointer transition-colors inline-flex items-center gap-1 ${action.cls}`}>
-                                  {action.label}<ChevronRight size={9} />
-                                </span>
-                              </td>
-                            </motion.tr>
+                                </td>
+                              </motion.tr>
+                              {/* Expanded detail row */}
+                              {isExpanded && (
+                                <tr className="bg-surface-2/20 border-b border-border/30">
+                                  <td colSpan={6} className="px-5 py-3">
+                                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} transition={{ duration: 0.15 }}
+                                      className="grid grid-cols-6 gap-5 text-[11px]">
+                                      <div><span className="text-text-muted/70 block text-[9px] uppercase font-semibold mb-0.5 tracking-wide">Controls</span><span className="font-bold text-text tabular-nums">{eng.controls}</span></div>
+                                      <div><span className="text-text-muted/70 block text-[9px] uppercase font-semibold mb-0.5 tracking-wide">Tested</span><span className="font-bold text-text tabular-nums">{eng.controlsTested}</span></div>
+                                      <div><span className="text-text-muted/70 block text-[9px] uppercase font-semibold mb-0.5 tracking-wide">Effective</span><span className="font-bold text-emerald-700 tabular-nums">{eng.controlsEffective}</span></div>
+                                      <div><span className="text-text-muted/70 block text-[9px] uppercase font-semibold mb-0.5 tracking-wide">Failed</span><span className={`font-bold tabular-nums ${eng.controlsFailed > 0 ? 'text-red-600' : 'text-text-muted/50'}`}>{eng.controlsFailed}</span></div>
+                                      <div><span className="text-text-muted/70 block text-[9px] uppercase font-semibold mb-0.5 tracking-wide">Pending Review</span><span className="font-bold text-text tabular-nums">{eng.pendingReview}</span></div>
+                                      <div><span className="text-text-muted/70 block text-[9px] uppercase font-semibold mb-0.5 tracking-wide">Last Activity</span><span className="text-text-secondary">{eng.lastActivity}</span></div>
+                                    </motion.div>
+                                  </td>
+                                </tr>
+                              )}
+                            </React.Fragment>
                           );
                         })}
                       </tbody>
                     </table>
                   </div>
-                  <div className="flex items-center justify-between px-4 py-2.5 border-t border-border bg-surface-2/30">
-                    <span className="text-[11px] text-text-muted">{filteredPlan.length} of {plan.length} engagements</span>
+                  <div className="px-4 py-2 border-t border-border/40 bg-surface-2/20">
+                    <span className="text-[10px] text-text-muted">{filteredPlan.length} of {plan.length} engagements</span>
                   </div>
                 </div>
                 </>
