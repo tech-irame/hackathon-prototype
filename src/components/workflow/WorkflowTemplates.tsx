@@ -173,7 +173,7 @@ export default function WorkflowTemplates({ onSelectWorkflow, onBuildNew, onRunW
             <Sparkles size={16} className="text-white" />
           </div>
           <div className="flex-1">
-            <div className="text-[12.5px] font-semibold text-text">Impact Intelligence</div>
+            <div className="text-[12px] leading-4 font-semibold text-text">Impact Intelligence</div>
             <div className="text-[12px] text-text-secondary">
               Duplicate Invoice Detector saved <strong>$2.4M</strong> in potential overpayments this quarter. 3 workflows need attention.
             </div>

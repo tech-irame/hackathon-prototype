@@ -222,7 +222,7 @@ export default function DataPickerModal({
                   <button
                     key={t.id}
                     onClick={() => setTab(t.id)}
-                    className={`relative flex items-center gap-1.5 px-3.5 h-10 text-[12.5px] font-medium transition-colors cursor-pointer ${
+                    className={`relative flex items-center gap-1.5 px-3.5 h-10 text-[12px] leading-4 font-medium transition-colors cursor-pointer ${
                       isActive ? 'text-primary' : 'text-text-muted hover:text-text'
                     }`}
                   >
@@ -283,7 +283,7 @@ export default function DataPickerModal({
                     value={combinedName}
                     onChange={(e) => setCombinedName(e.target.value)}
                     placeholder="Leave empty to add as separate files"
-                    className="flex-1 min-w-0 h-8 px-2.5 rounded-md border border-border-light bg-white text-[12.5px] text-ink-900 placeholder:text-text-muted/60 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-colors"
+                    className="flex-1 min-w-0 h-8 px-2.5 rounded-md border border-border-light bg-white text-[12px] leading-4 text-ink-900 placeholder:text-text-muted/60 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-colors"
                   />
                 </label>
               ) : (
@@ -305,14 +305,14 @@ export default function DataPickerModal({
               <div className="flex items-center gap-2">
                 <button
                   onClick={onClose}
-                  className="px-3 h-9 rounded-md text-[12.5px] font-medium text-text-muted hover:text-text hover:bg-white transition-colors cursor-pointer"
+                  className="px-3 h-9 rounded-md text-[12px] leading-4 font-medium text-text-muted hover:text-text hover:bg-white transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleConfirm}
                   disabled={totalSelected === 0}
-                  className="flex items-center gap-1.5 px-4 h-9 rounded-md bg-primary hover:bg-primary-hover active:bg-primary-hover disabled:bg-surface-2 disabled:text-text-muted disabled:cursor-not-allowed text-white text-[12.5px] font-semibold transition-colors cursor-pointer"
+                  className="flex items-center gap-1.5 px-4 h-9 rounded-md bg-primary hover:bg-primary-hover active:bg-primary-hover disabled:bg-surface-2 disabled:text-text-muted disabled:cursor-not-allowed text-white text-[12px] leading-4 font-semibold transition-colors cursor-pointer"
                 >
                   <Check size={13} />
                   {totalSelected > 0 ? `${confirmLabel} ${totalSelected}` : confirmLabel}
@@ -352,7 +352,7 @@ function SourceList({ sources, selectedIds, onToggle, search, showRequestIntegra
           <a
             href="mailto:support@irame.ai?subject=Database%20integration%20request"
             onClick={onRequestIntegration}
-            className="inline-flex items-center gap-2 mt-4 px-3 h-9 rounded-md bg-primary hover:bg-primary-hover text-white text-[12.5px] font-semibold transition-colors cursor-pointer"
+            className="inline-flex items-center gap-2 mt-4 px-3 h-9 rounded-md bg-primary hover:bg-primary-hover text-white text-[12px] leading-4 font-semibold transition-colors cursor-pointer"
           >
             <Plus size={13} />
             Request a DB integration
@@ -432,7 +432,7 @@ function SourceRow({ source, selected, onToggle }: { source: DataSource; selecte
         </div>
 
         {/* Type label pill (subtle, right-aligned) */}
-        <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-semibold text-text-muted bg-surface-2">
+        <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] leading-3 font-semibold text-text-muted bg-surface-2">
           {typeLabel}
         </span>
       </button>
@@ -622,14 +622,14 @@ function UploadPanel({ pendingUploads, setPendingUploads, mode }: UploadPanelPro
         <div className="inline-flex items-center gap-2 mt-4">
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="inline-flex items-center gap-2 px-3 h-9 rounded-md bg-primary hover:bg-primary-hover active:bg-primary-hover text-white text-[12.5px] font-semibold transition-colors cursor-pointer"
+            className="inline-flex items-center gap-2 px-3 h-9 rounded-md bg-primary hover:bg-primary-hover active:bg-primary-hover text-white text-[12px] leading-4 font-semibold transition-colors cursor-pointer"
           >
             <Upload size={13} />
             Choose files
           </button>
           <button
             onClick={() => folderInputRef.current?.click()}
-            className="inline-flex items-center gap-2 px-3 h-9 rounded-md border border-paper-200 bg-paper-0 text-ink-800 hover:border-paper-300 hover:bg-paper-50 text-[12.5px] font-semibold transition-colors cursor-pointer"
+            className="inline-flex items-center gap-2 px-3 h-9 rounded-md border border-paper-200 bg-paper-0 text-ink-800 hover:border-paper-300 hover:bg-paper-50 text-[12px] leading-4 font-semibold transition-colors cursor-pointer"
           >
             <Folder size={13} />
             Choose folder
@@ -650,7 +650,7 @@ function UploadPanel({ pendingUploads, setPendingUploads, mode }: UploadPanelPro
               Uploads · {pendingUploads.length}
             </span>
             {pendingUploads.some(u => u.progress < 100) && (
-              <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-primary">
+              <span className="inline-flex items-center gap-1 text-[10px] leading-3 font-semibold text-primary">
                 <Loader2 size={10} className="animate-spin" />
                 Uploading {pendingUploads.filter(u => u.progress < 100).length}…
               </span>
@@ -768,7 +768,7 @@ function ConnectDbPanel({ onCancel, onConnect }: ConnectDbPanelProps) {
                   }`}>
                     <Database size={12} />
                   </div>
-                  <div className={`text-[12.5px] font-semibold truncate ${selected ? 'text-brand-700' : 'text-ink-800'}`}>
+                  <div className={`text-[12px] leading-4 font-semibold truncate ${selected ? 'text-brand-700' : 'text-ink-800'}`}>
                     {t.label}
                   </div>
                 </button>
@@ -805,23 +805,23 @@ function ConnectDbPanel({ onCancel, onConnect }: ConnectDbPanelProps) {
               type="button"
               onClick={runTest}
               disabled={!requiredFilled || testStatus === 'testing'}
-              className="inline-flex items-center gap-1.5 px-3 h-9 rounded-md border border-paper-200 bg-paper-0 text-[12.5px] font-semibold text-ink-800 hover:border-paper-300 hover:bg-paper-50 disabled:bg-paper-100 disabled:text-ink-400 disabled:border-paper-200 disabled:cursor-not-allowed transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 h-9 rounded-md border border-paper-200 bg-paper-0 text-[12px] leading-4 font-semibold text-ink-800 hover:border-paper-300 hover:bg-paper-50 disabled:bg-paper-100 disabled:text-ink-400 disabled:border-paper-200 disabled:cursor-not-allowed transition-colors cursor-pointer"
             >
               {testStatus === 'testing' && <Loader2 size={12} className="animate-spin" />}
               {testStatus === 'testing' ? 'Testing…' : 'Test connection'}
             </button>
             {testStatus === 'ok' && (
-              <span className="inline-flex items-center h-6 px-2 rounded-full text-[11.5px] font-semibold bg-compliant-50 text-compliant-700">
+              <span className="inline-flex items-center h-6 px-2 rounded-full text-[12px] leading-4 font-semibold bg-compliant-50 text-compliant-700">
                 Connection successful
               </span>
             )}
             {testStatus === 'fail' && (
-              <span className="inline-flex items-center h-6 px-2 rounded-full text-[11.5px] font-semibold bg-risk-50 text-risk-700">
+              <span className="inline-flex items-center h-6 px-2 rounded-full text-[12px] leading-4 font-semibold bg-risk-50 text-risk-700">
                 Could not connect
               </span>
             )}
             {testStatus === 'idle' && (
-              <span className="text-[11.5px] text-ink-500">
+              <span className="text-[12px] leading-4 text-ink-500">
                 {requiredFilled ? 'Test before connecting.' : !dbType ? 'Pick an engine to begin.' : 'Fill the required fields.'}
               </span>
             )}
@@ -830,12 +830,12 @@ function ConnectDbPanel({ onCancel, onConnect }: ConnectDbPanelProps) {
 
       {/* Footer — paper-50 strip, helper on left, action group on right. */}
       <div className="border-t border-paper-200 px-6 py-3 flex items-center justify-between bg-paper-50">
-        <span className="text-[11.5px] text-ink-500">Credentials are stored encrypted.</span>
+        <span className="text-[12px] leading-4 text-ink-500">Credentials are stored encrypted.</span>
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={onCancel}
-            className="px-4 h-9 rounded-md border border-paper-200 bg-paper-0 text-[12.5px] font-semibold text-ink-800 hover:border-paper-300 hover:bg-paper-50 transition-colors cursor-pointer"
+            className="px-4 h-9 rounded-md border border-paper-200 bg-paper-0 text-[12px] leading-4 font-semibold text-ink-800 hover:border-paper-300 hover:bg-paper-50 transition-colors cursor-pointer"
           >
             Cancel
           </button>
@@ -843,7 +843,7 @@ function ConnectDbPanel({ onCancel, onConnect }: ConnectDbPanelProps) {
             type="button"
             onClick={submit}
             disabled={!canConnect}
-            className="inline-flex items-center gap-1.5 px-4 h-9 rounded-md bg-brand-600 hover:bg-brand-500 active:bg-brand-800 text-white text-[12.5px] font-semibold disabled:bg-brand-600/40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-4 h-9 rounded-md bg-brand-600 hover:bg-brand-500 active:bg-brand-800 text-white text-[12px] leading-4 font-semibold disabled:bg-brand-600/40 disabled:cursor-not-allowed transition-colors cursor-pointer"
           >
             {connecting && <Loader2 size={13} className="animate-spin" />}
             {connecting ? 'Connecting…' : 'Connect'}
@@ -902,12 +902,12 @@ function PendingFileRow({
             )}
           </div>
           {isDone ? (
-            <span className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10.5px] font-semibold text-compliant bg-compliant-50">
+            <span className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] leading-3 font-semibold text-compliant bg-compliant-50">
               <Check size={10} />
               Ready
             </span>
           ) : (
-            <span className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10.5px] font-semibold text-primary bg-primary-xlight">
+            <span className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] leading-3 font-semibold text-primary bg-primary-xlight">
               <Loader2 size={10} className="animate-spin" />
               {upload.progress}%
             </span>

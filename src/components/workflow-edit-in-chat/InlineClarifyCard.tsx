@@ -78,7 +78,7 @@ export default function InlineClarifyCard({
     >
       <div className="px-4 pt-3.5 pb-3">
         {stepLabel && (
-          <div className="text-[10.5px] font-bold text-brand-600 uppercase tracking-[0.14em] mb-2">
+          <div className="text-[10px] leading-3 font-bold text-brand-600 uppercase tracking-[0.14em] mb-2">
             {stepLabel}
           </div>
         )}
@@ -87,7 +87,7 @@ export default function InlineClarifyCard({
             {question.title}
           </div>
           {total > 1 && (
-            <div className="text-[11.5px] text-ink-400 whitespace-nowrap tabular-nums shrink-0 mt-0.5">
+            <div className="text-[12px] leading-4 text-ink-400 whitespace-nowrap tabular-nums shrink-0 mt-0.5">
               {index + 1} of {total}
             </div>
           )}
@@ -107,7 +107,7 @@ export default function InlineClarifyCard({
                   isSelected ? 'bg-brand-50/60' : 'hover:bg-canvas',
                 ].join(' ')}
               >
-                <span className="flex-1 text-[13.5px] text-ink-800">{opt}</span>
+                <span className="flex-1 text-[14px] leading-4 text-ink-800">{opt}</span>
                 {isSelected && (
                   <span className="text-ink-400">
                     <CornerDownLeft size={13} />
@@ -135,7 +135,7 @@ export default function InlineClarifyCard({
         <button
           type="button"
           onClick={() => onSkip(question.id)}
-          className="text-[12.5px] font-semibold text-ink-600 hover:text-ink-800 underline underline-offset-2 cursor-pointer"
+          className="text-[12px] leading-4 font-semibold text-ink-600 hover:text-ink-800 underline underline-offset-2 cursor-pointer"
         >
           Skip
         </button>

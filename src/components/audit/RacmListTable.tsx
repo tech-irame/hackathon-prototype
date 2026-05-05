@@ -161,10 +161,10 @@ export default function RacmListTable({ processFilter, initialMappingRacm, onMap
                         </div>
                       </td>
                       <td className="px-3 py-3">
-                        <span className={`px-2 h-5 rounded-full text-[9px] font-semibold inline-flex items-center border ${STATUS_BADGE[status]}`}>{status}</span>
+                        <span className={`px-2 h-5 rounded-full text-[10px] leading-3 font-semibold inline-flex items-center border ${STATUS_BADGE[status]}`}>{status}</span>
                       </td>
                       <td className="px-3 py-3">
-                        <span className={`px-2 h-5 rounded-full text-[9px] font-semibold inline-flex items-center ${READINESS_BADGE[readiness]}`}>{readiness}</span>
+                        <span className={`px-2 h-5 rounded-full text-[10px] leading-3 font-semibold inline-flex items-center ${READINESS_BADGE[readiness]}`}>{readiness}</span>
                       </td>
                       <td className="px-3 py-3">
                         <span className="inline-flex items-center px-2 h-5 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-600 border border-gray-200/60">{racm.process}</span>

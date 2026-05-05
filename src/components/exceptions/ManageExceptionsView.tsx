@@ -479,7 +479,7 @@ export default function ManageExceptionsView({ role, setRole, onBack, embedded =
                     <Tag size={13} />
                     Bulk Classify
                     {selected.size > 0 && (
-                      <span className="inline-flex items-center h-5 min-w-5 px-1 text-[10.5px] font-semibold bg-white/20 rounded-full tabular-nums">
+                      <span className="inline-flex items-center h-5 min-w-5 px-1 text-[10px] leading-3 font-semibold bg-white/20 rounded-full tabular-nums">
                         {selected.size}
                       </span>
                     )}

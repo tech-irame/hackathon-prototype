@@ -83,7 +83,8 @@ interface RiskItem {
   process: string;
   sourceRef: string;
   controls: MappedControl[];
-  riskRating: 'Critical' | 'High' | 'Medium' | 'Low';
+  validationStatus: 'Unvalidated' | 'Stable' | 'At Risk';
+  freshness: 'Up to Date' | 'Needs Re-execution';
   // SOP traceability
   sourceSopName?: string;
   sourceSopVersion?: string;
@@ -165,23 +166,22 @@ const CONTROL_LIBRARY: MappedControl[] = [
 ];
 
 const INITIAL_RISKS: RiskItem[] = [
-  { id: 'rsk-001', name: 'Unauthorized vendor payments', description: 'Payments processed without proper PO or approval', process: 'P2P', sourceRef: 'Row 2', controls: [CONTROL_LIBRARY[0], CONTROL_LIBRARY[3]], riskRating: 'High', sourceSopName: 'Vendor Payment SOP', sourceSopVersion: 'v2.1', sourceSection: '§3.2 Payment Authorization', sourceText: 'All payments must be matched against an approved PO before release.' },
-  { id: 'rsk-002', name: 'Duplicate invoices processed', description: 'Same invoice paid twice due to weak detection', process: 'P2P', sourceRef: 'Row 3', controls: [CONTROL_LIBRARY[2]], riskRating: 'Critical', sourceSopName: 'Vendor Payment SOP', sourceSopVersion: 'v2.1', sourceSection: '§4.1 Invoice Processing', sourceText: 'Invoices shall be scanned against historical records to prevent duplicates.' },
-  { id: 'rsk-003', name: 'Fictitious vendor registration', description: 'Vendor created without verification', process: 'P2P', sourceRef: 'Row 4', controls: [CONTROL_LIBRARY[1]], riskRating: 'High', sourceSopName: 'Vendor Payment SOP', sourceSopVersion: 'v2.1', sourceSection: '§2.3 Vendor Management', sourceText: 'New vendor registration requires tax ID verification and multi-level approval.' },
-  { id: 'rsk-004', name: 'Unauthorized PO creation', description: 'POs above threshold without dual sign-off', process: 'P2P', sourceRef: 'Row 5', controls: [], riskRating: 'Medium', sourceSopName: 'Purchase Order SOP', sourceSopVersion: 'v1.3', sourceSection: '§3.4 Approval Matrix', sourceText: 'Purchase orders exceeding threshold require dual authorization.' },
-  { id: 'rsk-005', name: 'SOD violation in AP', description: 'Same user creates and approves payment', process: 'P2P', sourceRef: 'Row 6', controls: [], riskRating: 'Medium', sourceSopName: 'Vendor Payment SOP', sourceSopVersion: 'v2.1', sourceSection: '§5.1 Access Controls', sourceText: 'Segregation of duties must be enforced between payment creation and approval.' },
-  { id: 'rsk-006', name: 'Revenue recognition timing', description: 'Revenue recognized before obligation completion', process: 'O2C', sourceRef: 'Row 7', controls: [CONTROL_LIBRARY[5]], riskRating: 'High', sourceSopName: 'Invoice Management SOP', sourceSopVersion: 'v1.0', sourceSection: '§6.2 Revenue Policy', sourceText: 'Revenue must be recognized per ASC 606 only after performance obligations are met.' },
-  { id: 'rsk-007', name: 'Incorrect journal entries', description: 'Manual JE posted without review', process: 'R2R', sourceRef: 'Row 8', controls: [CONTROL_LIBRARY[6]], riskRating: 'High', sourceSopName: 'Financial Close SOP', sourceSopVersion: 'v3.0', sourceSection: '§3.1 Journal Entries', sourceText: 'All manual journal entries require manager review before posting.' },
-  { id: 'rsk-008', name: 'GL balance discrepancy', description: 'Subsidiary balances do not reconcile', process: 'R2R', sourceRef: 'Row 9', controls: [], riskRating: 'Medium', sourceSopName: 'GL Reconciliation SOP', sourceSopVersion: 'v1.2', sourceSection: '§2.4 Reconciliation', sourceText: 'Monthly reconciliation of subsidiary balances to consolidated GL is required.' },
+  { id: 'rsk-001', name: 'Unauthorized vendor payments', description: 'Payments processed without proper PO or approval', process: 'P2P', sourceRef: 'Row 2', controls: [CONTROL_LIBRARY[0], CONTROL_LIBRARY[3]], validationStatus: 'Stable', freshness: 'Up to Date', sourceSopName: 'Vendor Payment SOP', sourceSopVersion: 'v2.1', sourceSection: '§3.2 Payment Authorization', sourceText: 'All payments must be matched against an approved PO before release.' },
+  { id: 'rsk-002', name: 'Duplicate invoices processed', description: 'Same invoice paid twice due to weak detection', process: 'P2P', sourceRef: 'Row 3', controls: [CONTROL_LIBRARY[2]], validationStatus: 'At Risk', freshness: 'Needs Re-execution', sourceSopName: 'Vendor Payment SOP', sourceSopVersion: 'v2.1', sourceSection: '§4.1 Invoice Processing', sourceText: 'Invoices shall be scanned against historical records to prevent duplicates.' },
+  { id: 'rsk-003', name: 'Fictitious vendor registration', description: 'Vendor created without verification', process: 'P2P', sourceRef: 'Row 4', controls: [CONTROL_LIBRARY[1]], validationStatus: 'Stable', freshness: 'Up to Date', sourceSopName: 'Vendor Payment SOP', sourceSopVersion: 'v2.1', sourceSection: '§2.3 Vendor Management', sourceText: 'New vendor registration requires tax ID verification and multi-level approval.' },
+  { id: 'rsk-004', name: 'Unauthorized PO creation', description: 'POs above threshold without dual sign-off', process: 'P2P', sourceRef: 'Row 5', controls: [], validationStatus: 'Unvalidated', freshness: 'Needs Re-execution', sourceSopName: 'Purchase Order SOP', sourceSopVersion: 'v1.3', sourceSection: '§3.4 Approval Matrix', sourceText: 'Purchase orders exceeding threshold require dual authorization.' },
+  { id: 'rsk-005', name: 'SOD violation in AP', description: 'Same user creates and approves payment', process: 'P2P', sourceRef: 'Row 6', controls: [], validationStatus: 'Unvalidated', freshness: 'Needs Re-execution', sourceSopName: 'Vendor Payment SOP', sourceSopVersion: 'v2.1', sourceSection: '§5.1 Access Controls', sourceText: 'Segregation of duties must be enforced between payment creation and approval.' },
+  { id: 'rsk-006', name: 'Revenue recognition timing', description: 'Revenue recognized before obligation completion', process: 'O2C', sourceRef: 'Row 7', controls: [CONTROL_LIBRARY[5]], validationStatus: 'Stable', freshness: 'Up to Date', sourceSopName: 'Invoice Management SOP', sourceSopVersion: 'v1.0', sourceSection: '§6.2 Revenue Policy', sourceText: 'Revenue must be recognized per ASC 606 only after performance obligations are met.' },
+  { id: 'rsk-007', name: 'Incorrect journal entries', description: 'Manual JE posted without review', process: 'R2R', sourceRef: 'Row 8', controls: [CONTROL_LIBRARY[6]], validationStatus: 'Stable', freshness: 'Up to Date', sourceSopName: 'Financial Close SOP', sourceSopVersion: 'v3.0', sourceSection: '§3.1 Journal Entries', sourceText: 'All manual journal entries require manager review before posting.' },
+  { id: 'rsk-008', name: 'GL balance discrepancy', description: 'Subsidiary balances do not reconcile', process: 'R2R', sourceRef: 'Row 9', controls: [], validationStatus: 'Unvalidated', freshness: 'Needs Re-execution', sourceSopName: 'GL Reconciliation SOP', sourceSopVersion: 'v1.2', sourceSection: '§2.4 Reconciliation', sourceText: 'Monthly reconciliation of subsidiary balances to consolidated GL is required.' },
 ];
 
 // ─── Styles ─────────────────────────────────────────────────────────────────
 
-const RATING_CLS: Record<string, string> = {
-  Critical: 'bg-red-100 text-red-800',
-  High: 'bg-orange-100 text-orange-800',
-  Medium: 'bg-amber-100 text-amber-800',
-  Low: 'bg-emerald-100 text-emerald-800',
+const VAL_CLS: Record<string, string> = {
+  Stable: 'bg-emerald-100 text-emerald-800',
+  'At Risk': 'bg-red-100 text-red-800',
+  Unvalidated: 'bg-gray-100 text-gray-600',
 };
 const EXEC_CLS: Record<string, string> = {
   Effective: 'bg-compliant-50 text-compliant-700',
@@ -270,7 +270,7 @@ export default function RacmMappingWorkspace({ onBack, onGoToExecution, racmId, 
     }
     setRisks(prev => prev.map(r => r.id === selectedRisk.id ? {
       ...r, controls: [...r.controls, ctrl],
-      riskRating: r.riskRating,
+      validationStatus: r.validationStatus === 'Unvalidated' && ctrl.status === 'Effective' ? 'Stable' : r.validationStatus,
     } : r));
     setShowLinkDrawer(false);
     if (racmValidated) setRacmValidated(false);
@@ -403,7 +403,7 @@ export default function RacmMappingWorkspace({ onBack, onGoToExecution, racmId, 
     const similar = risks.find(r => r.name.toLowerCase() === data.name.trim().toLowerCase());
     const newRiskData: Omit<RiskItem, 'id'> = {
       name: data.name.trim(), description: data.description.trim(), process: data.process || racmProcess || 'P2P',
-      sourceRef: 'Manual', controls: [], riskRating: 'Medium',
+      sourceRef: 'Manual', controls: [], validationStatus: 'Unvalidated', freshness: 'Needs Re-execution',
     };
 
     if (similar) {
@@ -809,7 +809,7 @@ function RacmGridView({ risks, onSelectRisk, onUpdateRisks, onLinkControl, onCre
 }) {
   const { addToast } = useToast();
   const [gridSearch, setGridSearch] = useState('');
-  const [gridFilter, setGridFilter] = useState<'All' | 'Unmapped' | 'Mapped' | 'At Risk' | 'Unvalidated'>('All');
+  const [gridFilter, setGridFilter] = useState<'All' | 'Unmapped' | 'Partially Mapped' | 'Mapped' | 'At Risk' | 'Unvalidated'>('All');
   const [editingNameId, setEditingNameId] = useState<string | null>(null);
   const [editNameValue, setEditNameValue] = useState('');
   const [controlPickerRiskId, setControlPickerRiskId] = useState<string | null>(null);
@@ -825,8 +825,9 @@ function RacmGridView({ risks, onSelectRisk, onUpdateRisks, onLinkControl, onCre
     if (q && !r.name.toLowerCase().includes(q) && !r.id.toLowerCase().includes(q) && !r.process.toLowerCase().includes(q)) return false;
     if (gridFilter === 'Unmapped' && r.controls.length > 0) return false;
     if (gridFilter === 'Mapped' && (r.controls.length === 0 || r.controls.some(c => !c.workflowLinked))) return false;
-    if (gridFilter === 'At Risk' && (r.riskRating !== 'Critical' && r.riskRating !== 'High')) return false;
-    if (gridFilter === 'Unvalidated' && r.controls.length === 0) return false;
+    if (gridFilter === 'Partially Mapped' && !(r.controls.length > 0 && r.controls.some(c => !c.workflowLinked))) return false;
+    if (gridFilter === 'At Risk' && r.validationStatus !== 'At Risk') return false;
+    if (gridFilter === 'Unvalidated' && r.validationStatus !== 'Unvalidated') return false;
     return true;
   });
 
@@ -937,7 +938,7 @@ function RacmGridView({ risks, onSelectRisk, onUpdateRisks, onLinkControl, onCre
               className="pl-8 pr-3 py-1.5 text-[11px] border border-border rounded-lg bg-white text-text placeholder:text-text-muted outline-none focus:border-primary/40 transition-colors w-44" />
           </div>
           <div className="flex gap-1">
-            {(['All', 'Unmapped', 'Mapped', 'At Risk', 'Unvalidated'] as const).map(f => (
+            {(['All', 'Unmapped', 'Partially Mapped', 'Mapped', 'At Risk', 'Unvalidated'] as const).map(f => (
               <button key={f} onClick={() => setGridFilter(f)}
                 className={`px-2 py-1 rounded-full text-[10px] font-semibold transition-all cursor-pointer ${
                   gridFilter === f ? 'bg-primary text-white' : 'bg-surface-2 text-text-muted hover:bg-primary/10 hover:text-primary'
@@ -982,14 +983,14 @@ function RacmGridView({ risks, onSelectRisk, onUpdateRisks, onLinkControl, onCre
                   { label: 'Risk ID', w: 'w-[100px]' },
                   { label: 'Risk Name', w: 'w-[180px]' },
                   { label: 'Process', w: 'w-[100px]' },
-                  { label: 'Risk Rating', w: 'w-[90px]' },
+                  { label: 'Risk Status', w: 'w-[90px]' },
                   { label: 'Control(s)', w: 'w-[240px]' },
                   { label: 'Key Control', w: 'w-[80px]' },
                   { label: 'Workflow Status', w: 'w-[110px]' },
                   { label: 'Mapping', w: 'w-[80px]' },
                   { label: '', w: 'w-[50px]' },
                 ].map(h => (
-                  <th key={h.label || 'actions'} className={`px-3 py-3 text-left text-[9px] font-semibold text-text-muted uppercase tracking-wide whitespace-nowrap ${h.w}`}>{h.label}</th>
+                  <th key={h.label || 'actions'} className={`px-3 py-3 text-left text-[10px] leading-3 font-semibold text-text-muted uppercase tracking-wide whitespace-nowrap ${h.w}`}>{h.label}</th>
                 ))}
               </tr>
             </thead>
@@ -1044,14 +1045,14 @@ function RacmGridView({ risks, onSelectRisk, onUpdateRisks, onLinkControl, onCre
 
                     {/* Risk Status */}
                     <td className="px-3 py-2.5 align-middle">
-                      <span className={`px-2 h-5 rounded-full text-[9px] font-semibold inline-flex items-center whitespace-nowrap ${RATING_CLS[risk.riskRating]}`}>{risk.riskRating}</span>
+                      <span className={`px-2 h-5 rounded-full text-[10px] leading-3 font-semibold inline-flex items-center whitespace-nowrap ${VAL_CLS[risk.validationStatus]}`}>{risk.validationStatus}</span>
                     </td>
 
                     {/* Controls — interactive pills */}
                     <td className="px-3 py-2.5 align-middle relative" onClick={e => e.stopPropagation()}>
                       <div className="flex flex-wrap gap-1 max-h-[44px] overflow-hidden">
                         {risk.controls.slice(0, 3).map(c => (
-                          <span key={c.id} className="inline-flex items-center gap-0.5 px-1.5 h-5 rounded bg-gray-50 text-[9px] font-medium text-gray-700 border border-gray-200/70 group/pill cursor-default" title={c.name}>
+                          <span key={c.id} className="inline-flex items-center gap-0.5 px-1.5 h-5 rounded bg-gray-50 text-[10px] leading-3 font-medium text-gray-700 border border-gray-200/70 group/pill cursor-default" title={c.name}>
                             <button onClick={() => toggleKeyInGrid(risk.id, c.id)} className="cursor-pointer shrink-0" title={c.isKey ? 'Unmark key' : 'Mark as key'}>
                               <Star size={8} className={c.isKey ? 'fill-amber-400 text-amber-400' : 'text-gray-300 hover:text-amber-400 transition-colors'} />
                             </button>
@@ -1062,11 +1063,11 @@ function RacmGridView({ risks, onSelectRisk, onUpdateRisks, onLinkControl, onCre
                           </span>
                         ))}
                         {risk.controls.length > 3 && (
-                          <span className="inline-flex items-center px-1.5 h-5 rounded bg-gray-50 text-[9px] font-semibold text-gray-500 border border-gray-200/70">+{risk.controls.length - 3} more</span>
+                          <span className="inline-flex items-center px-1.5 h-5 rounded bg-gray-50 text-[10px] leading-3 font-semibold text-gray-500 border border-gray-200/70">+{risk.controls.length - 3} more</span>
                         )}
                         {/* Add control button */}
                         <button onClick={() => { setControlPickerRiskId(controlPickerRiskId === risk.id ? null : risk.id); setControlSearch(''); }}
-                          className="inline-flex items-center gap-0.5 px-1.5 h-5 rounded text-[9px] font-semibold text-primary bg-primary/10 hover:bg-primary/15 cursor-pointer transition-colors border border-primary/20">
+                          className="inline-flex items-center gap-0.5 px-1.5 h-5 rounded text-[10px] leading-3 font-semibold text-primary bg-primary/10 hover:bg-primary/15 cursor-pointer transition-colors border border-primary/20">
                           <Plus size={8} />{risk.controls.length === 0 ? 'Add Control' : '+'}
                         </button>
                       </div>
@@ -1093,15 +1094,15 @@ function RacmGridView({ risks, onSelectRisk, onUpdateRisks, onLinkControl, onCre
                                     <span className="text-[10px] font-medium text-text truncate">{ctrl.name}</span>
                                     {ctrl.isKey && <Star size={7} className="fill-amber-400 text-amber-400 shrink-0" />}
                                   </div>
-                                  <div className="text-[9px] text-ink-400 mt-0.5">{ctrl.automation} · {ctrl.nature}</div>
+                                  <div className="text-[10px] leading-3 text-ink-400 mt-0.5">{ctrl.automation} · {ctrl.nature}</div>
                                 </button>
                               ))}
                             </div>
                             <div className="border-t border-border/50 p-1.5 flex gap-1">
                               <button onClick={() => { setControlPickerRiskId(null); onLinkControl(risk.id); }}
-                                className="flex-1 text-center px-2 py-1.5 rounded-lg text-[9px] font-semibold text-primary hover:bg-primary/10 cursor-pointer transition-colors">Browse Library</button>
+                                className="flex-1 text-center px-2 py-1.5 rounded-lg text-[10px] leading-3 font-semibold text-primary hover:bg-primary/10 cursor-pointer transition-colors">Browse Library</button>
                               <button onClick={() => { setControlPickerRiskId(null); onCreateControl(risk.id); }}
-                                className="flex-1 text-center px-2 py-1.5 rounded-lg text-[9px] font-semibold text-brand-700 hover:bg-brand-50 cursor-pointer transition-colors">+ Create New</button>
+                                className="flex-1 text-center px-2 py-1.5 rounded-lg text-[10px] leading-3 font-semibold text-brand-700 hover:bg-brand-50 cursor-pointer transition-colors">+ Create New</button>
                             </div>
                           </motion.div>
                         )}
@@ -1117,12 +1118,12 @@ function RacmGridView({ risks, onSelectRisk, onUpdateRisks, onLinkControl, onCre
 
                     {/* Workflow Status — clickable */}
                     <td className="px-3 py-2.5 align-middle" onClick={e => { e.stopPropagation(); if (risk.controls.length > 0) setWfDrawerRiskId(risk.id); }}>
-                      <span className={`px-2 h-5 rounded-full text-[9px] font-semibold inline-flex items-center whitespace-nowrap cursor-pointer hover:ring-2 hover:ring-primary/20 transition-all ${WF_READINESS_CLS[wfStatus]}`}>{wfStatus}</span>
+                      <span className={`px-2 h-5 rounded-full text-[10px] leading-3 font-semibold inline-flex items-center whitespace-nowrap cursor-pointer hover:ring-2 hover:ring-primary/20 transition-all ${WF_READINESS_CLS[wfStatus]}`}>{wfStatus}</span>
                     </td>
 
                     {/* Mapping Status */}
                     <td className="px-3 py-2.5 align-middle">
-                      <span className={`px-2 h-5 rounded-full text-[9px] font-semibold inline-flex items-center whitespace-nowrap ${MAPPING_STATUS_CLS[mappingStatus]}`}>{mappingStatus}</span>
+                      <span className={`px-2 h-5 rounded-full text-[10px] leading-3 font-semibold inline-flex items-center whitespace-nowrap ${MAPPING_STATUS_CLS[mappingStatus]}`}>{mappingStatus}</span>
                     </td>
 
                     {/* Manage Workflow — single row action */}
@@ -1149,10 +1150,10 @@ function RacmGridView({ risks, onSelectRisk, onUpdateRisks, onLinkControl, onCre
                             <div className="px-6 py-4 bg-surface-2/20 border-b border-border/30 space-y-4">
                               {/* Risk details */}
                               <div className="grid grid-cols-4 gap-4">
-                                <div><span className="text-[9px] text-ink-400 uppercase block">Description</span><p className="text-[11px] text-text mt-0.5">{risk.description || '—'}</p></div>
-                                <div><span className="text-[9px] text-ink-400 uppercase block">Source Ref</span><p className="text-[11px] text-text mt-0.5 font-mono">{risk.sourceRef}</p></div>
-                                <div><span className="text-[9px] text-ink-400 uppercase block">Process</span><p className="text-[11px] font-medium mt-0.5 text-text">{risk.process}</p></div>
-                                <div><span className="text-[9px] text-ink-400 uppercase block">Risk Rating</span><span className={`mt-0.5 px-2 h-5 rounded-full text-[9px] font-semibold inline-flex items-center ${RATING_CLS[risk.riskRating]}`}>{risk.riskRating}</span></div>
+                                <div><span className="text-[10px] leading-3 text-ink-400 uppercase block">Description</span><p className="text-[11px] text-text mt-0.5">{risk.description || '—'}</p></div>
+                                <div><span className="text-[10px] leading-3 text-ink-400 uppercase block">Source Ref</span><p className="text-[11px] text-text mt-0.5 font-mono">{risk.sourceRef}</p></div>
+                                <div><span className="text-[10px] leading-3 text-ink-400 uppercase block">Freshness</span><p className={`text-[11px] font-medium mt-0.5 ${risk.freshness === 'Up to Date' ? 'text-compliant-700' : 'text-high-700'}`}>{risk.freshness}</p></div>
+                                <div><span className="text-[10px] leading-3 text-ink-400 uppercase block">Validation</span><span className={`mt-0.5 px-2 h-5 rounded-full text-[10px] leading-3 font-semibold inline-flex items-center ${VAL_CLS[risk.validationStatus]}`}>{risk.validationStatus}</span></div>
                               </div>
 
                               {/* SOP Traceability */}
@@ -1160,19 +1161,19 @@ function RacmGridView({ risks, onSelectRisk, onUpdateRisks, onLinkControl, onCre
                                 <div className="rounded-lg border border-border/40 bg-white px-4 py-3">
                                   <div className="flex items-center gap-1.5 mb-2">
                                     <FileText size={10} className="text-gray-400" />
-                                    <span className="text-[9px] font-bold text-ink-400 uppercase tracking-wider">SOP Source</span>
+                                    <span className="text-[10px] leading-3 font-bold text-ink-400 uppercase tracking-wider">SOP Source</span>
                                   </div>
                                   <div className="grid grid-cols-3 gap-3">
                                     <div>
-                                      <span className="text-[9px] text-gray-400 block">SOP</span>
+                                      <span className="text-[10px] leading-3 text-gray-400 block">SOP</span>
                                       <span className="text-[11px] text-text font-medium">{risk.sourceSopName}</span>
                                     </div>
                                     <div>
-                                      <span className="text-[9px] text-gray-400 block">Section</span>
+                                      <span className="text-[10px] leading-3 text-gray-400 block">Section</span>
                                       <span className="text-[10px] font-mono text-gray-500">{risk.sourceSection}</span>
                                     </div>
                                     <div>
-                                      <span className="text-[9px] text-gray-400 block">Original Text</span>
+                                      <span className="text-[10px] leading-3 text-gray-400 block">Original Text</span>
                                       <span className="text-[10px] text-gray-500 italic line-clamp-2">"{risk.sourceText}"</span>
                                     </div>
                                   </div>
@@ -1205,7 +1206,7 @@ function RacmGridView({ risks, onSelectRisk, onUpdateRisks, onLinkControl, onCre
                                               {ctrl.isKey && <Star size={8} className="fill-amber-400 text-amber-400 shrink-0" />}
                                               <span className={`px-1.5 h-3.5 rounded text-[8px] font-bold inline-flex items-center ${AUTO_CLS[ctrl.automation]}`}>{ctrl.automation}</span>
                                             </div>
-                                            <div className="flex items-center gap-3 mt-0.5 text-[9px] text-ink-400">
+                                            <div className="flex items-center gap-3 mt-0.5 text-[10px] leading-3 text-ink-400">
                                               <span>{wfs.length} workflow{wfs.length !== 1 ? 's' : ''}</span>
                                               <span>{wfs.reduce((s, w) => s + w.attributes.length, 0)} attrs</span>
                                               {ctrl.owner && <span>{ctrl.owner}</span>}
@@ -1214,11 +1215,11 @@ function RacmGridView({ risks, onSelectRisk, onUpdateRisks, onLinkControl, onCre
                                           <span className={`px-1.5 h-4 rounded text-[8px] font-bold inline-flex items-center shrink-0 ${READINESS_CLS[rd]}`}>{rd}</span>
                                           {wfs.length === 0 && onLinkWorkflow && (
                                             <button onClick={e => { e.stopPropagation(); onLinkWorkflow(ctrl.id); }}
-                                              className="text-[9px] font-semibold text-brand-600 hover:underline cursor-pointer shrink-0">Link Workflow</button>
+                                              className="text-[10px] leading-3 font-semibold text-brand-600 hover:underline cursor-pointer shrink-0">Link Workflow</button>
                                           )}
                                           {wfs.length > 0 && (
                                             <button onClick={e => { e.stopPropagation(); setWfDrawerRiskId(risk.id); }}
-                                              className="text-[9px] font-semibold text-brand-600 hover:underline cursor-pointer shrink-0">Manage</button>
+                                              className="text-[10px] leading-3 font-semibold text-brand-600 hover:underline cursor-pointer shrink-0">Manage</button>
                                           )}
                                         </div>
                                       );
@@ -1239,7 +1240,7 @@ function RacmGridView({ risks, onSelectRisk, onUpdateRisks, onLinkControl, onCre
         </div>
         <div className="px-4 py-2.5 border-t border-border bg-surface-2/30 flex items-center justify-between">
           <span className="text-[10px] text-text-muted">{filteredRisks.length} risk{filteredRisks.length !== 1 ? 's' : ''} · Use inline controls to map, hover for quick actions, click workflow status for details</span>
-          <div className="flex items-center gap-3 text-[9px]">
+          <div className="flex items-center gap-3 text-[10px] leading-3">
             <span className="flex items-center gap-1"><span className="w-2 h-2 rounded bg-compliant-50 border border-compliant/30" /><span className="text-text-muted">Mapped</span></span>
             <span className="flex items-center gap-1"><span className="w-2 h-2 rounded bg-mitigated-50 border border-mitigated/30" /><span className="text-text-muted">Partial</span></span>
             <span className="flex items-center gap-1"><span className="w-2 h-2 rounded bg-risk-50 border border-risk/30" /><span className="text-text-muted">Unmapped</span></span>
@@ -1255,7 +1256,6 @@ function RacmGridView({ risks, onSelectRisk, onUpdateRisks, onLinkControl, onCre
             onClose={() => setWfDrawerRiskId(null)}
             onLinkWorkflow={(ctrlId) => { setWfDrawerRiskId(null); if (onLinkWorkflow) onLinkWorkflow(ctrlId); }}
             onCreateWorkflow={(ctrlId) => { setWfDrawerRiskId(null); if (onCreateWorkflow) onCreateWorkflow(ctrlId); }}
-            onUpdateRisks={onUpdateRisks}
           />
         )}
       </AnimatePresence>
@@ -1265,43 +1265,13 @@ function RacmGridView({ risks, onSelectRisk, onUpdateRisks, onLinkControl, onCre
 
 // ─── Workflow Readiness Drawer ──────────────────────────────────────────────
 
-function WorkflowReadinessDrawer({ risk, onClose, onLinkWorkflow, onCreateWorkflow, onUpdateRisks }: {
+function WorkflowReadinessDrawer({ risk, onClose, onLinkWorkflow, onCreateWorkflow }: {
   risk: RiskItem;
   onClose: () => void;
   onLinkWorkflow: (controlId: string) => void;
   onCreateWorkflow: (controlId: string) => void;
-  onUpdateRisks: (updater: (prev: RiskItem[]) => RiskItem[]) => void;
 }) {
   const { addToast } = useToast();
-  // Track which workflow is showing the add-attribute form: "ctrlId::wfId"
-  const [addingAttrFor, setAddingAttrFor] = useState<string | null>(null);
-  const [attrName, setAttrName] = useState('');
-  const [attrDesc, setAttrDesc] = useState('');
-  const [attrEvType, setAttrEvType] = useState('');
-  const [attrExpected, setAttrExpected] = useState('');
-  const [attrPassLogic, setAttrPassLogic] = useState('');
-  const [attrRequired, setAttrRequired] = useState(true);
-
-  const resetAttrForm = () => { setAttrName(''); setAttrDesc(''); setAttrEvType(''); setAttrExpected(''); setAttrPassLogic(''); setAttrRequired(true); setAddingAttrFor(null); };
-
-  const handleAddAttribute = (ctrlId: string, wfId: string) => {
-    if (!attrName.trim()) return;
-    const newAttr: ControlAttribute = {
-      id: `a-${Date.now()}`,
-      name: attrName.trim(),
-      description: attrDesc,
-      evidenceType: attrEvType,
-      expectedResult: attrExpected,
-      passLogic: attrPassLogic,
-    };
-    onUpdateRisks(prev => prev.map(r => r.id === risk.id ? {
-      ...r, controls: r.controls.map(c => c.id === ctrlId ? {
-        ...c, workflows: (c.workflows || []).map(wf => wf.id === wfId ? { ...wf, attributes: [...wf.attributes, newAttr] } : wf),
-      } : c),
-    } : r));
-    addToast({ message: `Attribute "${attrName.trim()}" added to workflow.`, type: 'success' });
-    resetAttrForm();
-  };
 
   return (
     <>
@@ -1309,13 +1279,10 @@ function WorkflowReadinessDrawer({ risk, onClose, onLinkWorkflow, onCreateWorkfl
         className="fixed inset-0 bg-ink-900/40 backdrop-blur-[2px] z-40" onClick={onClose} />
       <motion.aside initial={{ x: 24, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 24, opacity: 0 }}
         transition={{ duration: 0.2, ease: [0.2, 0, 0, 1] }}
-        className="fixed top-0 right-0 bottom-0 w-full max-w-[520px] bg-canvas-elevated shadow-xl border-l border-canvas-border flex flex-col z-50"
+        className="fixed top-0 right-0 bottom-0 w-full max-w-[460px] bg-canvas-elevated shadow-xl border-l border-canvas-border flex flex-col z-50"
         role="dialog" aria-label="Workflow Readiness">
 
         <header className="shrink-0 px-6 pt-5 pb-4 border-b border-canvas-border">
-          <button onClick={onClose} className="flex items-center gap-1 text-[11px] text-ink-500 hover:text-primary font-medium cursor-pointer transition-colors mb-2">
-            <ArrowLeft size={12} />Back
-          </button>
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-2"><Workflow size={18} className="text-brand-600" /><h2 className="font-display text-[18px] font-semibold text-ink-900">Workflow Readiness</h2></div>
@@ -1347,7 +1314,7 @@ function WorkflowReadinessDrawer({ risk, onClose, onLinkWorkflow, onCreateWorkfl
                       <span className="text-[12px] font-semibold text-text">{ctrl.name}</span>
                       {ctrl.isKey && <Star size={9} className="fill-mitigated text-mitigated" />}
                     </div>
-                    <span className={`px-2 h-5 rounded-full text-[9px] font-semibold inline-flex items-center ${READINESS_CLS[readiness]}`}>{readiness}</span>
+                    <span className={`px-2 h-5 rounded-full text-[10px] leading-3 font-semibold inline-flex items-center ${READINESS_CLS[readiness]}`}>{readiness}</span>
                   </div>
 
                   {/* Workflows under this control */}
@@ -1357,64 +1324,17 @@ function WorkflowReadinessDrawer({ risk, onClose, onLinkWorkflow, onCreateWorkfl
                     </div>
                   ) : (
                     <div className="space-y-2 mb-2">
-                      {wfs.map(wf => {
-                        const formKey = `${ctrl.id}::${wf.id}`;
-                        const isAdding = addingAttrFor === formKey;
-                        return (
-                          <div key={wf.id} className="rounded-lg border border-border overflow-hidden">
-                            <div className="px-3 py-2">
-                              <div className="flex items-center gap-2 mb-1">
-                                <Workflow size={11} className="text-brand-600 shrink-0" />
-                                <span className="text-[11px] font-medium text-text">{wf.name}</span>
-                                <span className="text-[9px] font-mono text-ink-400">{wf.version}</span>
-                                <span className={`px-1.5 h-4 rounded text-[8px] font-bold inline-flex items-center ${WF_STATUS_CLS[wf.status]}`}>{wf.status}</span>
-                              </div>
-                              <div className="text-[9px] text-ink-400 mb-1.5">{wf.attributes.length} attribute{wf.attributes.length !== 1 ? 's' : ''}</div>
-                              {/* Existing attributes list */}
-                              {wf.attributes.length > 0 && (
-                                <div className="space-y-1 mb-2">
-                                  {wf.attributes.map(a => (
-                                    <div key={a.id} className="flex items-center gap-2 text-[10px] px-2 py-1 rounded bg-surface-2/30">
-                                      <CheckCircle2 size={9} className="text-compliant-600 shrink-0" />
-                                      <span className="text-text">{a.name}</span>
-                                      {a.evidenceType && <span className="text-ink-400">({a.evidenceType})</span>}
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                              {/* Add Attribute button */}
-                              {!isAdding && (
-                                <button onClick={() => { resetAttrForm(); setAddingAttrFor(formKey); }}
-                                  className="flex items-center gap-1 px-2 py-1 rounded text-[9px] font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 cursor-pointer transition-colors">
-                                  <Plus size={9} />Add Attribute
-                                </button>
-                              )}
-                            </div>
-
-                            {/* Add Attribute Form */}
-                            {isAdding && (
-                              <div className="px-3 py-3 border-t border-border bg-brand-50/10 space-y-2.5">
-                                <h6 className="text-[11px] font-bold text-brand-700">New Attribute</h6>
-                                <input value={attrName} onChange={e => setAttrName(e.target.value)} placeholder="Attribute name *"
-                                  className="w-full px-3 py-2 border border-border rounded-lg text-[12px] text-text bg-white outline-none focus:border-brand-500/40" autoFocus />
-                                <input value={attrDesc} onChange={e => setAttrDesc(e.target.value)} placeholder="Description"
-                                  className="w-full px-3 py-2 border border-border rounded-lg text-[12px] text-text bg-white outline-none focus:border-brand-500/40" />
-                                <div className="grid grid-cols-2 gap-2">
-                                  <input value={attrEvType} onChange={e => setAttrEvType(e.target.value)} placeholder="Evidence type (e.g. PO doc)"
-                                    className="w-full px-3 py-2 border border-border rounded-lg text-[12px] text-text bg-white outline-none focus:border-brand-500/40" />
-                                  <input value={attrExpected} onChange={e => setAttrExpected(e.target.value)} placeholder="Expected result"
-                                    className="w-full px-3 py-2 border border-border rounded-lg text-[12px] text-text bg-white outline-none focus:border-brand-500/40" />
-                                </div>
-                                <div className="flex items-center justify-end gap-1.5">
-                                    <button onClick={resetAttrForm} className="px-3 py-1.5 rounded-lg text-[11px] font-medium text-ink-600 hover:bg-canvas cursor-pointer transition-colors">Cancel</button>
-                                    <button onClick={() => handleAddAttribute(ctrl.id, wf.id)} disabled={!attrName.trim()}
-                                      className="px-3 py-1.5 rounded-lg bg-primary hover:bg-primary/90 text-white text-[11px] font-semibold cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed">Add</button>
-                                </div>
-                              </div>
-                            )}
+                      {wfs.map(wf => (
+                        <div key={wf.id} className="rounded-lg border border-border px-3 py-2">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Workflow size={11} className="text-brand-600 shrink-0" />
+                            <span className="text-[11px] font-medium text-text">{wf.name}</span>
+                            <span className="text-[10px] leading-3 font-mono text-ink-400">{wf.version}</span>
+                            <span className={`px-1.5 h-4 rounded text-[8px] font-bold inline-flex items-center ${WF_STATUS_CLS[wf.status]}`}>{wf.status}</span>
                           </div>
-                        );
-                      })}
+                          <div className="text-[10px] leading-3 text-ink-400">{wf.attributes.length} attribute{wf.attributes.length !== 1 ? 's' : ''}</div>
+                        </div>
+                      ))}
                     </div>
                   )}
 
@@ -1431,7 +1351,7 @@ function WorkflowReadinessDrawer({ risk, onClose, onLinkWorkflow, onCreateWorkfl
                   </div>
 
                   {/* Summary line */}
-                  <div className="mt-2 pt-2 border-t border-border/30 flex items-center gap-3 text-[9px] text-ink-400">
+                  <div className="mt-2 pt-2 border-t border-border/30 flex items-center gap-3 text-[10px] leading-3 text-ink-400">
                     <span>{wfs.length} workflow{wfs.length !== 1 ? 's' : ''}</span>
                     <span>{totalAttrs} attribute{totalAttrs !== 1 ? 's' : ''}</span>
                   </div>
@@ -1443,7 +1363,7 @@ function WorkflowReadinessDrawer({ risk, onClose, onLinkWorkflow, onCreateWorkfl
           {/* Notice */}
           <div className="rounded-lg border border-canvas-border bg-canvas px-3 py-2 flex items-start gap-2">
             <Shield size={11} className="text-ink-400 mt-0.5 shrink-0" />
-            <span className="text-[9.5px] text-ink-400">Workflow readiness only — no execution or testing data shown here. Link or create workflows to move controls toward Ready status.</span>
+            <span className="text-[10px] leading-3 text-ink-400">Workflow readiness only — no execution or testing data shown here. Link or create workflows to move controls toward Ready status.</span>
           </div>
         </div>
 
@@ -1671,7 +1591,7 @@ function LinkControlDrawer({ alreadyLinkedIds, onClose, onLink }: {
                 {ctrl.isKey && <Star size={10} className="fill-mitigated text-mitigated" />}
               </div>
               <p className="text-[10px] text-text-muted mb-1.5">{ctrl.description}</p>
-              <div className="flex items-center gap-3 text-[9px] text-ink-400">
+              <div className="flex items-center gap-3 text-[10px] leading-3 text-ink-400">
                 <span className={`px-1.5 h-4 rounded font-bold inline-flex items-center ${AUTO_CLS[ctrl.automation]}`}>{ctrl.automation}</span>
                 <span>{ctrl.workflowLinked ? ctrl.workflowName : 'No workflow'}</span>
                 <span>{ctrl.attributeCount} attrs</span>
@@ -1872,7 +1792,7 @@ function LinkWorkflowToControlDrawer({ control, onClose, onLink }: {
                     <Workflow size={13} className="text-brand-600 shrink-0" />
                     <span className="text-[13px] font-semibold text-text">{wf.name}</span>
                     <span className="text-[10px] font-mono text-ink-400">{wf.version}</span>
-                    <span className={`px-1.5 h-4 rounded text-[9px] font-bold inline-flex items-center ${WF_STATUS_CLS[wf.status]}`}>{wf.status}</span>
+                    <span className={`px-1.5 h-4 rounded text-[10px] leading-3 font-bold inline-flex items-center ${WF_STATUS_CLS[wf.status]}`}>{wf.status}</span>
                   </div>
                   <button onClick={() => onLink(wf)}
                     className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-white text-[11px] font-semibold transition-colors cursor-pointer shrink-0">
@@ -1886,7 +1806,7 @@ function LinkWorkflowToControlDrawer({ control, onClose, onLink }: {
                 </div>
                 {wf.attributes.length > 0 ? (
                   <div className="flex flex-wrap gap-1">
-                    {wf.attributes.map(a => <span key={a.id} className="px-1.5 h-4 rounded text-[9px] font-medium bg-brand-50 text-brand-700 inline-flex items-center">{a.name}</span>)}
+                    {wf.attributes.map(a => <span key={a.id} className="px-1.5 h-4 rounded text-[10px] leading-3 font-medium bg-brand-50 text-brand-700 inline-flex items-center">{a.name}</span>)}
                   </div>
                 ) : (
                   <span className="text-[10px] text-mitigated-700 font-medium">No attributes configured yet</span>
@@ -1899,7 +1819,7 @@ function LinkWorkflowToControlDrawer({ control, onClose, onLink }: {
         <footer className="shrink-0 px-6 py-4 border-t border-canvas-border bg-canvas">
           <div className="rounded-lg border border-canvas-border bg-surface-2/50 px-3 py-2 flex items-start gap-2 mb-3">
             <Shield size={11} className="text-ink-400 mt-0.5 shrink-0" />
-            <span className="text-[9.5px] text-ink-400 leading-relaxed">Workflows belong to the Control Library. Linking here updates the control object, not the RACM mapping directly.</span>
+            <span className="text-[10px] leading-3 text-ink-400 leading-relaxed">Workflows belong to the Control Library. Linking here updates the control object, not the RACM mapping directly.</span>
           </div>
           <button onClick={onClose} className="w-full px-4 py-2.5 rounded-lg border border-canvas-border text-[13px] font-medium text-ink-600 hover:bg-canvas transition-colors cursor-pointer">Cancel</button>
         </footer>
@@ -1974,9 +1894,6 @@ function CreateWorkflowBuilderDrawer({ control, onClose, onCreate }: {
         role="dialog" aria-label="Create Workflow">
 
         <header className="shrink-0 px-6 pt-5 pb-4 border-b border-canvas-border">
-          <button onClick={onClose} className="flex items-center gap-1 text-[11px] text-ink-500 hover:text-primary font-medium cursor-pointer transition-colors mb-2">
-            <ArrowLeft size={12} />Back
-          </button>
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-2"><Workflow size={18} className="text-brand-600" /><h2 className="font-display text-[18px] font-semibold text-ink-900">Create Workflow</h2></div>
@@ -2009,6 +1926,10 @@ function CreateWorkflowBuilderDrawer({ control, onClose, onCreate }: {
                 <button onClick={() => setMode(null)} className="flex items-center gap-1 text-[11px] text-text-muted hover:text-primary font-medium mb-3 cursor-pointer"><ArrowLeft size={12} />Back</button>
                 <div className="mb-3"><label className={labelCls}>Workflow Name *</label><input value={name} onChange={e => setName(e.target.value)} placeholder={`e.g. ${control.name} Test Workflow`} className={inputCls} /></div>
                 <div className="mb-3"><label className={labelCls}>Description</label><textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} placeholder="What does this workflow test?" className={inputCls + ' resize-none'} /></div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="mb-3"><label className={labelCls}>Version</label><input value={version} onChange={e => setVersion(e.target.value)} className={inputCls + ' font-mono'} /></div>
+                  <div className="mb-3"><label className={labelCls}>Owner</label><input value={owner} onChange={e => setOwner(e.target.value)} placeholder="e.g. Tushar Goel" className={inputCls} /></div>
+                </div>
                 <div className="mb-3">
                   <label className={labelCls}>Data Required</label>
                   <div className="flex gap-2">{[true, false].map(v => (<button key={String(v)} onClick={() => setDataRequired(v)} className={`px-3 py-1.5 rounded-lg border text-[12px] font-medium transition-all cursor-pointer ${dataRequired === v ? 'border-brand-500 bg-brand-50 text-brand-700 ring-2 ring-brand-500/20' : 'border-canvas-border bg-white text-ink-600 hover:bg-canvas'}`}>{v ? 'Yes' : 'No'}</button>))}</div>
@@ -2023,8 +1944,8 @@ function CreateWorkflowBuilderDrawer({ control, onClose, onCreate }: {
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <label className={labelCls + ' mb-0'}>Test Attributes ({attrs.length})</label>
-                      {attrs.length === 0 && <span className="px-1.5 h-4 rounded text-[9px] font-bold bg-mitigated-50 text-mitigated-700 inline-flex items-center">Configuration Pending</span>}
-                      {attrs.length > 0 && <span className="px-1.5 h-4 rounded text-[9px] font-bold bg-compliant-50 text-compliant-700 inline-flex items-center">Ready</span>}
+                      {attrs.length === 0 && <span className="px-1.5 h-4 rounded text-[10px] leading-3 font-bold bg-mitigated-50 text-mitigated-700 inline-flex items-center">Configuration Pending</span>}
+                      {attrs.length > 0 && <span className="px-1.5 h-4 rounded text-[10px] leading-3 font-bold bg-compliant-50 text-compliant-700 inline-flex items-center">Ready</span>}
                     </div>
                     {!showAttrForm && <button onClick={() => { resetAttrForm(); setShowAttrForm(true); }} className="text-[11px] font-semibold text-brand-600 hover:underline cursor-pointer flex items-center gap-1"><Plus size={11} />Add Attribute</button>}
                   </div>
@@ -2036,8 +1957,8 @@ function CreateWorkflowBuilderDrawer({ control, onClose, onCreate }: {
                         <div key={a.id} className="flex items-start gap-2 px-3 py-2 rounded-lg border border-canvas-border bg-white">
                           <div className="flex-1 min-w-0">
                             <div className="text-[11px] font-medium text-text">{a.name}</div>
-                            {a.description && <div className="text-[9.5px] text-ink-400 truncate">{a.description}</div>}
-                            <div className="flex items-center gap-3 mt-1 text-[9px] text-ink-400">
+                            {a.description && <div className="text-[10px] leading-3 text-ink-400 truncate">{a.description}</div>}
+                            <div className="flex items-center gap-3 mt-1 text-[10px] leading-3 text-ink-400">
                               {a.evidenceType && <span className="flex items-center gap-0.5"><Paperclip size={8} />{a.evidenceType}</span>}
                               {a.expectedResult && <span>Expected: {a.expectedResult}</span>}
                             </div>
@@ -2061,9 +1982,13 @@ function CreateWorkflowBuilderDrawer({ control, onClose, onCreate }: {
                         <input value={attrEvidence} onChange={e => setAttrEvidence(e.target.value)} placeholder="Evidence type (e.g. PO doc)" className="px-2.5 py-1.5 rounded-lg border border-border text-[11px] text-text bg-white outline-none focus:border-brand-500/60" />
                         <input value={attrExpected} onChange={e => setAttrExpected(e.target.value)} placeholder="Expected result" className="px-2.5 py-1.5 rounded-lg border border-border text-[11px] text-text bg-white outline-none focus:border-brand-500/60" />
                       </div>
-                      <div className="flex items-center justify-end gap-1.5 pt-1">
+                      <input value={attrPassLogic} onChange={e => setAttrPassLogic(e.target.value)} placeholder="Pass/fail rule (e.g. Amount ≤ threshold)" className="w-full px-2.5 py-1.5 rounded-lg border border-border text-[11px] text-text bg-white outline-none focus:border-brand-500/60 font-mono" />
+                      <div className="flex items-center justify-between pt-1">
+                        <div className="flex gap-1.5">{[true, false].map(v => (<button key={String(v)} onClick={() => setAttrRequired(v)} className={`px-2.5 py-1 rounded text-[10px] font-medium cursor-pointer ${attrRequired === v ? 'bg-brand-600 text-white' : 'bg-white border border-border text-ink-600'}`}>{v ? 'Required' : 'Optional'}</button>))}</div>
+                        <div className="flex gap-1.5">
                           <button onClick={resetAttrForm} className="px-2.5 py-1 rounded text-[10px] font-medium text-ink-500 hover:bg-gray-100 cursor-pointer">Cancel</button>
                           <button onClick={handleAddAttr} disabled={!attrName.trim()} className="px-3 py-1 rounded bg-brand-600 text-white text-[10px] font-semibold cursor-pointer disabled:opacity-40">{editAttrIdx !== null ? 'Update' : 'Add'}</button>
+                        </div>
                       </div>
                     </motion.div>
                   )}

@@ -71,7 +71,7 @@ export default function StepWritePrompt({
               >
                 <Plus size={16} />
                 {attachmentCount > 0 && (
-                  <span className="text-[11.5px] font-semibold text-brand-700">
+                  <span className="text-[12px] leading-4 font-semibold text-brand-700">
                     {attachmentCount} attached
                   </span>
                 )}

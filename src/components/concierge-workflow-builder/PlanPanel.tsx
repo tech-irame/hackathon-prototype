@@ -239,7 +239,7 @@ function PlanSection({ workflow }: { workflow: WorkflowDraft | null }) {
   if (!workflow) {
     return (
       <div className="rounded-xl border border-canvas-border bg-canvas-elevated p-4">
-        <p className="text-[11.5px] text-ink-400">
+        <p className="text-[12px] leading-4 text-ink-400">
           The execution plan appears once you generate a workflow.
         </p>
       </div>
@@ -303,7 +303,7 @@ function RACMSection() {
           <div className="text-[12px] font-semibold text-ink-800 leading-tight">
             Risk &amp; Control Matrix
           </div>
-          <div className="text-[10.5px] text-ink-400">
+          <div className="text-[10px] leading-3 text-ink-400">
             {MAPPED_RISKS.length} risks · {MAPPED_RISKS.reduce((n, r) => n + r.controlsCount, 0)}{' '}
             controls
           </div>
@@ -315,7 +315,7 @@ function RACMSection() {
           <span className="text-[10px] font-bold uppercase tracking-wider text-ink-400">
             Control Coverage
           </span>
-          <span className="text-[10.5px] font-semibold text-ink-600">
+          <span className="text-[10px] leading-3 font-semibold text-ink-600">
             {mapped}/{total}
             {total - mapped > 0 && (
               <span className="ml-1 text-mitigated-700">
@@ -345,13 +345,13 @@ function RACMSection() {
               <ChevronRight size={11} className="text-ink-400 shrink-0" />
               <span className="text-[11px] font-semibold text-ink-800">{r.id}</span>
               <span
-                className={`text-[9.5px] uppercase tracking-wider font-bold rounded-full px-1.5 py-0.5 ${SEVERITY_COLORS[r.severity]}`}
+                className={`text-[10px] leading-3 uppercase tracking-wider font-bold rounded-full px-1.5 py-0.5 ${SEVERITY_COLORS[r.severity]}`}
               >
                 {r.severity}
               </span>
               <span
                 className={[
-                  'text-[9.5px] uppercase tracking-wider font-bold rounded-full px-1.5 py-0.5',
+                  'text-[10px] leading-3 uppercase tracking-wider font-bold rounded-full px-1.5 py-0.5',
                   r.status === 'Mapped'
                     ? 'text-evidence bg-evidence-50'
                     : 'text-mitigated bg-mitigated-50',
@@ -492,13 +492,13 @@ function InputConfigSection({
                   type="date"
                   value={parameters.dateFrom}
                   onChange={(e) => updateParam('dateFrom', e.target.value)}
-                  className="rounded-lg border border-canvas-border bg-canvas-elevated px-2 py-1.5 text-[11.5px] font-mono text-ink-800 focus:outline-none focus:ring-2 focus:ring-brand-600/20 focus:border-brand-600/30 transition-all"
+                  className="rounded-lg border border-canvas-border bg-canvas-elevated px-2 py-1.5 text-[12px] leading-4 font-mono text-ink-800 focus:outline-none focus:ring-2 focus:ring-brand-600/20 focus:border-brand-600/30 transition-all"
                 />
                 <input
                   type="date"
                   value={parameters.dateTo}
                   onChange={(e) => updateParam('dateTo', e.target.value)}
-                  className="rounded-lg border border-canvas-border bg-canvas-elevated px-2 py-1.5 text-[11.5px] font-mono text-ink-800 focus:outline-none focus:ring-2 focus:ring-brand-600/20 focus:border-brand-600/30 transition-all"
+                  className="rounded-lg border border-canvas-border bg-canvas-elevated px-2 py-1.5 text-[12px] leading-4 font-mono text-ink-800 focus:outline-none focus:ring-2 focus:ring-brand-600/20 focus:border-brand-600/30 transition-all"
                 />
               </div>
             </div>
@@ -513,7 +513,7 @@ function InputConfigSection({
         <div className="flex items-center gap-2 px-3 py-2.5 border-b border-canvas-border">
           <BookOpenText size={13} className="text-ink-400" />
           <span className="text-[12px] font-semibold text-ink-700 flex-1">Notes</span>
-          <span className="text-[10.5px] font-semibold text-ink-400">
+          <span className="text-[10px] leading-3 font-semibold text-ink-400">
             {notes.length} ref{notes.length === 1 ? '' : 's'}
           </span>
         </div>
@@ -544,12 +544,12 @@ function InputConfigSection({
                       {n.name}
                     </span>
                     {n.aiSuggested && (
-                      <span className="text-[9.5px] font-bold leading-none bg-brand-50 text-brand-700 border border-brand-200 rounded px-1 py-0.5">
+                      <span className="text-[10px] leading-3 font-bold leading-none bg-brand-50 text-brand-700 border border-brand-200 rounded px-1 py-0.5">
                         AI
                       </span>
                     )}
                   </div>
-                  <p className="text-[10.5px] text-ink-400 mt-0.5 leading-relaxed">
+                  <p className="text-[10px] leading-3 text-ink-400 mt-0.5 leading-relaxed">
                     {n.description}
                   </p>
                 </div>
@@ -562,7 +562,7 @@ function InputConfigSection({
             <div className="rounded-lg border border-brand-200 bg-brand-50/40 p-2.5">
               <div className="flex items-center gap-1.5 mb-1.5">
                 <Lightbulb size={11} className="text-brand-600" />
-                <span className="text-[10.5px] font-bold text-brand-700 uppercase tracking-wider">
+                <span className="text-[10px] leading-3 font-bold text-brand-700 uppercase tracking-wider">
                   AI Suggestions
                 </span>
               </div>
@@ -575,7 +575,7 @@ function InputConfigSection({
                     className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md bg-white/70 border border-brand-100 hover:bg-white hover:border-brand-300 transition-colors cursor-pointer group"
                   >
                     <Plus size={11} className="text-brand-400 group-hover:text-brand-700" />
-                    <span className="text-[11.5px] text-brand-700 text-left flex-1">{s}</span>
+                    <span className="text-[12px] leading-4 text-brand-700 text-left flex-1">{s}</span>
                   </button>
                 ))}
               </div>
@@ -605,7 +605,7 @@ function InputConfigSection({
                     setNewDesc('');
                   }
                 }}
-                className="w-full rounded-md border border-canvas-border bg-canvas-elevated px-2 py-1.5 text-[11.5px] text-ink-600 placeholder:text-ink-400 focus:outline-none focus:ring-2 focus:ring-brand-600/20 focus:border-brand-600/30 transition-all"
+                className="w-full rounded-md border border-canvas-border bg-canvas-elevated px-2 py-1.5 text-[12px] leading-4 text-ink-600 placeholder:text-ink-400 focus:outline-none focus:ring-2 focus:ring-brand-600/20 focus:border-brand-600/30 transition-all"
               />
               <div className="flex items-center gap-1.5 pt-0.5">
                 <button
@@ -639,7 +639,7 @@ function InputConfigSection({
             <button
               type="button"
               onClick={() => setAddingNote(true)}
-              className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-canvas-border bg-canvas hover:border-brand-300 hover:text-brand-700 text-ink-400 text-[11.5px] font-semibold px-3 py-2 transition-colors cursor-pointer"
+              className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-canvas-border bg-canvas hover:border-brand-300 hover:text-brand-700 text-ink-400 text-[12px] leading-4 font-semibold px-3 py-2 transition-colors cursor-pointer"
             >
               <Plus size={12} />
               Add Note
@@ -730,7 +730,7 @@ function OutputConfigSection({ workflow }: { workflow: WorkflowDraft | null }) {
     <div className="space-y-3">
       {/* Dashboard KPIs */}
       <div className="rounded-xl border border-canvas-border bg-canvas-elevated p-4">
-        <div className="text-[12.5px] font-semibold text-ink-800 mb-3">Dashboard KPIs</div>
+        <div className="text-[12px] leading-4 font-semibold text-ink-800 mb-3">Dashboard KPIs</div>
         <div className="space-y-2.5">
           {KPI_ITEMS.map(({ key, label, badge }) => {
             const checked = kpiChecks[key];
@@ -749,7 +749,7 @@ function OutputConfigSection({ workflow }: { workflow: WorkflowDraft | null }) {
                   {checked && <Check size={10} className="text-white" strokeWidth={3} />}
                 </button>
                 <span
-                  className={`text-[12.5px] flex-1 ${checked ? 'text-ink-700 font-semibold' : 'text-ink-400'}`}
+                  className={`text-[12px] leading-4 flex-1 ${checked ? 'text-ink-700 font-semibold' : 'text-ink-400'}`}
                 >
                   {label}
                 </span>
@@ -766,7 +766,7 @@ function OutputConfigSection({ workflow }: { workflow: WorkflowDraft | null }) {
 
       {/* Output Layout */}
       <div className="rounded-xl border border-canvas-border bg-canvas-elevated p-4">
-        <div className="text-[12.5px] font-semibold text-ink-800 mb-3">Output Layout</div>
+        <div className="text-[12px] leading-4 font-semibold text-ink-800 mb-3">Output Layout</div>
         <div className="flex gap-2">
           {(
             [
@@ -781,7 +781,7 @@ function OutputConfigSection({ workflow }: { workflow: WorkflowDraft | null }) {
                 key={key}
                 type="button"
                 onClick={() => setOutputLayout(key)}
-                className={`flex-1 inline-flex items-center justify-center gap-1 py-2 px-2 rounded-xl border text-[11.5px] font-semibold transition-all cursor-pointer ${
+                className={`flex-1 inline-flex items-center justify-center gap-1 py-2 px-2 rounded-xl border text-[12px] leading-4 font-semibold transition-all cursor-pointer ${
                   selected
                     ? 'border-brand-400 bg-brand-50 text-brand-700 shadow-[0_0_0_3px_rgba(139,92,246,0.08)]'
                     : 'border-canvas-border bg-canvas text-ink-400 hover:border-brand-200 hover:text-brand-500 hover:bg-brand-50/40'
@@ -804,7 +804,7 @@ function OutputConfigSection({ workflow }: { workflow: WorkflowDraft | null }) {
       <div className="rounded-xl border border-canvas-border bg-canvas-elevated p-4">
         <div className="flex items-center gap-2 mb-3">
           <Send size={13} className="text-ink-400" />
-          <span className="text-[12.5px] font-semibold text-ink-800">Delivery & Routing</span>
+          <span className="text-[12px] leading-4 font-semibold text-ink-800">Delivery & Routing</span>
           <span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded bg-brand-50 text-brand-600 uppercase tracking-wide">
             New
           </span>
@@ -813,7 +813,7 @@ function OutputConfigSection({ workflow }: { workflow: WorkflowDraft | null }) {
         {/* AI tip banner */}
         <div className="flex items-start gap-2 rounded-lg bg-brand-50 border border-brand-100 px-3 py-2.5 mb-3.5">
           <Sparkles size={13} className="text-brand-600 shrink-0 mt-0.5" />
-          <p className="text-[11.5px] text-brand-700 leading-relaxed">
+          <p className="text-[12px] leading-4 text-brand-700 leading-relaxed">
             Most AP teams route critical findings to Slack and email a summary to leadership.
             Configure once, auto-deliver on every run.
           </p>
@@ -879,7 +879,7 @@ function OutputConfigSection({ workflow }: { workflow: WorkflowDraft | null }) {
                 {isExpanded && (
                   <div className="px-3 pb-3 space-y-2.5 border-t border-canvas-border pt-2.5">
                     <div>
-                      <label className="text-[9.5px] font-bold text-ink-400 uppercase tracking-wider">
+                      <label className="text-[10px] leading-3 font-bold text-ink-400 uppercase tracking-wider">
                         To:
                       </label>
                       <input
@@ -896,7 +896,7 @@ function OutputConfigSection({ workflow }: { workflow: WorkflowDraft | null }) {
                       />
                     </div>
                     <div>
-                      <label className="text-[9.5px] font-bold text-ink-400 uppercase tracking-wider">
+                      <label className="text-[10px] leading-3 font-bold text-ink-400 uppercase tracking-wider">
                         Send:
                       </label>
                       <div className="flex gap-1.5 mt-1 flex-wrap">

@@ -117,7 +117,7 @@ export default function EditChatPanel({
             }}
             rows={2}
             placeholder="Describe what you need…"
-            className="w-full bg-transparent resize-none text-[12.5px] text-ink-800 placeholder:text-ink-400 focus:outline-none"
+            className="w-full bg-transparent resize-none text-[12px] leading-4 text-ink-800 placeholder:text-ink-400 focus:outline-none"
           />
           <div className="flex items-center justify-end pt-1.5">
             <button
@@ -174,12 +174,12 @@ function ChatBubble({
 
   return (
     <div>
-      <div className="mb-1 font-mono text-[10.5px] text-ink-400 uppercase tracking-[0.14em]">
+      <div className="mb-1 font-mono text-[10px] leading-3 text-ink-400 uppercase tracking-[0.14em]">
         Ira
       </div>
       <div className="space-y-2">
         {msg.text && (
-          <div className="text-[13.5px] leading-[1.65] text-ink-800 break-words">
+          <div className="text-[14px] leading-4 leading-[1.65] text-ink-800 break-words">
             {renderRich(msg.text)}
           </div>
         )}
@@ -208,13 +208,13 @@ function ChatBubble({
               >
                 <div className="flex items-center justify-between gap-2 mb-2">
                   <div className="min-w-0 flex items-center gap-1.5">
-                    <span className="text-[12.5px] font-semibold text-ink-900 truncate">
+                    <span className="text-[12px] leading-4 font-semibold text-ink-900 truncate">
                       {mp.name}
                     </span>
                     <span className="text-ink-300">←</span>
-                    <span className="text-[11.5px] text-ink-500 truncate">{mp.from}</span>
+                    <span className="text-[12px] leading-4 text-ink-500 truncate">{mp.from}</span>
                   </div>
-                  <span className="text-[10.5px] font-semibold text-ink-400 tabular-nums shrink-0">
+                  <span className="text-[10px] leading-3 font-semibold text-ink-400 tabular-nums shrink-0">
                     {mp.cols.length} of {mp.ofTotal} cols
                   </span>
                 </div>
@@ -256,7 +256,7 @@ function ChatBubble({
               <button
                 type="button"
                 onClick={onConfirmProceed}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-[12.5px] font-semibold px-3.5 py-2 transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-[12px] leading-4 font-semibold px-3.5 py-2 transition-colors cursor-pointer"
               >
                 <ShieldCheck size={13} />
                 Confirm &amp; Proceed
@@ -265,7 +265,7 @@ function ChatBubble({
               <button
                 type="button"
                 onClick={onValidateWorkflow}
-                className="inline-flex items-center gap-1.5 rounded-xl text-white text-[12.5px] font-semibold px-3.5 py-2 transition-opacity cursor-pointer hover:opacity-90"
+                className="inline-flex items-center gap-1.5 rounded-xl text-white text-[12px] leading-4 font-semibold px-3.5 py-2 transition-opacity cursor-pointer hover:opacity-90"
                 style={{
                   background: 'linear-gradient(135deg, #6a12cd 0%, #8b5cf6 100%)',
                   boxShadow: '0 1px 3px rgba(106,18,205,0.3)',
@@ -278,7 +278,7 @@ function ChatBubble({
               <button
                 type="button"
                 onClick={onViewPreview}
-                className="inline-flex items-center gap-1.5 rounded-xl text-white text-[12.5px] font-semibold px-3.5 py-2 transition-opacity cursor-pointer hover:opacity-90"
+                className="inline-flex items-center gap-1.5 rounded-xl text-white text-[12px] leading-4 font-semibold px-3.5 py-2 transition-opacity cursor-pointer hover:opacity-90"
                 style={{
                   background: 'linear-gradient(135deg, #6a12cd 0%, #8b5cf6 100%)',
                   boxShadow: '0 1px 3px rgba(106,18,205,0.3)',
@@ -340,11 +340,11 @@ function WorkflowPlanBlock({ plan }: { plan: WorkflowPlanCard }) {
             <span className="w-6 h-6 rounded-full bg-ink-900 text-white flex items-center justify-center text-[11px] font-bold shrink-0">
               {i + 1}
             </span>
-            <span className="flex-1 text-[12.5px] font-medium text-ink-800 truncate">
+            <span className="flex-1 text-[12px] leading-4 font-medium text-ink-800 truncate">
               {s.name}
             </span>
             <span
-              className={`text-[9.5px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 ${PLAN_BADGE_TONE[s.badge] ?? 'bg-paper-50 text-ink-500'}`}
+              className={`text-[10px] leading-3 font-bold uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 ${PLAN_BADGE_TONE[s.badge] ?? 'bg-paper-50 text-ink-500'}`}
             >
               {s.badge}
             </span>
@@ -354,13 +354,13 @@ function WorkflowPlanBlock({ plan }: { plan: WorkflowPlanCard }) {
           <span className="w-6 h-6 rounded-full bg-compliant text-white flex items-center justify-center shrink-0">
             <CheckCircle2 size={12} />
           </span>
-          <span className="text-[11.5px] font-semibold uppercase tracking-wider text-compliant-700 shrink-0">
+          <span className="text-[12px] leading-4 font-semibold uppercase tracking-wider text-compliant-700 shrink-0">
             Output
           </span>
-          <span className="flex-1 text-[12.5px] font-medium text-ink-800 truncate">
+          <span className="flex-1 text-[12px] leading-4 font-medium text-ink-800 truncate">
             {plan.outputLabel}
           </span>
-          <span className="text-[10.5px] font-semibold text-ink-400 tabular-nums shrink-0">
+          <span className="text-[10px] leading-3 font-semibold text-ink-400 tabular-nums shrink-0">
             {plan.outputRows}
           </span>
         </li>

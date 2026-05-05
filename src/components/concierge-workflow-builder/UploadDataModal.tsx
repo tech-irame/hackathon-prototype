@@ -431,18 +431,18 @@ export default function UploadDataModal({
                       <div className="text-[15px] font-semibold text-ink-800">
                         Drop files here
                       </div>
-                      <div className="text-[12.5px] text-ink-500 mt-1">
+                      <div className="text-[12px] leading-4 text-ink-500 mt-1">
                         or pick from your computer
                       </div>
                       <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
-                        className="mt-4 inline-flex items-center gap-1.5 rounded-lg text-[12.5px] font-semibold px-4 py-2 bg-gradient-to-br from-brand-600 to-fuchsia-600 hover:from-brand-500 hover:to-fuchsia-500 text-white shadow-[0_8px_16px_-8px_rgba(106,18,205,0.45)] transition-all cursor-pointer"
+                        className="mt-4 inline-flex items-center gap-1.5 rounded-lg text-[12px] leading-4 font-semibold px-4 py-2 bg-gradient-to-br from-brand-600 to-fuchsia-600 hover:from-brand-500 hover:to-fuchsia-500 text-white shadow-[0_8px_16px_-8px_rgba(106,18,205,0.45)] transition-all cursor-pointer"
                       >
                         <UploadCloud size={13} />
                         Choose files
                       </button>
-                      <div className="text-[11.5px] text-ink-400 mt-3">
+                      <div className="text-[12px] leading-4 text-ink-400 mt-3">
                         CSV · Excel · PDF · ≤ 50 MB each
                       </div>
                     </div>
@@ -458,7 +458,7 @@ export default function UploadDataModal({
                               <FileText size={13} />
                             </div>
                             <div className="min-w-0 flex-1">
-                              <div className="text-[12.5px] font-semibold text-ink-800 truncate">
+                              <div className="text-[12px] leading-4 font-semibold text-ink-800 truncate">
                                 {f.name}
                               </div>
                               <div className="text-[11px] text-ink-400">
@@ -490,7 +490,7 @@ export default function UploadDataModal({
                       <div className="text-[13px] font-semibold text-ink-700">
                         {search ? `No matches for “${search}”.` : 'No sources available'}
                       </div>
-                      <div className="text-[11.5px] text-ink-400 mt-1">
+                      <div className="text-[12px] leading-4 text-ink-400 mt-1">
                         {search
                           ? 'Try a different keyword.'
                           : 'Connect a data source to see it listed here.'}
@@ -535,7 +535,7 @@ export default function UploadDataModal({
                                 <div className="text-[13px] font-semibold text-ink-800 truncate">
                                   {a.name}
                                 </div>
-                                <div className="text-[11.5px] text-ink-400 truncate mt-0.5">
+                                <div className="text-[12px] leading-4 text-ink-400 truncate mt-0.5">
                                   {a.meta}
                                 </div>
                               </div>
@@ -560,7 +560,7 @@ export default function UploadDataModal({
                   <button
                     type="button"
                     onClick={onClose}
-                    className="inline-flex items-center justify-center rounded-lg text-[12.5px] font-semibold px-4 py-2 text-ink-600 hover:bg-canvas-elevated transition-colors cursor-pointer"
+                    className="inline-flex items-center justify-center rounded-lg text-[12px] leading-4 font-semibold px-4 py-2 text-ink-600 hover:bg-canvas-elevated transition-colors cursor-pointer"
                   >
                     Cancel
                   </button>
@@ -568,7 +568,7 @@ export default function UploadDataModal({
                     type="button"
                     disabled={!canAttach}
                     onClick={handleAttach}
-                    className="inline-flex items-center gap-1.5 rounded-lg text-[12.5px] font-semibold px-4 py-2 bg-gradient-to-br from-brand-600 to-fuchsia-600 hover:from-brand-500 hover:to-fuchsia-500 text-white shadow-[0_8px_16px_-8px_rgba(106,18,205,0.45)] transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+                    className="inline-flex items-center gap-1.5 rounded-lg text-[12px] leading-4 font-semibold px-4 py-2 bg-gradient-to-br from-brand-600 to-fuchsia-600 hover:from-brand-500 hover:to-fuchsia-500 text-white shadow-[0_8px_16px_-8px_rgba(106,18,205,0.45)] transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
                   >
                     <Check size={13} />
                     Attach

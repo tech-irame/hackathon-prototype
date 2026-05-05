@@ -768,7 +768,7 @@ function SaveAsWorkflowModal({ open, defaultName, defaultDescription, onCancel, 
   }, [open, defaultName, defaultDescription]);
 
   const pillCls = (active: boolean) =>
-    `px-3 py-1 rounded-full text-[11.5px] font-medium border transition-colors cursor-pointer ${
+    `px-3 py-1 rounded-full text-[12px] leading-4 font-medium border transition-colors cursor-pointer ${
       active
         ? 'bg-primary border-primary text-white'
         : 'bg-white border-border-light text-text-muted hover:border-primary/40 hover:text-text'
@@ -1829,7 +1829,7 @@ export default function ChatView({ showChatHistory, toggleChatHistory, setShowAr
             </button>
           </div>
           <div className="p-3">
-            <button className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-border text-[12.5px] text-primary font-medium hover:bg-primary-xlight transition-colors cursor-pointer">
+            <button className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-border text-[12px] leading-4 text-primary font-medium hover:bg-primary-xlight transition-colors cursor-pointer">
               <Plus size={14} />
               New Chat
             </button>
@@ -2033,7 +2033,7 @@ export default function ChatView({ showChatHistory, toggleChatHistory, setShowAr
                       aria-checked={buildWorkflowMode}
                       aria-label="Build a workflow"
                       onClick={() => setBuildWorkflowMode(v => !v)}
-                      className={`flex items-center gap-1.5 h-8 px-3 rounded-full border text-[12.5px] font-medium transition-colors cursor-pointer ${
+                      className={`flex items-center gap-1.5 h-8 px-3 rounded-full border text-[12px] leading-4 font-medium transition-colors cursor-pointer ${
                         buildWorkflowMode
                           ? 'border-primary/40 bg-primary-xlight text-primary'
                           : 'border-border-light bg-white text-text-secondary hover:text-text hover:border-border'
@@ -2436,9 +2436,9 @@ export default function ChatView({ showChatHistory, toggleChatHistory, setShowAr
                                       }`}>
                                         {isSelected && <CheckCircle size={10} className="text-white" />}
                                       </div>
-                                      <span className="text-[12.5px] font-semibold">{opt.label}</span>
+                                      <span className="text-[12px] leading-4 font-semibold">{opt.label}</span>
                                     </div>
-                                    <p className={`text-[11.5px] mt-1 ml-6 ${isSelected ? 'text-primary/80' : 'text-text-muted'}`}>{opt.detail}</p>
+                                    <p className={`text-[12px] leading-4 mt-1 ml-6 ${isSelected ? 'text-primary/80' : 'text-text-muted'}`}>{opt.detail}</p>
                                   </button>
                                 );
                               })}
@@ -2459,7 +2459,7 @@ export default function ChatView({ showChatHistory, toggleChatHistory, setShowAr
                                 </button>
                               </div>
                             ) : (
-                              <div className="mt-3 inline-flex items-center gap-1.5 text-[11.5px] text-text-muted">
+                              <div className="mt-3 inline-flex items-center gap-1.5 text-[12px] leading-4 text-text-muted">
                                 <CheckCircle size={11} className="text-compliant" /> Parameters confirmed
                               </div>
                             )}
@@ -2484,7 +2484,7 @@ export default function ChatView({ showChatHistory, toggleChatHistory, setShowAr
                       </div>
                     ) : msg.text ? (
                       msg.role === 'user' ? (
-                        <div className="px-4 py-2.5 rounded-2xl bg-primary-xlight text-primary border border-primary/15 text-[13.5px] leading-relaxed">
+                        <div className="px-4 py-2.5 rounded-2xl bg-primary-xlight text-primary border border-primary/15 text-[14px] leading-4 leading-relaxed">
                           {msg.text}
                         </div>
                       ) : (
@@ -2628,7 +2628,7 @@ export default function ChatView({ showChatHistory, toggleChatHistory, setShowAr
                   per thread. To do a query again, user starts + New chat. */}
               {lockedAsWorkflow && (
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary-xlight text-primary text-[11.5px] font-semibold cursor-default select-none">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary-xlight text-primary text-[12px] leading-4 font-semibold cursor-default select-none">
                     <Lock size={10} /> Workflow mode
                   </div>
                   <span className="text-[11px] text-text-muted">
@@ -2677,7 +2677,7 @@ export default function ChatView({ showChatHistory, toggleChatHistory, setShowAr
                       aria-checked={buildWorkflowMode}
                       aria-label="Build a workflow"
                       onClick={() => setBuildWorkflowMode(v => !v)}
-                      className={`flex items-center gap-1.5 h-7 px-2.5 rounded-full border text-[11.5px] font-medium transition-colors cursor-pointer ${
+                      className={`flex items-center gap-1.5 h-7 px-2.5 rounded-full border text-[12px] leading-4 font-medium transition-colors cursor-pointer ${
                         buildWorkflowMode
                           ? 'border-primary/40 bg-primary-xlight text-primary'
                           : 'border-border-light bg-white text-text-secondary hover:text-text hover:border-border'
@@ -2695,7 +2695,7 @@ export default function ChatView({ showChatHistory, toggleChatHistory, setShowAr
                     onChange={e => { setInput(e.target.value); handleTextareaInput(); }}
                     onKeyDown={handleKeyDown}
                     placeholder="Ask anything or describe a workflow to build..."
-                    className="no-focus-ring w-full bg-transparent border-none outline-none resize-none py-3 pl-4 pr-28 text-[13.5px] text-text placeholder:text-text-muted min-h-[48px] max-h-[160px] rounded-[18px]"
+                    className="no-focus-ring w-full bg-transparent border-none outline-none resize-none py-3 pl-4 pr-28 text-[14px] leading-4 text-text placeholder:text-text-muted min-h-[48px] max-h-[160px] rounded-[18px]"
                     rows={1}
                   />
                   <div className="absolute right-2 bottom-2 flex items-center gap-1">

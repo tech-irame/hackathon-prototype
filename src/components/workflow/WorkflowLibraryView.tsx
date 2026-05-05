@@ -999,7 +999,7 @@ function Pill({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`px-3.5 h-8 rounded-lg text-[12.5px] font-semibold transition-colors ${
+      className={`px-3.5 h-8 rounded-lg text-[12px] leading-4 font-semibold transition-colors ${
         disabled
           ? 'bg-surface-2 text-text-muted/50 border border-border-light cursor-not-allowed'
           : active
@@ -1432,7 +1432,7 @@ function BulkExecuteModal({
               </div>
             )}
             {isMultipleBps && (
-              <div className="px-3 py-2.5 rounded-md border border-risk/40 bg-risk/5 text-[12.5px] text-risk-700 leading-relaxed">
+              <div className="px-3 py-2.5 rounded-md border border-risk/40 bg-risk/5 text-[12px] leading-4 text-risk-700 leading-relaxed">
                 Multiple business processes in selection ({uniqueBps.join(', ')}). Bulk run requires all workflows to belong to a single business process.
               </div>
             )}
@@ -1727,7 +1727,7 @@ function BulkExecuteModal({
                       <button
                         type="button"
                         onClick={() => setUploadModeTab('upload')}
-                        className={`inline-flex items-center gap-1.5 h-9 px-4 rounded-md border text-[12.5px] font-semibold transition-colors cursor-pointer ${
+                        className={`inline-flex items-center gap-1.5 h-9 px-4 rounded-md border text-[12px] leading-4 font-semibold transition-colors cursor-pointer ${
                           uploadModeTab === 'upload'
                             ? 'bg-primary border-primary text-white'
                             : 'bg-white border-primary/30 text-primary hover:bg-primary/5'
@@ -1739,7 +1739,7 @@ function BulkExecuteModal({
                       <button
                         type="button"
                         onClick={() => setUploadModeTab('existing')}
-                        className={`inline-flex items-center gap-1.5 h-9 px-4 rounded-md border text-[12.5px] font-semibold transition-colors cursor-pointer ${
+                        className={`inline-flex items-center gap-1.5 h-9 px-4 rounded-md border text-[12px] leading-4 font-semibold transition-colors cursor-pointer ${
                           uploadModeTab === 'existing'
                             ? 'bg-primary border-primary text-white'
                             : 'bg-white border-primary/30 text-primary hover:bg-primary/5'
@@ -1810,7 +1810,7 @@ function BulkExecuteModal({
                                       <Database size={13} className="text-primary" />
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                      <div className="text-[12.5px] font-semibold text-text truncate">{ds.name}</div>
+                                      <div className="text-[12px] leading-4 font-semibold text-text truncate">{ds.name}</div>
                                       <div className="text-[11px] text-text-muted truncate">
                                         {ds.records} records · last sync {ds.lastSync}
                                       </div>
@@ -1855,7 +1855,7 @@ function BulkExecuteModal({
                 <div className="flex items-start justify-between gap-3 mb-3">
                   <div className="min-w-0">
                     <div className="text-[13px] font-semibold text-text">Workflow Mapping</div>
-                    <div className="text-[11.5px] text-text-muted mt-0.5">
+                    <div className="text-[12px] leading-4 text-text-muted mt-0.5">
                       Auto-mapped {reviewCounts.mapped} of {reviewCounts.all} workflows. Review issues below, fix column mappings, or drop workflows from this run.
                     </div>
                   </div>
@@ -1885,7 +1885,7 @@ function BulkExecuteModal({
                         key={chip.key}
                         type="button"
                         onClick={() => setReviewFilter(chip.key)}
-                        className={`inline-flex items-center gap-1.5 h-7 px-3 rounded-full border text-[11.5px] font-medium transition-colors cursor-pointer ${
+                        className={`inline-flex items-center gap-1.5 h-7 px-3 rounded-full border text-[12px] leading-4 font-medium transition-colors cursor-pointer ${
                           active
                             ? 'border-text bg-text text-white'
                             : 'border-border-light bg-white text-text-muted hover:border-border hover:text-text'
@@ -1893,7 +1893,7 @@ function BulkExecuteModal({
                       >
                         {chip.dot && <span className={`w-1.5 h-1.5 rounded-full ${chip.dot}`} />}
                         {chip.label}
-                        <span className={`font-mono text-[10.5px] ${active ? 'opacity-70' : 'opacity-60'}`}>
+                        <span className={`font-mono text-[10px] leading-3 ${active ? 'opacity-70' : 'opacity-60'}`}>
                           {chip.count}
                         </span>
                       </button>
@@ -1925,7 +1925,7 @@ function BulkExecuteModal({
                           <div className="font-mono text-[11px] text-text-muted/70 w-16 shrink-0">{rw.code}</div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-0.5">
-                              <span className={`text-[12.5px] font-medium truncate ${isDropped ? 'text-text-muted line-through' : 'text-text'}`}>
+                              <span className={`text-[12px] leading-4 font-medium truncate ${isDropped ? 'text-text-muted line-through' : 'text-text'}`}>
                                 {rw.name}
                               </span>
                               <ReviewStatusChip status={rw.status} />
@@ -1942,7 +1942,7 @@ function BulkExecuteModal({
                               ) : null}
                             </div>
                             {rw.status === 'sql' && (
-                              <label className="inline-flex items-center gap-1.5 text-[11.5px] text-text-muted cursor-pointer select-none mt-1.5">
+                              <label className="inline-flex items-center gap-1.5 text-[12px] leading-4 text-text-muted cursor-pointer select-none mt-1.5">
                                 <input
                                   type="checkbox"
                                   checked={!!rw.sqlUseDefaults}
@@ -2016,13 +2016,13 @@ function BulkExecuteModal({
                 <div className="flex items-center justify-between gap-3 mb-1">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div className="text-[13px] font-semibold text-text">Workflow Mapping</div>
-                    <span className="inline-flex items-center gap-1 text-[10.5px] font-medium text-primary bg-primary/8 px-1.5 py-0.5 rounded-full">
+                    <span className="inline-flex items-center gap-1 text-[10px] leading-3 font-medium text-primary bg-primary/8 px-1.5 py-0.5 rounded-full">
                       <Sparkles size={10} />
                       Auto-mapping complete
                     </span>
                   </div>
                 </div>
-                <div className="text-[11.5px] text-text-muted mb-3">
+                <div className="text-[12px] leading-4 text-text-muted mb-3">
                   Auto-mapped {reviewCounts.mapped} of {reviewCounts.all} · Review issues, fix mappings, or drop workflows.
                 </div>
 
@@ -2084,8 +2084,8 @@ function BulkExecuteModal({
                           <div className="flex items-center gap-3 px-3.5 py-2.5">
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                                <span className="font-mono text-[10.5px] text-text-muted/70 shrink-0">{rw.code}</span>
-                                <span className={`text-[12.5px] font-medium truncate ${isDropped ? 'text-text-muted line-through' : 'text-text'}`}>
+                                <span className="font-mono text-[10px] leading-3 text-text-muted/70 shrink-0">{rw.code}</span>
+                                <span className={`text-[12px] leading-4 font-medium truncate ${isDropped ? 'text-text-muted line-through' : 'text-text'}`}>
                                   {rw.name}
                                 </span>
                                 <ReviewStatusChip status={rw.status} />
@@ -2283,7 +2283,7 @@ function FetchingFilesLoader({ workflowCount }: { workflowCount: number }) {
           const done = i < stepIdx;
           const active = i === stepIdx;
           return (
-            <div key={s} className="flex items-center gap-2.5 text-[12.5px]">
+            <div key={s} className="flex items-center gap-2.5 text-[12px] leading-4">
               <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 transition-colors ${
                 done ? 'bg-primary text-white' : active ? 'bg-primary/15 text-primary' : 'bg-surface-2 text-text-muted'
               }`}>
@@ -2348,7 +2348,7 @@ function UploadedFilesPanel({
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <span className="text-[13px] font-semibold text-text">Files Uploaded</span>
           {failed > 0 && (
-            <div className="flex items-center gap-1 text-[11.5px] text-risk min-w-0">
+            <div className="flex items-center gap-1 text-[12px] leading-4 text-risk min-w-0">
               <AlertTriangle size={12} className="shrink-0" />
               <span className="truncate">
                 {failed} of {files.length} file{files.length === 1 ? '' : 's'} failed - delete or resolve to continue
@@ -2391,11 +2391,11 @@ function UploadedFilesPanel({
                 <Check size={11} strokeWidth={3} />
               </button>
               <div className="flex-1 min-w-0">
-                <div className="text-[12.5px] font-semibold text-text truncate">{u.name}</div>
+                <div className="text-[12px] leading-4 font-semibold text-text truncate">{u.name}</div>
                 <div className="text-[11px] text-text-muted">{humanSize(u.size)}</div>
               </div>
               {u.error && (
-                <div className="flex items-center gap-1.5 text-[11.5px] text-risk shrink-0">
+                <div className="flex items-center gap-1.5 text-[12px] leading-4 text-risk shrink-0">
                   <AlertTriangle size={12} />
                   <span>{u.error}</span>
                 </div>
@@ -2417,7 +2417,7 @@ function UploadedFilesPanel({
 }
 
 function ReviewStatusChip({ status }: { status: ReviewWorkflowStatus }) {
-  const base = 'inline-flex items-center gap-1 px-2 h-5 rounded-full text-[10.5px] font-medium tracking-wide shrink-0 border';
+  const base = 'inline-flex items-center gap-1 px-2 h-5 rounded-full text-[10px] leading-3 font-medium tracking-wide shrink-0 border';
   switch (status) {
     case 'mapped':
       return (
@@ -2480,7 +2480,7 @@ function ReviewActionButton({
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex items-center px-2.5 h-7 rounded-md border text-[11.5px] font-medium transition-colors cursor-pointer ${cls}`}
+      className={`inline-flex items-center px-2.5 h-7 rounded-md border text-[12px] leading-4 font-medium transition-colors cursor-pointer ${cls}`}
     >
       {children}
     </button>
@@ -2517,18 +2517,18 @@ function ReviewColumnMapper({
     <div className="border-t border-dashed border-border-light bg-surface-2/40 px-4 py-3.5">
       <div className="flex items-start justify-between mb-3 gap-3">
         <div className="min-w-0">
-          <div className="text-[11.5px] font-semibold text-text">Column Mapping</div>
-          <div className="text-[10.5px] text-text-muted mt-0.5">
+          <div className="text-[12px] leading-4 font-semibold text-text">Column Mapping</div>
+          <div className="text-[10px] leading-3 text-text-muted mt-0.5">
             Map required schema columns to columns found in uploaded file. Fuzzy matches are auto-applied — verify or override.
           </div>
         </div>
-        <div className="text-[10.5px] font-mono text-text-muted shrink-0">
+        <div className="text-[10px] leading-3 font-mono text-text-muted shrink-0">
           {resolved}/{columns.length} resolved
         </div>
       </div>
 
       <div className="rounded-lg border border-border-light bg-white p-3">
-        <div className="grid grid-cols-[1fr_18px_1fr_60px] gap-3 text-[9.5px] uppercase tracking-wider text-text-muted/80 font-semibold pb-1.5 border-b border-border-light">
+        <div className="grid grid-cols-[1fr_18px_1fr_60px] gap-3 text-[10px] leading-3 uppercase tracking-wider text-text-muted/80 font-semibold pb-1.5 border-b border-border-light">
           <div>Required Column</div>
           <div></div>
           <div>Source Column</div>
@@ -2544,7 +2544,7 @@ function ReviewColumnMapper({
             <select
               value={c.matched ?? ''}
               onChange={e => onUpdate(idx, e.target.value)}
-              className={`min-w-0 px-2 h-7 rounded-md border text-[11.5px] font-mono outline-none transition-colors cursor-pointer ${
+              className={`min-w-0 px-2 h-7 rounded-md border text-[12px] leading-4 font-mono outline-none transition-colors cursor-pointer ${
                 c.confidence === 'missing'
                   ? 'border-risk/40 bg-risk/5 text-risk'
                   : 'border-border-light bg-white text-text focus:border-primary/40 focus:ring-2 focus:ring-primary/10'
@@ -2557,17 +2557,17 @@ function ReviewColumnMapper({
             </select>
             <div className="flex justify-end">
               {c.confidence === 'exact' && (
-                <span className="inline-flex items-center px-1.5 h-5 rounded text-[9.5px] font-medium bg-compliant-50 text-compliant-700 border border-compliant/25">
+                <span className="inline-flex items-center px-1.5 h-5 rounded text-[10px] leading-3 font-medium bg-compliant-50 text-compliant-700 border border-compliant/25">
                   exact
                 </span>
               )}
               {c.confidence === 'fuzzy' && (
-                <span className="inline-flex items-center px-1.5 h-5 rounded text-[9.5px] font-medium bg-mitigated-50 text-mitigated-700 border border-mitigated/30">
+                <span className="inline-flex items-center px-1.5 h-5 rounded text-[10px] leading-3 font-medium bg-mitigated-50 text-mitigated-700 border border-mitigated/30">
                   fuzzy
                 </span>
               )}
               {c.confidence === 'missing' && (
-                <span className="inline-flex items-center px-1.5 h-5 rounded text-[9.5px] font-medium bg-risk/10 text-risk border border-risk/30">
+                <span className="inline-flex items-center px-1.5 h-5 rounded text-[10px] leading-3 font-medium bg-risk/10 text-risk border border-risk/30">
                   missing
                 </span>
               )}
@@ -2577,7 +2577,7 @@ function ReviewColumnMapper({
       </div>
 
       <div className="flex items-center justify-between mt-3 gap-3">
-        <div className="text-[10.5px] flex items-center gap-1.5 min-w-0">
+        <div className="text-[10px] leading-3 flex items-center gap-1.5 min-w-0">
           {allResolved ? (
             <>
               <span className="w-1.5 h-1.5 rounded-full bg-compliant" />
@@ -2596,7 +2596,7 @@ function ReviewColumnMapper({
           type="button"
           onClick={onConfirm}
           disabled={!allResolved}
-          className={`inline-flex items-center px-2.5 h-7 rounded-md border text-[11.5px] font-medium transition-colors shrink-0 ${
+          className={`inline-flex items-center px-2.5 h-7 rounded-md border text-[12px] leading-4 font-medium transition-colors shrink-0 ${
             allResolved
               ? 'border-primary/25 text-primary bg-white hover:bg-primary/5 cursor-pointer'
               : 'border-border-light text-text-muted/50 bg-white cursor-not-allowed'
@@ -2654,12 +2654,12 @@ function Step3ReviewExecute({
         <div className="mb-5">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <div className="text-[10.5px] font-semibold uppercase tracking-wider text-primary mb-1">Final Review</div>
+              <div className="text-[10px] leading-3 font-semibold uppercase tracking-wider text-primary mb-1">Final Review</div>
               <h3 className="text-[16px] font-semibold text-text">
                 Ready to execute <span className="text-primary font-mono">{auditName.trim() || 'BulkRun'}</span>
               </h3>
             </div>
-            <div className="text-[11.5px] text-text-muted shrink-0 pt-1 whitespace-nowrap">
+            <div className="text-[12px] leading-4 text-text-muted shrink-0 pt-1 whitespace-nowrap">
               Ready · {active.length} workflow{active.length === 1 ? '' : 's'} · ~{estRuntime.toFixed(1)} min
             </div>
           </div>
@@ -2688,7 +2688,7 @@ function Step3ReviewExecute({
           </div>
           <button
             type="button"
-            className="inline-flex items-center px-2.5 h-7 rounded-md border border-border-light bg-white text-[11.5px] font-medium text-text hover:bg-surface-2 transition-colors cursor-pointer shrink-0"
+            className="inline-flex items-center px-2.5 h-7 rounded-md border border-border-light bg-white text-[12px] leading-4 font-medium text-text hover:bg-surface-2 transition-colors cursor-pointer shrink-0"
           >
             Rename
           </button>
@@ -2706,9 +2706,9 @@ function Step3ReviewExecute({
             <div className="px-3 pb-3 space-y-2 bg-white">
               {overrides.map(w => (
                 <div key={w.id} className="pt-2.5 border-t border-border-light first:border-t-0">
-                  <div className="text-[12.5px] font-medium text-text mb-1.5">
+                  <div className="text-[12px] leading-4 font-medium text-text mb-1.5">
                     {w.name}
-                    <span className="font-mono text-[10.5px] text-text-muted ml-1.5">{w.code}</span>
+                    <span className="font-mono text-[10px] leading-3 text-text-muted ml-1.5">{w.code}</span>
                   </div>
                   <div className="space-y-0.5">
                     {(w.columns ?? []).filter(c => c.confidence !== 'missing').map((c, idx) => (
@@ -2716,7 +2716,7 @@ function Step3ReviewExecute({
                         <span className="text-text w-40 truncate">{c.required}</span>
                         <ArrowRight size={10} className="text-text-muted/60 shrink-0" />
                         <span className="text-primary truncate">{c.matched}</span>
-                        <span className={`ml-auto inline-flex items-center px-1.5 h-4 rounded text-[9.5px] font-medium border ${
+                        <span className={`ml-auto inline-flex items-center px-1.5 h-4 rounded text-[10px] leading-3 font-medium border ${
                           c.confidence === 'fuzzy'
                             ? 'bg-mitigated-50 text-mitigated-700 border-mitigated/30'
                             : 'bg-compliant-50 text-compliant-700 border-compliant/25'
@@ -2733,7 +2733,7 @@ function Step3ReviewExecute({
         )}
 
         <div className="mb-4">
-          <div className="text-[10.5px] font-semibold uppercase tracking-wider text-text-muted mb-2">
+          <div className="text-[10px] leading-3 font-semibold uppercase tracking-wider text-text-muted mb-2">
             Running ({active.length})
           </div>
           <div className="rounded-xl border border-border-light bg-white divide-y divide-border-light overflow-hidden">
@@ -2741,9 +2741,9 @@ function Step3ReviewExecute({
               <div key={w.id} className="flex items-center gap-3 px-4 py-2.5">
                 <div className="w-1.5 h-1.5 rounded-full bg-compliant shrink-0" />
                 <div className="font-mono text-[11px] text-text-muted/70 w-16 shrink-0">{w.code}</div>
-                <div className="flex-1 text-[12.5px] text-text truncate">{w.name}</div>
+                <div className="flex-1 text-[12px] leading-4 text-text truncate">{w.name}</div>
                 {w.hasOverrides && (
-                  <span className="inline-flex items-center px-1.5 h-5 rounded text-[9.5px] font-medium bg-mitigated-50 text-mitigated-700 border border-mitigated/30 shrink-0">
+                  <span className="inline-flex items-center px-1.5 h-5 rounded text-[10px] leading-3 font-medium bg-mitigated-50 text-mitigated-700 border border-mitigated/30 shrink-0">
                     overrides
                   </span>
                 )}
@@ -2755,7 +2755,7 @@ function Step3ReviewExecute({
 
         {skipped.length > 0 && (
           <div>
-            <div className="text-[10.5px] font-semibold uppercase tracking-wider text-text-muted mb-2">
+            <div className="text-[10px] leading-3 font-semibold uppercase tracking-wider text-text-muted mb-2">
               Skipped ({skipped.length})
             </div>
             <div className="rounded-xl border border-border-light bg-surface-2/40 divide-y divide-border-light/60 overflow-hidden">
@@ -2763,7 +2763,7 @@ function Step3ReviewExecute({
                 <div key={w.id} className="flex items-center gap-3 px-4 py-2.5">
                   <div className="w-1.5 h-1.5 rounded-full bg-text-muted/60 shrink-0" />
                   <div className="font-mono text-[11px] text-text-muted/70 w-16 shrink-0">{w.code}</div>
-                  <div className="flex-1 text-[12.5px] text-text-muted line-through truncate">{w.name}</div>
+                  <div className="flex-1 text-[12px] leading-4 text-text-muted line-through truncate">{w.name}</div>
                   <div className="text-[11px] text-text-muted italic shrink-0">{skipReason(w)}</div>
                 </div>
               ))}
@@ -2893,7 +2893,7 @@ function SqlConfigModal({
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-5 py-5 space-y-4">
-          <div className="text-[11.5px] text-text-muted">
+          <div className="text-[12px] leading-4 text-text-muted">
             <span className="font-mono">{workflow.code}</span> · {workflow.name}
           </div>
           {rows.map((row, rIdx) => (
