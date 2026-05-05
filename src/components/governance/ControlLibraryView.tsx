@@ -288,7 +288,7 @@ export default function ControlLibraryView({ processFilter }: ControlLibraryProp
               key: 'name',
               label: 'Control Name',
               render: (item) => (
-                <div className="text-text font-medium text-[12.5px]">{String(item.name)}</div>
+                <div className="text-text font-medium text-[12px] leading-4">{String(item.name)}</div>
               ),
             },
             {

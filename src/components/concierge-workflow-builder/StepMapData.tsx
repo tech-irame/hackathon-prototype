@@ -135,7 +135,7 @@ export default function StepMapData({
                   type="button"
                   onClick={() => toggleExpanded(input.id)}
                   aria-expanded={isOpen}
-                  className="inline-flex items-center gap-1 text-[12.5px] font-semibold text-brand-700 hover:text-brand-800 cursor-pointer transition-colors"
+                  className="inline-flex items-center gap-1 text-[12px] leading-4 font-semibold text-brand-700 hover:text-brand-800 cursor-pointer transition-colors"
                 >
                   <Pencil size={12} />
                   Edit
@@ -147,7 +147,7 @@ export default function StepMapData({
             {!isOpen && (
               <div className="px-4 pb-3">
                 {selectedCols.length === 0 ? (
-                  <span className="text-[11.5px] text-ink-400 italic">
+                  <span className="text-[12px] leading-4 text-ink-400 italic">
                     No columns selected.
                   </span>
                 ) : (
@@ -169,20 +169,20 @@ export default function StepMapData({
             {isOpen && (
               <div className="border-t border-canvas-border/60 px-4 py-3">
                 {allCols.length === 0 ? (
-                  <div className="text-[11.5px] text-ink-400">
+                  <div className="text-[12px] leading-4 text-ink-400">
                     No columns detected for {input.name}.
                   </div>
                 ) : (
                   <>
                     <div className="flex items-center justify-between mb-2.5">
-                      <span className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-ink-400">
+                      <span className="text-[10px] leading-3 font-bold uppercase tracking-[0.14em] text-ink-400">
                         Select columns to use
                       </span>
                       <div className="flex items-center gap-1.5">
                         <button
                           type="button"
                           onClick={() => selectAll(input.id, allCols)}
-                          className="text-[11.5px] font-semibold text-brand-700 hover:text-brand-800 cursor-pointer px-1 py-0.5 transition-colors"
+                          className="text-[12px] leading-4 font-semibold text-brand-700 hover:text-brand-800 cursor-pointer px-1 py-0.5 transition-colors"
                         >
                           Select all
                         </button>
@@ -190,7 +190,7 @@ export default function StepMapData({
                         <button
                           type="button"
                           onClick={() => deselectAll(input.id)}
-                          className="text-[11.5px] font-semibold text-ink-500 hover:text-ink-700 cursor-pointer px-1 py-0.5 transition-colors"
+                          className="text-[12px] leading-4 font-semibold text-ink-500 hover:text-ink-700 cursor-pointer px-1 py-0.5 transition-colors"
                         >
                           Deselect all
                         </button>
@@ -212,12 +212,12 @@ export default function StepMapData({
                           }))
                         }
                         placeholder="Type to filter columns…"
-                        className="w-full rounded-full border border-canvas-border bg-canvas pl-8 pr-3 py-2 text-[12.5px] text-ink-800 placeholder:text-ink-400 focus:outline-none focus:ring-2 focus:ring-brand-600/15 focus:border-brand-400/50 transition-all"
+                        className="w-full rounded-full border border-canvas-border bg-canvas pl-8 pr-3 py-2 text-[12px] leading-4 text-ink-800 placeholder:text-ink-400 focus:outline-none focus:ring-2 focus:ring-brand-600/15 focus:border-brand-400/50 transition-all"
                       />
                     </div>
 
                     {filteredCols.length === 0 ? (
-                      <div className="rounded-lg border border-dashed border-canvas-border px-3 py-4 text-center text-[11.5px] text-ink-400">
+                      <div className="rounded-lg border border-dashed border-canvas-border px-3 py-4 text-center text-[12px] leading-4 text-ink-400">
                         No columns match “{search}”.
                       </div>
                     ) : (
@@ -342,7 +342,7 @@ function DataPreviewModal({
             </div>
             <div>
               <div className="text-[14px] font-bold text-ink-900">{schemaName}</div>
-              <div className="text-[11.5px] text-ink-400">{fileName}</div>
+              <div className="text-[12px] leading-4 text-ink-400">{fileName}</div>
             </div>
           </div>
           <button
@@ -355,7 +355,7 @@ function DataPreviewModal({
         </div>
 
         <div className="overflow-auto max-h-[60vh]">
-          <table className="w-full text-[12.5px]">
+          <table className="w-full text-[12px] leading-4">
             <thead>
               <tr className="border-b border-canvas-border bg-canvas/60">
                 {PREVIEW_COLUMNS.map((col) => (

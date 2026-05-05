@@ -143,7 +143,7 @@ export default function EngagementExecutionV2({ engagementId, onBack }: Props) {
           ].map(card => (
             <div key={card.label} className={`${card.bg} rounded-xl border border-border-light px-3.5 py-2.5`}>
               <span className={`text-[20px] font-bold ${card.color} block tabular-nums`}>{card.value}</span>
-              <span className="text-[9px] text-gray-400 font-medium">{card.label}</span>
+              <span className="text-[10px] leading-3 text-gray-400 font-medium">{card.label}</span>
             </div>
           ))}
         </div>
@@ -266,7 +266,7 @@ function ControlTableRow({ ctrl, index, isSelected, onSelect, onActionClick }: {
 
       {/* Type */}
       <td className="px-3 py-3">
-        <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${typeDisplay.bg} ${typeDisplay.text}`}>{typeDisplay.label}</span>
+        <span className={`px-1.5 py-0.5 rounded text-[10px] leading-3 font-bold ${typeDisplay.bg} ${typeDisplay.text}`}>{typeDisplay.label}</span>
       </td>
 
       {/* Workflow Coverage */}
@@ -281,7 +281,7 @@ function ControlTableRow({ ctrl, index, isSelected, onSelect, onActionClick }: {
 
       {/* Execution Status */}
       <td className="px-3 py-3">
-        <span className={`px-2 h-5 rounded-full text-[9px] font-semibold inline-flex items-center ${statusDisplay.bg} ${statusDisplay.text}`}>
+        <span className={`px-2 h-5 rounded-full text-[10px] leading-3 font-semibold inline-flex items-center ${statusDisplay.bg} ${statusDisplay.text}`}>
           {statusDisplay.label}
         </span>
       </td>
@@ -309,7 +309,7 @@ function ControlTableRow({ ctrl, index, isSelected, onSelect, onActionClick }: {
       {/* Conclusion */}
       <td className="px-3 py-3 text-center">
         {conclusionDisplay ? (
-          <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${conclusionDisplay.bg} ${conclusionDisplay.text}`}>{conclusionDisplay.label}</span>
+          <span className={`px-1.5 py-0.5 rounded text-[10px] leading-3 font-bold ${conclusionDisplay.bg} ${conclusionDisplay.text}`}>{conclusionDisplay.label}</span>
         ) : (
           <span className="text-[10px] text-gray-300">—</span>
         )}

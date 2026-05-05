@@ -47,9 +47,9 @@ function ExceptionCard({ ex }: { ex: GrcException }) {
     <article className="border border-canvas-border rounded-[12px] p-4 hover:border-brand-200 transition-colors cursor-pointer">
       <div className="flex items-center justify-between gap-3 mb-2">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="font-mono text-[12.5px] font-semibold text-brand-700 whitespace-nowrap">{ex.id}</span>
+          <span className="font-mono text-[12px] leading-4 font-semibold text-brand-700 whitespace-nowrap">{ex.id}</span>
           {isBulk && (
-            <span className="inline-flex items-center h-5 px-2 text-[10.5px] font-medium bg-brand-50 text-brand-700 rounded-full">
+            <span className="inline-flex items-center h-5 px-2 text-[10px] leading-3 font-medium bg-brand-50 text-brand-700 rounded-full">
               Bulk
             </span>
           )}
@@ -101,7 +101,7 @@ export default function ExceptionListDrawer({
         <header className="shrink-0 px-6 pt-5 pb-4 flex items-start justify-between gap-4 border-b border-canvas-border">
           <div>
             <h2 className="font-display text-[20px] font-semibold text-ink-900 tracking-tight">{title}</h2>
-            <p className="text-[12.5px] text-ink-500 mt-0.5">{subtitle}</p>
+            <p className="text-[12px] leading-4 text-ink-500 mt-0.5">{subtitle}</p>
           </div>
           <button
             onClick={onClose}
@@ -118,7 +118,7 @@ export default function ExceptionListDrawer({
             exceptions.map(ex => <ExceptionCard key={ex.id} ex={ex} />)
           )}
         </div>
-        <footer className="shrink-0 px-6 py-3 border-t border-canvas-border text-right text-[11.5px] text-ink-500 tabular-nums">
+        <footer className="shrink-0 px-6 py-3 border-t border-canvas-border text-right text-[12px] leading-4 text-ink-500 tabular-nums">
           {exceptions.length} {exceptions.length === 1 ? 'exception' : 'exceptions'} shown
         </footer>
       </motion.aside>

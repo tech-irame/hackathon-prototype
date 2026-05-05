@@ -255,7 +255,7 @@ function AggDropdown({ value, onChange, fieldId }: { value: string; onChange: (v
         >
           {isDateField ? (
             <>
-              <p className="px-3 pt-1.5 pb-1 text-[9px] font-semibold uppercase tracking-[0.8px] text-[#9ca3af]">Date Granularity</p>
+              <p className="px-3 pt-1.5 pb-1 text-[10px] leading-3 font-semibold uppercase tracking-[0.8px] text-[#9ca3af]">Date Granularity</p>
               {TEMPORAL_OPTIONS.map(opt => {
                 const selected = value ? value.split(",") : [];
                 const isSelected = selected.includes(opt.value);
@@ -275,7 +275,7 @@ function AggDropdown({ value, onChange, fieldId }: { value: string; onChange: (v
             </>
           ) : (
             <>
-              <p className="px-3 pt-1.5 pb-1 text-[9px] font-semibold uppercase tracking-[0.8px] text-[#9ca3af]">Aggregation</p>
+              <p className="px-3 pt-1.5 pb-1 text-[10px] leading-3 font-semibold uppercase tracking-[0.8px] text-[#9ca3af]">Aggregation</p>
               <button
                 onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onChange(""); setOpen(false); }}
                 className={`w-full flex items-center gap-2 px-3 py-[6px] text-left transition-colors hover:bg-[#f5f0ff] ${!value ? "bg-[#faf5ff] text-[#6a12cd]" : "text-[#374151]"}`}

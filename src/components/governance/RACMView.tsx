@@ -273,7 +273,7 @@ export default function RACMView({}: Props) {
             <Sparkles size={16} className="text-white" />
           </div>
           <div className="flex-1">
-            <div className="text-[12.5px] font-semibold text-text">RACM Coverage Analysis</div>
+            <div className="text-[12px] leading-4 font-semibold text-text">RACM Coverage Analysis</div>
             <div className="text-[12px] text-text-secondary mt-0.5">
               2 RACMs have incomplete control mappings. IT General Controls has 5 unmapped risks requiring attention.
               <span className="text-primary font-semibold cursor-pointer hover:underline ml-1">Auto-map controls</span>
@@ -299,7 +299,7 @@ export default function RACMView({}: Props) {
                 }`}
               >
                 <span className={`w-2 h-2 rounded-full ${style.dot}`} />
-                <span className="text-[12.5px] font-semibold">{status}: {count}</span>
+                <span className="text-[12px] leading-4 font-semibold">{status}: {count}</span>
               </motion.button>
             );
           })}

@@ -276,12 +276,12 @@ export function WhiteDropdown({
                           </span>
                           <div className="flex items-center gap-1 shrink-0">
                             {isInXAxis && (
-                              <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-[#6a12cd]/10 text-[#6a12cd] rounded-[3px] border border-[#6a12cd]/20">
+                              <span className="px-1.5 py-0.5 text-[10px] leading-3 font-bold uppercase tracking-wider bg-[#6a12cd]/10 text-[#6a12cd] rounded-[3px] border border-[#6a12cd]/20">
                                 X
                               </span>
                             )}
                             {isInYAxis && (
-                              <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-[#0ea5e9]/10 text-[#0ea5e9] rounded-[3px] border border-[#0ea5e9]/20">
+                              <span className="px-1.5 py-0.5 text-[10px] leading-3 font-bold uppercase tracking-wider bg-[#0ea5e9]/10 text-[#0ea5e9] rounded-[3px] border border-[#0ea5e9]/20">
                                 Y
                               </span>
                             )}
@@ -315,12 +315,12 @@ export function WhiteDropdown({
                       </span>
                       <div className="flex items-center gap-1 shrink-0">
                         {isInXAxis && (
-                          <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-[#6a12cd]/10 text-[#6a12cd] rounded-[3px] border border-[#6a12cd]/20">
+                          <span className="px-1.5 py-0.5 text-[10px] leading-3 font-bold uppercase tracking-wider bg-[#6a12cd]/10 text-[#6a12cd] rounded-[3px] border border-[#6a12cd]/20">
                             X
                           </span>
                         )}
                         {isInYAxis && (
-                          <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-[#0ea5e9]/10 text-[#0ea5e9] rounded-[3px] border border-[#0ea5e9]/20">
+                          <span className="px-1.5 py-0.5 text-[10px] leading-3 font-bold uppercase tracking-wider bg-[#0ea5e9]/10 text-[#0ea5e9] rounded-[3px] border border-[#0ea5e9]/20">
                             Y
                           </span>
                         )}

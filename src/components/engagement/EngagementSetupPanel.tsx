@@ -107,7 +107,7 @@ function DraftSetup({ eng, onClose, onMoveToPlanned, onUpdate }: { eng: Engageme
         <h4 className="text-[11px] font-bold text-text-muted uppercase mb-2 flex items-center gap-1.5">
           <Edit3 size={11} />
           Basic Information
-          <span className="text-[9px] text-primary font-bold bg-primary/10 px-1.5 py-0.5 rounded ml-1">Editable</span>
+          <span className="text-[10px] leading-3 text-primary font-bold bg-primary/10 px-1.5 py-0.5 rounded ml-1">Editable</span>
         </h4>
         <div className="glass-card rounded-xl p-4">
           <div className="grid grid-cols-2 gap-3">
@@ -123,7 +123,7 @@ function DraftSetup({ eng, onClose, onMoveToPlanned, onUpdate }: { eng: Engageme
       <div>
         <h4 className="text-[11px] font-bold text-text-muted uppercase mb-2 flex items-center gap-1.5">
           <Calendar size={11} />Audit Period & Timeline
-          <span className="text-[9px] text-primary font-bold bg-primary/10 px-1.5 py-0.5 rounded ml-1">Editable</span>
+          <span className="text-[10px] leading-3 text-primary font-bold bg-primary/10 px-1.5 py-0.5 rounded ml-1">Editable</span>
         </h4>
         <div className="glass-card rounded-xl p-4">
           <div className="grid grid-cols-2 gap-3">
@@ -153,7 +153,7 @@ function DraftSetup({ eng, onClose, onMoveToPlanned, onUpdate }: { eng: Engageme
 
       {/* RACM Version */}
       <div>
-        <h4 className="text-[11px] font-bold text-text-muted uppercase mb-2 flex items-center gap-1.5"><FileText size={11} />Linked RACM Version <span className="text-[9px] text-risk-700 font-bold">MANDATORY</span></h4>
+        <h4 className="text-[11px] font-bold text-text-muted uppercase mb-2 flex items-center gap-1.5"><FileText size={11} />Linked RACM Version <span className="text-[10px] leading-3 text-risk-700 font-bold">MANDATORY</span></h4>
         <div className={`glass-card rounded-xl p-4 ${eng.sourceRacmVersionId && eng.controls > 0 ? 'border-compliant/20' : 'border-risk/30 bg-risk-50/10'}`}>
           {eng.sourceRacmVersionId && eng.controls > 0 ? (
             <div>
@@ -231,7 +231,7 @@ function DraftSetup({ eng, onClose, onMoveToPlanned, onUpdate }: { eng: Engageme
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-[10px] text-text-muted">{c.domain}</span>
-                      {c.isKey && <span className="text-[9px] font-bold bg-mitigated-50 text-mitigated-700 px-1.5 py-0.5 rounded">KEY</span>}
+                      {c.isKey && <span className="text-[10px] leading-3 font-bold bg-mitigated-50 text-mitigated-700 px-1.5 py-0.5 rounded">KEY</span>}
                     </div>
                   </div>
                 ))}
@@ -280,7 +280,7 @@ function DraftSetup({ eng, onClose, onMoveToPlanned, onUpdate }: { eng: Engageme
               <div className="flex items-center gap-2.5">
                 {item.met ? <CheckCircle2 size={14} className="text-compliant-700 shrink-0" /> : <div className="w-3.5 h-3.5 rounded-full border-2 border-risk shrink-0" />}
                 <span className={`text-[12px] flex-1 ${item.met ? 'text-text-secondary' : 'text-risk-700 font-medium'}`}>{item.label}</span>
-                {!item.met && <span className="text-[9px] font-bold text-risk-700 bg-risk-50 px-1.5 py-0.5 rounded">Required</span>}
+                {!item.met && <span className="text-[10px] leading-3 font-bold text-risk-700 bg-risk-50 px-1.5 py-0.5 rounded">Required</span>}
               </div>
               {!item.met && <p className="text-[10px] text-risk-700/70 ml-6 mt-0.5">{item.resolution}</p>}
             </div>
@@ -370,15 +370,15 @@ function PlannedOverview({ eng, onClose, onActivate }: { eng: EngagementData; on
         <div className="grid grid-cols-4 gap-3">
           <div className="glass-card rounded-xl p-3 text-center">
             <div className="text-lg font-bold text-text tabular-nums">{eng.controls}</div>
-            <div className="text-[9px] text-text-muted uppercase">Total Controls</div>
+            <div className="text-[12px] leading-[14px] text-text-muted uppercase">Total Controls</div>
           </div>
           <div className="glass-card rounded-xl p-3 text-center">
             <div className="text-lg font-bold text-brand-700 tabular-nums">{keyControls}</div>
-            <div className="text-[9px] text-text-muted uppercase">Key Controls</div>
+            <div className="text-[12px] leading-[14px] text-text-muted uppercase">Key Controls</div>
           </div>
           <div className="glass-card rounded-xl p-3 text-center">
             <div className="text-lg font-bold text-text tabular-nums">{eng.plannedHours}</div>
-            <div className="text-[9px] text-text-muted uppercase">Planned Hours</div>
+            <div className="text-[12px] leading-[14px] text-text-muted uppercase">Planned Hours</div>
           </div>
         </div>
       </div>
@@ -423,7 +423,7 @@ function PlannedOverview({ eng, onClose, onActivate }: { eng: EngagementData; on
                   : <XCircle size={14} className="text-risk-700 shrink-0" />
                 }
                 <span className={`text-[12px] flex-1 ${item.met ? 'text-text-secondary' : 'text-risk-700 font-medium'}`}>{item.label}</span>
-                {!item.met && <span className="text-[9px] font-bold text-risk-700 bg-risk-50 px-1.5 py-0.5 rounded">Required</span>}
+                {!item.met && <span className="text-[10px] leading-3 font-bold text-risk-700 bg-risk-50 px-1.5 py-0.5 rounded">Required</span>}
               </div>
               {!item.met && (
                 <p className="text-[10px] text-risk-700/70 ml-6 mt-0.5">{item.resolution}</p>

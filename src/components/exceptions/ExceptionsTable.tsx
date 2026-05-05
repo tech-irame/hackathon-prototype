@@ -132,7 +132,7 @@ function PrimaryButton({ children, icon, onClick }: { children: React.ReactNode;
   return (
     <button
       onClick={onClick}
-      className="inline-flex items-center gap-1.5 h-7 px-3 text-[11.5px] font-semibold text-white bg-brand-600 rounded-[7px] hover:bg-brand-500 transition-colors cursor-pointer whitespace-nowrap"
+      className="inline-flex items-center gap-1.5 h-7 px-3 text-[12px] leading-4 font-semibold text-white bg-brand-600 rounded-[7px] hover:bg-brand-500 transition-colors cursor-pointer whitespace-nowrap"
     >
       {icon}
       {children}
@@ -144,7 +144,7 @@ function GhostButton({ children, icon, onClick }: { children: React.ReactNode; i
   return (
     <button
       onClick={onClick}
-      className="inline-flex items-center gap-1.5 h-7 px-3 text-[11.5px] font-medium text-ink-700 bg-canvas-elevated border border-canvas-border rounded-[7px] hover:border-brand-200 hover:text-brand-700 transition-colors cursor-pointer whitespace-nowrap"
+      className="inline-flex items-center gap-1.5 h-7 px-3 text-[12px] leading-4 font-medium text-ink-700 bg-canvas-elevated border border-canvas-border rounded-[7px] hover:border-brand-200 hover:text-brand-700 transition-colors cursor-pointer whitespace-nowrap"
     >
       {icon}
       {children}
@@ -322,7 +322,7 @@ function ColumnsToggle({
             return (
               <li key={col.key}>
                 <label
-                  className={`flex items-center gap-2 px-3 py-1.5 text-[12.5px] ${
+                  className={`flex items-center gap-2 px-3 py-1.5 text-[12px] leading-4 ${
                     disabled ? 'text-ink-400 cursor-not-allowed' : 'text-ink-800 hover:bg-[#FAFAFB] cursor-pointer'
                   }`}
                 >
@@ -421,7 +421,7 @@ function HeaderMenu({
                     const checked = filterValue.includes(opt);
                     return (
                       <li key={opt}>
-                        <label className="flex items-center gap-2 px-3 py-1.5 text-[12.5px] text-ink-800 hover:bg-[#FAFAFB] cursor-pointer">
+                        <label className="flex items-center gap-2 px-3 py-1.5 text-[12px] leading-4 text-ink-800 hover:bg-[#FAFAFB] cursor-pointer">
                           <input
                             type="checkbox"
                             checked={checked}
@@ -454,7 +454,7 @@ function HeaderMenu({
         <Popover open={open} onClose={() => setOpen(false)} align="end" className="w-[180px] py-1 normal-case tracking-normal">
           <button
             onClick={() => { onPin('left'); setOpen(false); }}
-            className={`flex items-center gap-2 w-full text-left px-3 py-2 text-[12.5px] hover:bg-[#FAFAFB] cursor-pointer ${pin === 'left' ? 'text-brand-700' : 'text-ink-800'}`}
+            className={`flex items-center gap-2 w-full text-left px-3 py-2 text-[12px] leading-4 hover:bg-[#FAFAFB] cursor-pointer ${pin === 'left' ? 'text-brand-700' : 'text-ink-800'}`}
           >
             <Pin size={13} className="-rotate-45" />
             Pin to left
@@ -462,7 +462,7 @@ function HeaderMenu({
           </button>
           <button
             onClick={() => { onPin('right'); setOpen(false); }}
-            className={`flex items-center gap-2 w-full text-left px-3 py-2 text-[12.5px] hover:bg-[#FAFAFB] cursor-pointer ${pin === 'right' ? 'text-brand-700' : 'text-ink-800'}`}
+            className={`flex items-center gap-2 w-full text-left px-3 py-2 text-[12px] leading-4 hover:bg-[#FAFAFB] cursor-pointer ${pin === 'right' ? 'text-brand-700' : 'text-ink-800'}`}
           >
             <Pin size={13} className="rotate-45" />
             Pin to right
@@ -471,7 +471,7 @@ function HeaderMenu({
           {pin && (
             <button
               onClick={() => { onPin(null); setOpen(false); }}
-              className="flex items-center gap-2 w-full text-left px-3 py-2 text-[12.5px] text-ink-800 hover:bg-[#FAFAFB] cursor-pointer border-t border-canvas-border"
+              className="flex items-center gap-2 w-full text-left px-3 py-2 text-[12px] leading-4 text-ink-800 hover:bg-[#FAFAFB] cursor-pointer border-t border-canvas-border"
             >
               <PinOff size={13} />
               Unpin
@@ -511,7 +511,7 @@ function renderCell(
     case 'id':
       return (
         <div className="flex flex-col gap-1">
-          <button className="text-brand-700 font-medium text-[12.5px] font-mono hover:underline cursor-pointer text-left">
+          <button className="text-brand-700 font-medium text-[12px] leading-4 font-mono hover:underline cursor-pointer text-left">
             {ex.id}
           </button>
           {(isOverdue || isBulk) && (
@@ -532,7 +532,7 @@ function renderCell(
         </div>
       );
     case 'riskCategory':
-      return <span className="text-ink-800 text-[12.5px]">{ex.riskCategory}</span>;
+      return <span className="text-ink-800 text-[12px] leading-4">{ex.riskCategory}</span>;
     case 'severity':
       return <Pill className={SEVERITY_STYLE[ex.severity]}>{ex.severity}</Pill>;
     case 'status':
@@ -548,16 +548,16 @@ function renderCell(
       return ex.bulkId ? (
         <button
           onClick={() => onOpenActionable(ex.bulkId!)}
-          className="inline-flex items-center h-6 px-2.5 text-[11.5px] font-mono font-semibold bg-brand-50 text-brand-700 rounded-full hover:bg-brand-100 transition-colors cursor-pointer"
+          className="inline-flex items-center h-6 px-2.5 text-[12px] leading-4 font-mono font-semibold bg-brand-50 text-brand-700 rounded-full hover:bg-brand-100 transition-colors cursor-pointer"
           title={`Open ${ex.bulkId} group`}
         >
           {ex.bulkId}
         </button>
       ) : (
-        <span className="text-ink-400 text-[12.5px]">—</span>
+        <span className="text-ink-400 text-[12px] leading-4">—</span>
       );
     case 'lastUpdated':
-      return <span className="text-ink-500 text-[11.5px] tabular-nums whitespace-nowrap">{ex.lastUpdated}</span>;
+      return <span className="text-ink-500 text-[12px] leading-4 tabular-nums whitespace-nowrap">{ex.lastUpdated}</span>;
     case 'classify': {
       if (role === 'risk-owner') {
         return ex.classification === 'Unclassified' ? (
@@ -900,7 +900,7 @@ export default function ExceptionsTable({
             <button
               type="button"
               onClick={() => setFilterSetOpen(o => !o)}
-              className={`inline-flex items-center gap-1.5 h-8 pl-2.5 pr-2 text-[12.5px] font-medium rounded-[8px] border cursor-pointer transition-colors ${
+              className={`inline-flex items-center gap-1.5 h-8 pl-2.5 pr-2 text-[12px] leading-4 font-medium rounded-[8px] border cursor-pointer transition-colors ${
                 filterSetOpen
                   ? 'bg-brand-50 border-brand-200 text-brand-700'
                   : 'bg-canvas-elevated border-canvas-border text-ink-700 hover:border-brand-200'
@@ -911,7 +911,7 @@ export default function ExceptionsTable({
               <LayoutGrid size={13} />
               Filter Set
               {savedFilterSets.length > 0 && (
-                <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10.5px] font-semibold text-white bg-brand-700 rounded-full tabular-nums">
+                <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] leading-3 font-semibold text-white bg-brand-700 rounded-full tabular-nums">
                   {savedFilterSets.length}
                 </span>
               )}
@@ -920,13 +920,13 @@ export default function ExceptionsTable({
             {filterSetOpen && (
               <div className="absolute z-30 left-0 top-9 w-[300px] bg-canvas-elevated border border-canvas-border rounded-[10px] shadow-xl overflow-hidden">
                 <div className="flex items-center justify-between px-4 py-2.5 border-b border-canvas-border">
-                  <span className="text-[12.5px] font-medium text-ink-700">Saved Sets</span>
-                  <span className="text-[11.5px] text-ink-500 tabular-nums">{savedFilterSets.length}/10</span>
+                  <span className="text-[12px] leading-4 font-medium text-ink-700">Saved Sets</span>
+                  <span className="text-[12px] leading-4 text-ink-500 tabular-nums">{savedFilterSets.length}/10</span>
                 </div>
                 {savedFilterSets.length === 0 ? (
                   <div className="px-4 py-8 flex flex-col items-center justify-center text-center">
                     <AlertCircle size={20} className="text-ink-400 mb-2.5" />
-                    <span className="text-[12.5px] text-ink-500">No filter sets saved yet</span>
+                    <span className="text-[12px] leading-4 text-ink-500">No filter sets saved yet</span>
                   </div>
                 ) : (
                   <ul className="max-h-[320px] overflow-y-auto py-1">
@@ -949,7 +949,7 @@ export default function ExceptionsTable({
                       return (
                         <li key={set.id}>
                           <div
-                            className="group flex items-center gap-1.5 px-2 py-2 text-[12.5px] cursor-pointer hover:bg-[#FAFAFB]"
+                            className="group flex items-center gap-1.5 px-2 py-2 text-[12px] leading-4 cursor-pointer hover:bg-[#FAFAFB]"
                             onClick={() => { if (!isRenaming) applyFilterSet(set); }}
                           >
                             {isRenaming ? (
@@ -963,7 +963,7 @@ export default function ExceptionsTable({
                                     else if (e.key === 'Escape') { e.preventDefault(); cancelRename(); }
                                   }}
                                   onClick={e => e.stopPropagation()}
-                                  className="flex-1 min-w-0 px-2 py-1 text-[12.5px] rounded border border-brand-200 focus:outline-none focus:border-brand-400 bg-white"
+                                  className="flex-1 min-w-0 px-2 py-1 text-[12px] leading-4 rounded border border-brand-200 focus:outline-none focus:border-brand-400 bg-white"
                                 />
                                 <button
                                   type="button"
@@ -1022,7 +1022,7 @@ export default function ExceptionsTable({
                                 <li
                                   key={entry.key}
                                   title={`${entry.label}: ${entry.values}`}
-                                  className="text-[11.5px] text-ink-500 truncate"
+                                  className="text-[12px] leading-4 text-ink-500 truncate"
                                 >
                                   <span className="text-ink-700 font-medium">{entry.label}:</span>{' '}
                                   <span>{entry.values}</span>
@@ -1046,7 +1046,7 @@ export default function ExceptionsTable({
                         ? 'Apply at least one filter to save a set'
                         : undefined
                   }
-                  className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 text-[12.5px] font-medium text-ink-500 border-t border-canvas-border hover:bg-[#FAFAFB] hover:text-brand-700 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-ink-500 disabled:hover:bg-transparent"
+                  className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 text-[12px] leading-4 font-medium text-ink-500 border-t border-canvas-border hover:bg-[#FAFAFB] hover:text-brand-700 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-ink-500 disabled:hover:bg-transparent"
                 >
                   <Plus size={13} />
                   Generate Filter Set
@@ -1092,7 +1092,7 @@ export default function ExceptionsTable({
       </div>
 
       <div className="overflow-auto flex-1 min-h-0">
-        <table className="w-full text-[12.5px]">
+        <table className="w-full text-[12px] leading-4">
           <thead>
             <tr className="bg-[#FAFAFB] border-b border-canvas-border text-left text-ink-500 uppercase tracking-wider">
               {renderOrder.map((key) => {
@@ -1124,7 +1124,7 @@ export default function ExceptionsTable({
                     onDragOver={def.draggable && !pinned ? handleDragOver(key) : undefined}
                     onDrop={def.draggable && !pinned ? handleDrop(key) : undefined}
                     onDragEnd={handleDragEnd}
-                    className={`px-3 py-3 font-medium text-[10.5px] align-middle transition-colors ${
+                    className={`px-3 py-3 font-medium text-[10px] leading-3 align-middle transition-colors ${
                       def.align === 'center' ? 'text-center' : ''
                     } ${isDragTarget ? 'bg-brand-50' : ''} ${isDragging ? 'opacity-50' : ''}`}
                   >
@@ -1153,7 +1153,7 @@ export default function ExceptionsTable({
                             <button
                               type="button"
                               onClick={selectAllCases}
-                              className="flex items-center gap-2 w-full text-left px-3 py-2 text-[12.5px] text-ink-800 hover:bg-[#FAFAFB] cursor-pointer"
+                              className="flex items-center gap-2 w-full text-left px-3 py-2 text-[12px] leading-4 text-ink-800 hover:bg-[#FAFAFB] cursor-pointer"
                             >
                               All Cases
                               {allSelected && <Check size={13} className="ml-auto text-brand-700" />}
@@ -1161,7 +1161,7 @@ export default function ExceptionsTable({
                             <button
                               type="button"
                               onClick={selectThisPage}
-                              className="flex items-center gap-2 w-full text-left px-3 py-2 text-[12.5px] text-ink-800 hover:bg-[#FAFAFB] cursor-pointer"
+                              className="flex items-center gap-2 w-full text-left px-3 py-2 text-[12px] leading-4 text-ink-800 hover:bg-[#FAFAFB] cursor-pointer"
                             >
                               This Page
                               {pageSelected && !allSelected && <Check size={13} className="ml-auto text-brand-700" />}
@@ -1197,7 +1197,7 @@ export default function ExceptionsTable({
           <tbody>
             {showAllOnPageBanner && (
               <tr className="bg-brand-50/40 border-b border-canvas-border">
-                <td colSpan={renderOrder.length} className="px-5 py-2.5 text-center text-[12.5px] text-ink-700">
+                <td colSpan={renderOrder.length} className="px-5 py-2.5 text-center text-[12px] leading-4 text-ink-700">
                   All <span className="font-semibold">{pagedIds.length}</span> Cases on this page are selected.{' '}
                   <button
                     type="button"
@@ -1268,13 +1268,13 @@ export default function ExceptionsTable({
       </div>
 
       {/* Pagination footer — sits inside the table card, attached at the bottom */}
-      <div className="flex items-center justify-between gap-5 px-5 py-3 border-t border-canvas-border bg-canvas-elevated text-[12.5px] text-ink-700">
+      <div className="flex items-center justify-between gap-5 px-5 py-3 border-t border-canvas-border bg-canvas-elevated text-[12px] leading-4 text-ink-700">
         <div className="flex items-center gap-3 min-w-0">
         {/* Export CSV split button — left side */}
         <div className="relative inline-flex items-stretch" ref={exportMenuRef}>
           <button
             type="button"
-            className="inline-flex items-center gap-1.5 h-8 pl-3 pr-3 text-[12.5px] font-medium text-brand-700 bg-canvas-elevated border border-canvas-border rounded-l-[6px] hover:border-brand-200 cursor-pointer"
+            className="inline-flex items-center gap-1.5 h-8 pl-3 pr-3 text-[12px] leading-4 font-medium text-brand-700 bg-canvas-elevated border border-canvas-border rounded-l-[6px] hover:border-brand-200 cursor-pointer"
           >
             <Download size={13} />
             Export CSV
@@ -1294,7 +1294,7 @@ export default function ExceptionsTable({
               <button
                 type="button"
                 onClick={() => setExportMenuOpen(false)}
-                className="block w-full text-left px-3 py-1.5 text-[12.5px] text-ink-800 hover:bg-[#FAFAFB] cursor-pointer"
+                className="block w-full text-left px-3 py-1.5 text-[12px] leading-4 text-ink-800 hover:bg-[#FAFAFB] cursor-pointer"
               >
                 All Data
               </button>
@@ -1352,7 +1352,7 @@ export default function ExceptionsTable({
                   key={n}
                   type="button"
                   onClick={() => { setPageSize(n); setPageSizeMenuOpen(false); }}
-                  className={`block w-full text-left px-3 py-1.5 text-[12.5px] tabular-nums hover:bg-[#FAFAFB] cursor-pointer ${
+                  className={`block w-full text-left px-3 py-1.5 text-[12px] leading-4 tabular-nums hover:bg-[#FAFAFB] cursor-pointer ${
                     n === pageSize ? 'text-brand-700 font-medium bg-brand-50/40' : 'text-ink-800'
                   }`}
                 >
@@ -1439,8 +1439,8 @@ export default function ExceptionsTable({
             <div className="flex-1 overflow-y-auto px-5 py-5 space-y-4">
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-[12.5px] font-semibold text-ink-700">Filter Set Name</label>
-                  <span className="text-[11.5px] text-ink-500 tabular-nums">{savedFilterSets.length} of 10 created</span>
+                  <label className="text-[12px] leading-4 font-semibold text-ink-700">Filter Set Name</label>
+                  <span className="text-[12px] leading-4 text-ink-500 tabular-nums">{savedFilterSets.length} of 10 created</span>
                 </div>
                 <input
                   autoFocus
@@ -1458,7 +1458,7 @@ export default function ExceptionsTable({
                 ) : (
                   <ul className="space-y-1">
                     {activeFilterEntries.map(entry => (
-                      <li key={entry.key} className="flex items-start gap-2 text-[12.5px] text-ink-700">
+                      <li key={entry.key} className="flex items-start gap-2 text-[12px] leading-4 text-ink-700">
                         <span className="mt-1.5 w-1 h-1 rounded-full bg-ink-400 shrink-0" />
                         <span><span className="text-ink-500">{entry.label}:</span> {entry.values}</span>
                       </li>
@@ -1471,7 +1471,7 @@ export default function ExceptionsTable({
               <button
                 type="button"
                 onClick={closeGenerateModal}
-                className="px-4 py-2 text-[12.5px] font-medium text-ink-700 border border-canvas-border rounded-[8px] hover:bg-[#F4F2F7] cursor-pointer"
+                className="px-4 py-2 text-[12px] leading-4 font-medium text-ink-700 border border-canvas-border rounded-[8px] hover:bg-[#F4F2F7] cursor-pointer"
               >
                 Cancel
               </button>
@@ -1479,7 +1479,7 @@ export default function ExceptionsTable({
                 type="button"
                 onClick={saveFilterSet}
                 disabled={!generateName.trim() || activeFilterCount === 0 || savedFilterSets.length >= 10}
-                className="px-5 py-2 text-[12.5px] font-semibold text-white bg-brand-600 rounded-[8px] hover:bg-brand-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                className="px-5 py-2 text-[12px] leading-4 font-semibold text-white bg-brand-600 rounded-[8px] hover:bg-brand-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
               >
                 Save
               </button>

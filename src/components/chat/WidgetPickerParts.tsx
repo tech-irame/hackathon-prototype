@@ -165,16 +165,16 @@ export function TablePreviewRow({ columns, sampleRows, checked, onChange, accent
         <div className="rounded-md border border-canvas-border overflow-hidden">
           <div className="flex bg-paper-50">
             {cols.map(c => (
-              <div key={c} className="flex-1 px-2 py-1 text-[9px] font-semibold text-ink-500 truncate border-r border-canvas-border last:border-r-0">{c}</div>
+              <div key={c} className="flex-1 px-2 py-1 text-[10px] leading-3 font-semibold text-ink-500 truncate border-r border-canvas-border last:border-r-0">{c}</div>
             ))}
-            {columns.length > 4 && <div className="w-8 px-1 py-1 text-[9px] text-ink-400 text-center shrink-0">+{columns.length - 4}</div>}
+            {columns.length > 4 && <div className="w-8 px-1 py-1 text-[10px] leading-3 text-ink-400 text-center shrink-0">+{columns.length - 4}</div>}
           </div>
           {rows.map((row, ri) => (
             <div key={ri} className="flex border-t border-canvas-border">
               {cols.map((c, ci) => (
-                <div key={c} className="flex-1 px-2 py-1 text-[9px] text-ink-600 truncate border-r border-canvas-border last:border-r-0">{row[ci] || ''}</div>
+                <div key={c} className="flex-1 px-2 py-1 text-[10px] leading-3 text-ink-600 truncate border-r border-canvas-border last:border-r-0">{row[ci] || ''}</div>
               ))}
-              {columns.length > 4 && <div className="w-8 px-1 py-1 text-[9px] text-ink-400 text-center shrink-0">…</div>}
+              {columns.length > 4 && <div className="w-8 px-1 py-1 text-[10px] leading-3 text-ink-400 text-center shrink-0">…</div>}
             </div>
           ))}
         </div>

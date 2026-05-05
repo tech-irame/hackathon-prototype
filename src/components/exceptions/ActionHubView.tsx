@@ -284,7 +284,7 @@ function MetricCell({
       <span className={`font-display text-[36px] leading-none tabular-nums tracking-[-0.01em] ${color}`}>
         {value}
       </span>
-      <span className="text-[11.5px] text-ink-500 group-hover:text-ink-700 transition-colors">
+      <span className="text-[12px] leading-4 text-ink-500 group-hover:text-ink-700 transition-colors">
         {label}
       </span>
     </button>
@@ -341,7 +341,7 @@ function ClassificationDonut({ rows }: { rows: { label: string; count: number; t
         {/* Center label */}
         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
           <div className="text-[28px] leading-none font-semibold text-ink-900 tabular-nums">{total}</div>
-          <div className="text-[10.5px] font-semibold uppercase tracking-wider text-ink-500 mt-1">classified</div>
+          <div className="text-[12px] leading-4 font-semibold uppercase tracking-wider text-ink-500 mt-1">classified</div>
         </div>
       </div>
 
@@ -356,11 +356,11 @@ function ClassificationDonut({ rows }: { rows: { label: string; count: number; t
                 style={{ backgroundColor: BREAKDOWN_HEX[row.tone] }}
                 aria-hidden="true"
               />
-              <span className={`flex-1 text-[12.5px] font-medium truncate ${BREAKDOWN_LABEL[row.tone]}`}>
+              <span className={`flex-1 text-[12px] leading-4 font-medium truncate ${BREAKDOWN_LABEL[row.tone]}`}>
                 {row.label}
               </span>
-              <span className="text-[12.5px] font-semibold text-ink-900 tabular-nums w-6 text-right">{row.count}</span>
-              <span className="text-[11.5px] text-ink-500 tabular-nums w-10 text-right">{pct}%</span>
+              <span className="text-[12px] leading-4 font-semibold text-ink-900 tabular-nums w-6 text-right">{row.count}</span>
+              <span className="text-[12px] leading-4 text-ink-500 tabular-nums w-10 text-right">{pct}%</span>
             </li>
           );
         })}
@@ -381,12 +381,12 @@ function TimelineEntry({ event }: { event: ActionHubEvent }) {
         <div className="flex items-center gap-2 flex-wrap mb-0.5">
           <span className="text-[13px] text-ink-900 font-medium leading-snug">{event.message}</span>
           {event.exceptionId && event.exceptionId !== '—' && (
-            <span className="inline-flex items-center h-5 px-2 text-[10.5px] font-medium bg-brand-50 text-brand-700 rounded-full font-mono">
+            <span className="inline-flex items-center h-5 px-2 text-[10px] leading-3 font-medium bg-brand-50 text-brand-700 rounded-full font-mono">
               {event.exceptionId}
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2 text-[11.5px] text-ink-500">
+        <div className="flex items-center gap-2 text-[12px] leading-4 text-ink-500">
           <span>{event.actor} <span className="text-ink-400">[{event.role}]</span></span>
           <span className="text-ink-300">·</span>
           <span className="tabular-nums">{event.time}</span>
@@ -397,7 +397,7 @@ function TimelineEntry({ event }: { event: ActionHubEvent }) {
           <p className="mt-1.5 text-[12px] italic text-ink-500 leading-relaxed">{event.comment}</p>
         )}
         {event.attachment && (
-          <button className="mt-2 inline-flex items-center gap-1.5 text-[11.5px] text-ink-600 hover:text-brand-700 cursor-pointer">
+          <button className="mt-2 inline-flex items-center gap-1.5 text-[12px] leading-4 text-ink-600 hover:text-brand-700 cursor-pointer">
             <Paperclip size={11} />
             {event.attachment.name}
           </button>
@@ -475,7 +475,7 @@ export default function ActionHubView() {
                 <h2 className="text-[16px] text-ink-900 font-semibold">ATR readiness check</h2>
                 <span className="text-[12px] text-ink-500 tabular-nums">{s.atrReadiness.completedSteps} of {s.atrReadiness.totalSteps} gates closed</span>
               </div>
-              <p className="text-[12.5px] text-ink-500 mb-6 leading-relaxed max-w-[60ch]">
+              <p className="text-[12px] leading-4 text-ink-500 mb-6 leading-relaxed max-w-[60ch]">
                 Three gates must close before the audit-to-record can be issued. Each tracks a checkpoint across the engagement.
               </p>
               <ol className="grid grid-cols-3 gap-x-10">
@@ -485,7 +485,7 @@ export default function ActionHubView() {
                   return (
                     <li key={step.id} className="flex flex-col">
                       <div className="flex items-baseline gap-1.5 mb-3">
-                        <span className="text-[10.5px] uppercase tracking-wider text-ink-500 font-medium tabular-nums">0{idx + 1}</span>
+                        <span className="text-[10px] leading-3 uppercase tracking-wider text-ink-500 font-medium tabular-nums">0{idx + 1}</span>
                       </div>
                       <div className="flex items-baseline gap-1.5 mb-2">
                         <span className={`font-display text-[28px] leading-none tabular-nums tracking-tight ${done ? 'text-compliant-700' : 'text-ink-900'}`}>
@@ -496,7 +496,7 @@ export default function ActionHubView() {
                       <div className="h-[3px] rounded-full bg-canvas-border overflow-hidden mb-2">
                         <div className={`h-full rounded-full transition-all ${done ? 'bg-compliant' : 'bg-mitigated'}`} style={{ width: `${pct}%` }} />
                       </div>
-                      <span className="text-[12.5px] text-ink-700 leading-snug">{step.label}</span>
+                      <span className="text-[12px] leading-4 text-ink-700 leading-snug">{step.label}</span>
                     </li>
                   );
                 })}
@@ -521,10 +521,10 @@ export default function ActionHubView() {
                   <span className="font-display text-[26px] leading-none text-risk-700 tabular-nums tracking-[-0.01em]">
                     {s.overdue.length}
                   </span>
-                  <span className="text-[13.5px] text-ink-900 font-semibold">
+                  <span className="text-[14px] leading-4 text-ink-900 font-semibold">
                     overdue {s.overdue.length === 1 ? 'case' : 'cases'} need immediate attention
                   </span>
-                  <span className="text-[10.5px] uppercase tracking-[0.14em] text-risk font-semibold">
+                  <span className="text-[10px] leading-3 uppercase tracking-[0.14em] text-risk font-semibold">
                     Action required
                   </span>
                 </div>
@@ -552,8 +552,8 @@ export default function ActionHubView() {
             {/* Snapshot */}
             <div className="pr-8">
               <div className="flex items-baseline justify-between mb-5">
-                <span className="text-[10.5px] uppercase tracking-[0.14em] text-ink-500 font-medium">Snapshot</span>
-                <span className="text-[10.5px] text-ink-400">Portfolio</span>
+                <span className="text-[10px] leading-3 uppercase tracking-[0.14em] text-ink-500 font-medium">Snapshot</span>
+                <span className="text-[10px] leading-3 text-ink-400">Portfolio</span>
               </div>
               <div className="grid grid-cols-3 gap-x-3">
                 <MetricCell label="Total" value={s.counts.total} onClick={() => openDrawer('total')} />
@@ -565,8 +565,8 @@ export default function ActionHubView() {
             {/* Lifecycle — flanked by separators */}
             <div className="px-8 border-l border-r border-canvas-border">
               <div className="flex items-baseline justify-between mb-5">
-                <span className="text-[10.5px] uppercase tracking-[0.14em] text-ink-500 font-medium">Lifecycle</span>
-                <span className="text-[10.5px] text-ink-400">Where cases sit</span>
+                <span className="text-[10px] leading-3 uppercase tracking-[0.14em] text-ink-500 font-medium">Lifecycle</span>
+                <span className="text-[10px] leading-3 text-ink-400">Where cases sit</span>
               </div>
               <div className="grid grid-cols-4 gap-x-3">
                 <MetricCell label="Open" value={openCount} tone="evidence" onClick={() => openDrawer('open')} />
@@ -579,8 +579,8 @@ export default function ActionHubView() {
             {/* Outcomes */}
             <div className="pl-8">
               <div className="flex items-baseline justify-between mb-5">
-                <span className="text-[10.5px] uppercase tracking-[0.14em] text-ink-500 font-medium">Outcomes</span>
-                <span className="text-[10.5px] text-ink-400">Resolution</span>
+                <span className="text-[10px] leading-3 uppercase tracking-[0.14em] text-ink-500 font-medium">Outcomes</span>
+                <span className="text-[10px] leading-3 text-ink-400">Resolution</span>
               </div>
               <div className="grid grid-cols-3 gap-x-3">
                 <MetricCell label="Implemented" value={implCounts['Implemented']} tone="compliant" onClick={() => openDrawer('implImplemented')} />

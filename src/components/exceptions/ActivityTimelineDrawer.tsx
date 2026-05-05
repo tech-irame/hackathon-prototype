@@ -33,12 +33,12 @@ function TimelineEntry({ event }: { event: ActionHubEvent }) {
         <div className="flex items-center gap-2 flex-wrap mb-0.5">
           <span className="text-[13px] text-ink-900 font-medium leading-snug">{event.message}</span>
           {event.exceptionId && event.exceptionId !== '—' && (
-            <span className="inline-flex items-center h-5 px-2 text-[10.5px] font-medium bg-brand-50 text-brand-700 rounded-full font-mono">
+            <span className="inline-flex items-center h-5 px-2 text-[10px] leading-3 font-medium bg-brand-50 text-brand-700 rounded-full font-mono">
               {event.exceptionId}
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2 text-[11.5px] text-ink-500">
+        <div className="flex items-center gap-2 text-[12px] leading-4 text-ink-500">
           <span>{event.actor} <span className="text-ink-400">[{event.role}]</span></span>
           <span className="text-ink-300">·</span>
           <span className="tabular-nums">{event.time}</span>
@@ -49,7 +49,7 @@ function TimelineEntry({ event }: { event: ActionHubEvent }) {
           <p className="mt-1.5 text-[12px] italic text-ink-500 leading-relaxed">{event.comment}</p>
         )}
         {event.attachment && (
-          <button className="mt-2 inline-flex items-center gap-1.5 text-[11.5px] text-ink-600 hover:text-brand-700 cursor-pointer">
+          <button className="mt-2 inline-flex items-center gap-1.5 text-[12px] leading-4 text-ink-600 hover:text-brand-700 cursor-pointer">
             <Paperclip size={11} />
             {event.attachment.name}
           </button>
@@ -94,7 +94,7 @@ export default function ActivityTimelineDrawer({ onClose }: { onClose: () => voi
         <header className="shrink-0 px-6 pt-5 pb-4 flex items-start justify-between gap-4 border-b border-canvas-border">
           <div>
             <h2 className="font-display text-[20px] font-semibold text-ink-900 tracking-tight">Activity Timeline</h2>
-            <p className="text-[12.5px] text-ink-500 mt-0.5">Chronological log of every action across all exceptions.</p>
+            <p className="text-[12px] leading-4 text-ink-500 mt-0.5">Chronological log of every action across all exceptions.</p>
           </div>
           <button
             onClick={onClose}
@@ -121,7 +121,7 @@ export default function ActivityTimelineDrawer({ onClose }: { onClose: () => voi
             </div>
           ))}
         </div>
-        <footer className="shrink-0 px-6 py-3 border-t border-canvas-border text-right text-[11.5px] text-ink-500 tabular-nums">
+        <footer className="shrink-0 px-6 py-3 border-t border-canvas-border text-right text-[12px] leading-4 text-ink-500 tabular-nums">
           {timeline.length} events
         </footer>
       </motion.aside>

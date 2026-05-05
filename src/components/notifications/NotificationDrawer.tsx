@@ -210,7 +210,7 @@ export default function NotificationDrawer({
             <button
               onClick={onMarkAllRead}
               disabled={counts.primary.unread === 0}
-              className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md text-[12.5px] font-medium text-ink-600 hover:text-brand-700 hover:bg-[#F4F2F7] disabled:text-ink-300 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md text-[12px] leading-4 font-medium text-ink-600 hover:text-brand-700 hover:bg-[#F4F2F7] disabled:text-ink-300 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-colors cursor-pointer"
               title="Mark all as read"
             >
               <CheckCheck size={14} />
@@ -300,7 +300,7 @@ export default function NotificationDrawer({
                   aria-label="Filter by category"
                 >
                   <div className="px-2 pt-2 pb-1">
-                    <span className="text-[10.5px] font-semibold uppercase tracking-wider text-ink-500 px-1">Category</span>
+                    <span className="text-[10px] leading-3 font-semibold uppercase tracking-wider text-ink-500 px-1">Category</span>
                   </div>
                   <div className="py-1">
                     {CATEGORY_FILTERS.map(tab => {
@@ -314,7 +314,7 @@ export default function NotificationDrawer({
                           disabled={disabled}
                           role="menuitemradio"
                           aria-checked={active}
-                          className={`w-full flex items-center justify-between gap-2 pl-2 pr-3 h-8 text-[12.5px] font-medium text-left transition-colors cursor-pointer
+                          className={`w-full flex items-center justify-between gap-2 pl-2 pr-3 h-8 text-[12px] leading-4 font-medium text-left transition-colors cursor-pointer
                             ${active
                               ? 'bg-brand-50 text-brand-700'
                               : disabled
@@ -351,7 +351,7 @@ export default function NotificationDrawer({
             grouped.map(group => (
               <section key={group.label}>
                 <div className="sticky top-0 z-10 bg-canvas-elevated/95 backdrop-blur-sm px-6 pt-4 pb-2 flex items-center justify-between">
-                  <span className="text-[11.5px] font-semibold tracking-tight text-ink-700">{group.label}</span>
+                  <span className="text-[12px] leading-4 font-semibold tracking-tight text-ink-700">{group.label}</span>
                   <span className="text-[11px] text-ink-400 tabular-nums">
                     {group.items.length} {group.items.length === 1 ? 'event' : 'events'}
                   </span>
@@ -384,7 +384,7 @@ export default function NotificationDrawer({
           )}
         </div>
 
-        <footer className="shrink-0 px-6 py-3 border-t border-canvas-border text-right text-[11.5px] text-ink-500 tabular-nums">
+        <footer className="shrink-0 px-6 py-3 border-t border-canvas-border text-right text-[12px] leading-4 text-ink-500 tabular-nums">
           {counts.primary.unread > 0
             ? `${counts.primary.unread} unread · ${counts.primary.all} total`
             : `${counts.primary.all} total`}

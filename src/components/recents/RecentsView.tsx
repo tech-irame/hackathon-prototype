@@ -495,7 +495,7 @@ function FilteredEmptyState({ label, onClear }: { label: string; onClear: () => 
       <p className="text-[12px] text-ink-500 mt-1">Try widening the date range or clearing filters.</p>
       <button
         onClick={onClear}
-        className="inline-flex items-center gap-2 mt-4 px-3 h-9 rounded-md border border-brand-300 bg-brand-50 text-brand-700 text-[12.5px] font-semibold hover:bg-brand-100 transition-colors cursor-pointer"
+        className="inline-flex items-center gap-2 mt-4 px-3 h-9 rounded-md border border-brand-300 bg-brand-50 text-brand-700 text-[12px] leading-4 font-semibold hover:bg-brand-100 transition-colors cursor-pointer"
       >
         <X size={13} />
         Clear filters
