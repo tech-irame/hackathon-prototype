@@ -1060,8 +1060,8 @@ function HealthDashboardSection({
           return (
             <motion.button
               type="button"
-              onClick={() => setView('governance-controls')}
-              aria-label="Open controls — deficiency drivers"
+              onClick={() => setView('findings')}
+              aria-label="Open findings and deficiencies"
               variants={HEALTH_TILE_VARIANTS}
               className="relative text-left col-span-7 order-8 rounded-2xl p-5 flex flex-col gap-4 border bg-canvas-elevated border-canvas-border/60 cursor-pointer transition-[box-shadow,border-color] duration-300 ease-out hover:shadow-[0_0_0_1px_rgb(15_8_30_/_0.06),_0_12px_28px_rgb(15_8_30_/_0.08)] hover:border-risk-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-risk-400"
             >
@@ -1152,7 +1152,7 @@ function HealthDashboardSection({
           return (
             <motion.button
               type="button"
-              onClick={() => setView('governance-controls')}
+              onClick={() => setView('dashboards')}
               aria-label="Open compliance posture"
               variants={HEALTH_TILE_VARIANTS}
               className="text-left col-span-4 order-2 rounded-2xl p-5 flex flex-col gap-3 border bg-canvas-elevated border-canvas-border/60 relative overflow-hidden cursor-pointer transition-[box-shadow,border-color] duration-300 ease-out hover:shadow-[0_0_0_1px_rgb(15_8_30_/_0.06),_0_12px_28px_rgb(15_8_30_/_0.08)] hover:border-brand-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
