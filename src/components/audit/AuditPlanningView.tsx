@@ -2607,50 +2607,6 @@ export default function AuditPlanningView({ onNavigateToExecution, embedded = fa
           )}
         </AnimatePresence>
 
-        {/* Sign-off History */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 }} className="mt-6">
-          <h2 className="text-[15px] font-semibold text-text mb-3">Sign-off History</h2>
-          <div className="glass-card rounded-2xl overflow-hidden">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-[12px] text-text-muted font-medium px-5 py-3">Name</th>
-                  <th className="text-[12px] text-text-muted font-medium px-5 py-3">Role</th>
-                  <th className="text-[12px] text-text-muted font-medium px-5 py-3">Action</th>
-                  <th className="text-[12px] text-text-muted font-medium px-5 py-3">Date</th>
-                  <th className="text-[12px] text-text-muted font-medium px-5 py-3">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {SIGNOFF_LOG.map((entry, i) => (
-                  <motion.tr
-                    key={entry.name}
-                    initial={{ opacity: 0, y: 4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.9 + i * 0.05 }}
-                    className="border-b border-border/50 last:border-0 hover:bg-primary-xlight/50 transition-colors"
-                  >
-                    <td className="text-[12.5px] font-medium text-text px-5 py-3">{entry.name}</td>
-                    <td className="text-[12.5px] text-text-secondary px-5 py-3">{entry.role}</td>
-                    <td className="text-[12.5px] text-text-secondary px-5 py-3">{entry.action}</td>
-                    <td className="text-[12.5px] text-text-secondary px-5 py-3">{entry.date}</td>
-                    <td className="px-5 py-3">
-                      <span className={`text-[12px] font-bold px-2 py-1 rounded-full ${
-                        entry.status === 'completed'
-                          ? 'bg-compliant-50 text-compliant-700'
-                          : signedOff && entry.action === 'Final Sign-Off'
-                            ? 'bg-compliant-50 text-compliant-700'
-                            : 'bg-high-50 text-high-700'
-                      }`}>
-                        {entry.status === 'completed' ? 'Completed' : signedOff && entry.action === 'Final Sign-Off' ? 'Completed' : 'Pending'}
-                      </span>
-                    </td>
-                  </motion.tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </motion.div>
       </div>
 
       {/* Engagement Drawer */}

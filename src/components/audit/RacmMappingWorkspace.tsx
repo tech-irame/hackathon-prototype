@@ -83,8 +83,7 @@ interface RiskItem {
   process: string;
   sourceRef: string;
   controls: MappedControl[];
-  validationStatus: 'Unvalidated' | 'Stable' | 'At Risk';
-  freshness: 'Up to Date' | 'Needs Re-execution';
+  riskRating: 'Critical' | 'High' | 'Medium' | 'Low';
   // SOP traceability
   sourceSopName?: string;
   sourceSopVersion?: string;
@@ -166,22 +165,23 @@ const CONTROL_LIBRARY: MappedControl[] = [
 ];
 
 const INITIAL_RISKS: RiskItem[] = [
-  { id: 'rsk-001', name: 'Unauthorized vendor payments', description: 'Payments processed without proper PO or approval', process: 'P2P', sourceRef: 'Row 2', controls: [CONTROL_LIBRARY[0], CONTROL_LIBRARY[3]], validationStatus: 'Stable', freshness: 'Up to Date', sourceSopName: 'Vendor Payment SOP', sourceSopVersion: 'v2.1', sourceSection: '§3.2 Payment Authorization', sourceText: 'All payments must be matched against an approved PO before release.' },
-  { id: 'rsk-002', name: 'Duplicate invoices processed', description: 'Same invoice paid twice due to weak detection', process: 'P2P', sourceRef: 'Row 3', controls: [CONTROL_LIBRARY[2]], validationStatus: 'At Risk', freshness: 'Needs Re-execution', sourceSopName: 'Vendor Payment SOP', sourceSopVersion: 'v2.1', sourceSection: '§4.1 Invoice Processing', sourceText: 'Invoices shall be scanned against historical records to prevent duplicates.' },
-  { id: 'rsk-003', name: 'Fictitious vendor registration', description: 'Vendor created without verification', process: 'P2P', sourceRef: 'Row 4', controls: [CONTROL_LIBRARY[1]], validationStatus: 'Stable', freshness: 'Up to Date', sourceSopName: 'Vendor Payment SOP', sourceSopVersion: 'v2.1', sourceSection: '§2.3 Vendor Management', sourceText: 'New vendor registration requires tax ID verification and multi-level approval.' },
-  { id: 'rsk-004', name: 'Unauthorized PO creation', description: 'POs above threshold without dual sign-off', process: 'P2P', sourceRef: 'Row 5', controls: [], validationStatus: 'Unvalidated', freshness: 'Needs Re-execution', sourceSopName: 'Purchase Order SOP', sourceSopVersion: 'v1.3', sourceSection: '§3.4 Approval Matrix', sourceText: 'Purchase orders exceeding threshold require dual authorization.' },
-  { id: 'rsk-005', name: 'SOD violation in AP', description: 'Same user creates and approves payment', process: 'P2P', sourceRef: 'Row 6', controls: [], validationStatus: 'Unvalidated', freshness: 'Needs Re-execution', sourceSopName: 'Vendor Payment SOP', sourceSopVersion: 'v2.1', sourceSection: '§5.1 Access Controls', sourceText: 'Segregation of duties must be enforced between payment creation and approval.' },
-  { id: 'rsk-006', name: 'Revenue recognition timing', description: 'Revenue recognized before obligation completion', process: 'O2C', sourceRef: 'Row 7', controls: [CONTROL_LIBRARY[5]], validationStatus: 'Stable', freshness: 'Up to Date', sourceSopName: 'Invoice Management SOP', sourceSopVersion: 'v1.0', sourceSection: '§6.2 Revenue Policy', sourceText: 'Revenue must be recognized per ASC 606 only after performance obligations are met.' },
-  { id: 'rsk-007', name: 'Incorrect journal entries', description: 'Manual JE posted without review', process: 'R2R', sourceRef: 'Row 8', controls: [CONTROL_LIBRARY[6]], validationStatus: 'Stable', freshness: 'Up to Date', sourceSopName: 'Financial Close SOP', sourceSopVersion: 'v3.0', sourceSection: '§3.1 Journal Entries', sourceText: 'All manual journal entries require manager review before posting.' },
-  { id: 'rsk-008', name: 'GL balance discrepancy', description: 'Subsidiary balances do not reconcile', process: 'R2R', sourceRef: 'Row 9', controls: [], validationStatus: 'Unvalidated', freshness: 'Needs Re-execution', sourceSopName: 'GL Reconciliation SOP', sourceSopVersion: 'v1.2', sourceSection: '§2.4 Reconciliation', sourceText: 'Monthly reconciliation of subsidiary balances to consolidated GL is required.' },
+  { id: 'rsk-001', name: 'Unauthorized vendor payments', description: 'Payments processed without proper PO or approval', process: 'P2P', sourceRef: 'Row 2', controls: [CONTROL_LIBRARY[0], CONTROL_LIBRARY[3]], riskRating: 'High', sourceSopName: 'Vendor Payment SOP', sourceSopVersion: 'v2.1', sourceSection: '§3.2 Payment Authorization', sourceText: 'All payments must be matched against an approved PO before release.' },
+  { id: 'rsk-002', name: 'Duplicate invoices processed', description: 'Same invoice paid twice due to weak detection', process: 'P2P', sourceRef: 'Row 3', controls: [CONTROL_LIBRARY[2]], riskRating: 'Critical', sourceSopName: 'Vendor Payment SOP', sourceSopVersion: 'v2.1', sourceSection: '§4.1 Invoice Processing', sourceText: 'Invoices shall be scanned against historical records to prevent duplicates.' },
+  { id: 'rsk-003', name: 'Fictitious vendor registration', description: 'Vendor created without verification', process: 'P2P', sourceRef: 'Row 4', controls: [CONTROL_LIBRARY[1]], riskRating: 'High', sourceSopName: 'Vendor Payment SOP', sourceSopVersion: 'v2.1', sourceSection: '§2.3 Vendor Management', sourceText: 'New vendor registration requires tax ID verification and multi-level approval.' },
+  { id: 'rsk-004', name: 'Unauthorized PO creation', description: 'POs above threshold without dual sign-off', process: 'P2P', sourceRef: 'Row 5', controls: [], riskRating: 'Medium', sourceSopName: 'Purchase Order SOP', sourceSopVersion: 'v1.3', sourceSection: '§3.4 Approval Matrix', sourceText: 'Purchase orders exceeding threshold require dual authorization.' },
+  { id: 'rsk-005', name: 'SOD violation in AP', description: 'Same user creates and approves payment', process: 'P2P', sourceRef: 'Row 6', controls: [], riskRating: 'Medium', sourceSopName: 'Vendor Payment SOP', sourceSopVersion: 'v2.1', sourceSection: '§5.1 Access Controls', sourceText: 'Segregation of duties must be enforced between payment creation and approval.' },
+  { id: 'rsk-006', name: 'Revenue recognition timing', description: 'Revenue recognized before obligation completion', process: 'O2C', sourceRef: 'Row 7', controls: [CONTROL_LIBRARY[5]], riskRating: 'High', sourceSopName: 'Invoice Management SOP', sourceSopVersion: 'v1.0', sourceSection: '§6.2 Revenue Policy', sourceText: 'Revenue must be recognized per ASC 606 only after performance obligations are met.' },
+  { id: 'rsk-007', name: 'Incorrect journal entries', description: 'Manual JE posted without review', process: 'R2R', sourceRef: 'Row 8', controls: [CONTROL_LIBRARY[6]], riskRating: 'High', sourceSopName: 'Financial Close SOP', sourceSopVersion: 'v3.0', sourceSection: '§3.1 Journal Entries', sourceText: 'All manual journal entries require manager review before posting.' },
+  { id: 'rsk-008', name: 'GL balance discrepancy', description: 'Subsidiary balances do not reconcile', process: 'R2R', sourceRef: 'Row 9', controls: [], riskRating: 'Medium', sourceSopName: 'GL Reconciliation SOP', sourceSopVersion: 'v1.2', sourceSection: '§2.4 Reconciliation', sourceText: 'Monthly reconciliation of subsidiary balances to consolidated GL is required.' },
 ];
 
 // ─── Styles ─────────────────────────────────────────────────────────────────
 
-const VAL_CLS: Record<string, string> = {
-  Stable: 'bg-emerald-100 text-emerald-800',
-  'At Risk': 'bg-red-100 text-red-800',
-  Unvalidated: 'bg-gray-100 text-gray-600',
+const RATING_CLS: Record<string, string> = {
+  Critical: 'bg-red-100 text-red-800',
+  High: 'bg-orange-100 text-orange-800',
+  Medium: 'bg-amber-100 text-amber-800',
+  Low: 'bg-emerald-100 text-emerald-800',
 };
 const EXEC_CLS: Record<string, string> = {
   Effective: 'bg-compliant-50 text-compliant-700',
@@ -270,7 +270,7 @@ export default function RacmMappingWorkspace({ onBack, onGoToExecution, racmId, 
     }
     setRisks(prev => prev.map(r => r.id === selectedRisk.id ? {
       ...r, controls: [...r.controls, ctrl],
-      validationStatus: r.validationStatus === 'Unvalidated' && ctrl.status === 'Effective' ? 'Stable' : r.validationStatus,
+      riskRating: r.riskRating,
     } : r));
     setShowLinkDrawer(false);
     if (racmValidated) setRacmValidated(false);
@@ -403,7 +403,7 @@ export default function RacmMappingWorkspace({ onBack, onGoToExecution, racmId, 
     const similar = risks.find(r => r.name.toLowerCase() === data.name.trim().toLowerCase());
     const newRiskData: Omit<RiskItem, 'id'> = {
       name: data.name.trim(), description: data.description.trim(), process: data.process || racmProcess || 'P2P',
-      sourceRef: 'Manual', controls: [], validationStatus: 'Unvalidated', freshness: 'Needs Re-execution',
+      sourceRef: 'Manual', controls: [], riskRating: 'Medium',
     };
 
     if (similar) {
@@ -809,7 +809,7 @@ function RacmGridView({ risks, onSelectRisk, onUpdateRisks, onLinkControl, onCre
 }) {
   const { addToast } = useToast();
   const [gridSearch, setGridSearch] = useState('');
-  const [gridFilter, setGridFilter] = useState<'All' | 'Unmapped' | 'Partially Mapped' | 'Mapped' | 'At Risk' | 'Unvalidated'>('All');
+  const [gridFilter, setGridFilter] = useState<'All' | 'Unmapped' | 'Mapped' | 'At Risk' | 'Unvalidated'>('All');
   const [editingNameId, setEditingNameId] = useState<string | null>(null);
   const [editNameValue, setEditNameValue] = useState('');
   const [controlPickerRiskId, setControlPickerRiskId] = useState<string | null>(null);
@@ -825,9 +825,8 @@ function RacmGridView({ risks, onSelectRisk, onUpdateRisks, onLinkControl, onCre
     if (q && !r.name.toLowerCase().includes(q) && !r.id.toLowerCase().includes(q) && !r.process.toLowerCase().includes(q)) return false;
     if (gridFilter === 'Unmapped' && r.controls.length > 0) return false;
     if (gridFilter === 'Mapped' && (r.controls.length === 0 || r.controls.some(c => !c.workflowLinked))) return false;
-    if (gridFilter === 'Partially Mapped' && !(r.controls.length > 0 && r.controls.some(c => !c.workflowLinked))) return false;
-    if (gridFilter === 'At Risk' && r.validationStatus !== 'At Risk') return false;
-    if (gridFilter === 'Unvalidated' && r.validationStatus !== 'Unvalidated') return false;
+    if (gridFilter === 'At Risk' && (r.riskRating !== 'Critical' && r.riskRating !== 'High')) return false;
+    if (gridFilter === 'Unvalidated' && r.controls.length === 0) return false;
     return true;
   });
 
@@ -938,7 +937,7 @@ function RacmGridView({ risks, onSelectRisk, onUpdateRisks, onLinkControl, onCre
               className="pl-8 pr-3 py-1.5 text-[11px] border border-border rounded-lg bg-white text-text placeholder:text-text-muted outline-none focus:border-primary/40 transition-colors w-44" />
           </div>
           <div className="flex gap-1">
-            {(['All', 'Unmapped', 'Partially Mapped', 'Mapped', 'At Risk', 'Unvalidated'] as const).map(f => (
+            {(['All', 'Unmapped', 'Mapped', 'At Risk', 'Unvalidated'] as const).map(f => (
               <button key={f} onClick={() => setGridFilter(f)}
                 className={`px-2 py-1 rounded-full text-[10px] font-semibold transition-all cursor-pointer ${
                   gridFilter === f ? 'bg-primary text-white' : 'bg-surface-2 text-text-muted hover:bg-primary/10 hover:text-primary'
@@ -983,7 +982,7 @@ function RacmGridView({ risks, onSelectRisk, onUpdateRisks, onLinkControl, onCre
                   { label: 'Risk ID', w: 'w-[100px]' },
                   { label: 'Risk Name', w: 'w-[180px]' },
                   { label: 'Process', w: 'w-[100px]' },
-                  { label: 'Risk Status', w: 'w-[90px]' },
+                  { label: 'Risk Rating', w: 'w-[90px]' },
                   { label: 'Control(s)', w: 'w-[240px]' },
                   { label: 'Key Control', w: 'w-[80px]' },
                   { label: 'Workflow Status', w: 'w-[110px]' },
@@ -1045,7 +1044,7 @@ function RacmGridView({ risks, onSelectRisk, onUpdateRisks, onLinkControl, onCre
 
                     {/* Risk Status */}
                     <td className="px-3 py-2.5 align-middle">
-                      <span className={`px-2 h-5 rounded-full text-[9px] font-semibold inline-flex items-center whitespace-nowrap ${VAL_CLS[risk.validationStatus]}`}>{risk.validationStatus}</span>
+                      <span className={`px-2 h-5 rounded-full text-[9px] font-semibold inline-flex items-center whitespace-nowrap ${RATING_CLS[risk.riskRating]}`}>{risk.riskRating}</span>
                     </td>
 
                     {/* Controls — interactive pills */}
@@ -1152,8 +1151,8 @@ function RacmGridView({ risks, onSelectRisk, onUpdateRisks, onLinkControl, onCre
                               <div className="grid grid-cols-4 gap-4">
                                 <div><span className="text-[9px] text-ink-400 uppercase block">Description</span><p className="text-[11px] text-text mt-0.5">{risk.description || '—'}</p></div>
                                 <div><span className="text-[9px] text-ink-400 uppercase block">Source Ref</span><p className="text-[11px] text-text mt-0.5 font-mono">{risk.sourceRef}</p></div>
-                                <div><span className="text-[9px] text-ink-400 uppercase block">Freshness</span><p className={`text-[11px] font-medium mt-0.5 ${risk.freshness === 'Up to Date' ? 'text-compliant-700' : 'text-high-700'}`}>{risk.freshness}</p></div>
-                                <div><span className="text-[9px] text-ink-400 uppercase block">Validation</span><span className={`mt-0.5 px-2 h-5 rounded-full text-[9px] font-semibold inline-flex items-center ${VAL_CLS[risk.validationStatus]}`}>{risk.validationStatus}</span></div>
+                                <div><span className="text-[9px] text-ink-400 uppercase block">Process</span><p className="text-[11px] font-medium mt-0.5 text-text">{risk.process}</p></div>
+                                <div><span className="text-[9px] text-ink-400 uppercase block">Risk Rating</span><span className={`mt-0.5 px-2 h-5 rounded-full text-[9px] font-semibold inline-flex items-center ${RATING_CLS[risk.riskRating]}`}>{risk.riskRating}</span></div>
                               </div>
 
                               {/* SOP Traceability */}
@@ -1314,6 +1313,9 @@ function WorkflowReadinessDrawer({ risk, onClose, onLinkWorkflow, onCreateWorkfl
         role="dialog" aria-label="Workflow Readiness">
 
         <header className="shrink-0 px-6 pt-5 pb-4 border-b border-canvas-border">
+          <button onClick={onClose} className="flex items-center gap-1 text-[11px] text-ink-500 hover:text-primary font-medium cursor-pointer transition-colors mb-2">
+            <ArrowLeft size={12} />Back
+          </button>
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-2"><Workflow size={18} className="text-brand-600" /><h2 className="font-display text-[18px] font-semibold text-ink-900">Workflow Readiness</h2></div>
@@ -1403,20 +1405,10 @@ function WorkflowReadinessDrawer({ risk, onClose, onLinkWorkflow, onCreateWorkfl
                                   <input value={attrExpected} onChange={e => setAttrExpected(e.target.value)} placeholder="Expected result"
                                     className="w-full px-3 py-2 border border-border rounded-lg text-[12px] text-text bg-white outline-none focus:border-brand-500/40" />
                                 </div>
-                                <input value={attrPassLogic} onChange={e => setAttrPassLogic(e.target.value)} placeholder="Pass/fail rule (e.g. Amount ≤ threshold)"
-                                  className="w-full px-3 py-2 border border-border rounded-lg text-[12px] text-text bg-white outline-none focus:border-brand-500/40" />
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-1.5">
-                                    <button onClick={() => setAttrRequired(true)}
-                                      className={`px-2.5 py-1 rounded-full text-[10px] font-semibold cursor-pointer transition-colors ${attrRequired ? 'bg-primary text-white' : 'bg-gray-100 text-gray-500'}`}>Required</button>
-                                    <button onClick={() => setAttrRequired(false)}
-                                      className={`px-2.5 py-1 rounded-full text-[10px] font-semibold cursor-pointer transition-colors ${!attrRequired ? 'bg-primary text-white' : 'bg-gray-100 text-gray-500'}`}>Optional</button>
-                                  </div>
-                                  <div className="flex items-center gap-1.5">
+                                <div className="flex items-center justify-end gap-1.5">
                                     <button onClick={resetAttrForm} className="px-3 py-1.5 rounded-lg text-[11px] font-medium text-ink-600 hover:bg-canvas cursor-pointer transition-colors">Cancel</button>
                                     <button onClick={() => handleAddAttribute(ctrl.id, wf.id)} disabled={!attrName.trim()}
                                       className="px-3 py-1.5 rounded-lg bg-primary hover:bg-primary/90 text-white text-[11px] font-semibold cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed">Add</button>
-                                  </div>
                                 </div>
                               </div>
                             )}
@@ -1982,6 +1974,9 @@ function CreateWorkflowBuilderDrawer({ control, onClose, onCreate }: {
         role="dialog" aria-label="Create Workflow">
 
         <header className="shrink-0 px-6 pt-5 pb-4 border-b border-canvas-border">
+          <button onClick={onClose} className="flex items-center gap-1 text-[11px] text-ink-500 hover:text-primary font-medium cursor-pointer transition-colors mb-2">
+            <ArrowLeft size={12} />Back
+          </button>
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-2"><Workflow size={18} className="text-brand-600" /><h2 className="font-display text-[18px] font-semibold text-ink-900">Create Workflow</h2></div>
@@ -2066,13 +2061,9 @@ function CreateWorkflowBuilderDrawer({ control, onClose, onCreate }: {
                         <input value={attrEvidence} onChange={e => setAttrEvidence(e.target.value)} placeholder="Evidence type (e.g. PO doc)" className="px-2.5 py-1.5 rounded-lg border border-border text-[11px] text-text bg-white outline-none focus:border-brand-500/60" />
                         <input value={attrExpected} onChange={e => setAttrExpected(e.target.value)} placeholder="Expected result" className="px-2.5 py-1.5 rounded-lg border border-border text-[11px] text-text bg-white outline-none focus:border-brand-500/60" />
                       </div>
-                      <input value={attrPassLogic} onChange={e => setAttrPassLogic(e.target.value)} placeholder="Pass/fail rule (e.g. Amount ≤ threshold)" className="w-full px-2.5 py-1.5 rounded-lg border border-border text-[11px] text-text bg-white outline-none focus:border-brand-500/60 font-mono" />
-                      <div className="flex items-center justify-between pt-1">
-                        <div className="flex gap-1.5">{[true, false].map(v => (<button key={String(v)} onClick={() => setAttrRequired(v)} className={`px-2.5 py-1 rounded text-[10px] font-medium cursor-pointer ${attrRequired === v ? 'bg-brand-600 text-white' : 'bg-white border border-border text-ink-600'}`}>{v ? 'Required' : 'Optional'}</button>))}</div>
-                        <div className="flex gap-1.5">
+                      <div className="flex items-center justify-end gap-1.5 pt-1">
                           <button onClick={resetAttrForm} className="px-2.5 py-1 rounded text-[10px] font-medium text-ink-500 hover:bg-gray-100 cursor-pointer">Cancel</button>
                           <button onClick={handleAddAttr} disabled={!attrName.trim()} className="px-3 py-1 rounded bg-brand-600 text-white text-[10px] font-semibold cursor-pointer disabled:opacity-40">{editAttrIdx !== null ? 'Update' : 'Add'}</button>
-                        </div>
                       </div>
                     </motion.div>
                   )}
