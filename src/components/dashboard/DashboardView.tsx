@@ -1344,7 +1344,7 @@ function FilterPanel({
                               </svg>
                               <div className="min-w-0">
                                 <div className="text-[12px] text-ink-700 truncate">{label}</div>
-                                <div className="text-[10px] leading-3 text-ink-400 truncate">{sA?.name?.split('.')[0]} ↔ {sB?.name?.split('.')[0]}</div>
+                                <div className="text-[9px] text-ink-400 truncate">{sA?.name?.split('.')[0]} ↔ {sB?.name?.split('.')[0]}</div>
                               </div>
                             </div>
                           );
@@ -1936,7 +1936,7 @@ function ExpandedWidgetModal({ open, onClose, title, subtitle, children, onEdit,
                         <Filter size={15} />
                         <span>Filter</span>
                         {vizFilterCount > 0 && (
-                          <span className="ml-0.5 size-4 bg-brand-600 text-white text-[10px] leading-3 font-bold rounded-full flex items-center justify-center">{vizFilterCount}</span>
+                          <span className="ml-0.5 size-4 bg-brand-600 text-white text-[9px] font-bold rounded-full flex items-center justify-center">{vizFilterCount}</span>
                         )}
                       </button>
 
@@ -3164,24 +3164,24 @@ function WidgetCard({
           ) : (
             <div className="flex items-center gap-2 mt-0.5" onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => { e.stopPropagation(); setEditingTitle(true); setEditingSubtitle(true); }}>
               {localSubtitle && <p className="text-[11px] text-ink-500 truncate">{localSubtitle}</p>}
-              {localSubtitle && <span className="text-ink-300 text-[10px] leading-3">·</span>}
+              {localSubtitle && <span className="text-ink-300 text-[9px]">·</span>}
               {dataSourceInfo?.type === 'sql' ? (
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 text-[10px] leading-3 font-semibold shrink-0" title={`${dataSourceInfo.name}${dataSourceInfo.meta ? ' · ' + dataSourceInfo.meta : ''}`}>
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 text-[9px] font-semibold shrink-0" title={`${dataSourceInfo.name}${dataSourceInfo.meta ? ' · ' + dataSourceInfo.meta : ''}`}>
                   <Database size={8} /> SQL
                 </span>
               ) : dataSourceInfo?.type === 'query' ? (
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 text-[10px] leading-3 font-semibold shrink-0">
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 text-[9px] font-semibold shrink-0">
                   <MessageSquare size={8} /> Query
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1 text-[10px] leading-3 text-ink-400 shrink-0"><FileText size={8} className="text-green-600" /> Excel</span>
+                <span className="inline-flex items-center gap-1 text-[9px] text-ink-400 shrink-0"><FileText size={8} className="text-green-600" /> Excel</span>
               )}
               {dataLinksFromParent && dataLinksFromParent.length > 0 && (() => {
                 const widgetLabels = (widgetFields || []).map(id => DRAG_FIELDS.find(f => f.id === id)?.label).filter(Boolean);
                 const relevantCount = dataLinksFromParent.filter(l => widgetLabels.includes(l.fieldA) || widgetLabels.includes(l.fieldB)).length;
                 if (relevantCount === 0) return null;
                 return (
-                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-evidence-50 text-evidence-700 text-[10px] leading-3 font-semibold shrink-0">
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-evidence-50 text-evidence-700 text-[9px] font-semibold shrink-0">
                     <Link2 size={8} />{relevantCount} linked
                   </span>
                 );
@@ -3340,7 +3340,7 @@ function WidgetCard({
                             </button>
                             {isOpen && (
                               <div className="px-3.5 pb-3">
-                                <div className="flex items-center gap-1.5 mb-2 text-[10px] leading-3 text-ink-400">
+                                <div className="flex items-center gap-1.5 mb-2 text-[9px] text-ink-400">
                                   <span>{sA?.name?.split('.')[0]}</span>
                                   <Link2 size={7} />
                                   <span>{sB?.name?.split('.')[0]}</span>
@@ -3742,7 +3742,7 @@ function MiniTable({ title, headers, rows }: { title: string; headers: string[];
                 className="border-b border-border/50 last:border-0 hover:bg-primary-xlight/50 transition-colors cursor-pointer"
               >
                 {row.cells.map((cell, j) => (
-                  <td key={j} className={`text-[12px] leading-4 py-2.5 pr-4 ${j === 0 ? 'font-medium text-text' : 'text-text-secondary'}`}>
+                  <td key={j} className={`text-[12.5px] py-2.5 pr-4 ${j === 0 ? 'font-medium text-text' : 'text-text-secondary'}`}>
                     {cell}
                   </td>
                 ))}

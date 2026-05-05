@@ -185,11 +185,11 @@ export default function StepUploadFiles({
             <div className="text-[14px] font-semibold text-ink-900">
               Upload data files
             </div>
-            <p className="text-[12px] leading-4 text-ink-500 mt-0.5">
+            <p className="text-[12.5px] text-ink-500 mt-0.5">
               Upload the files required for this workflow, then hit Execute.
             </p>
           </div>
-          <span className="text-[12px] leading-4 text-ink-500 inline-flex items-center gap-1 shrink-0 mt-0.5">
+          <span className="text-[12.5px] text-ink-500 inline-flex items-center gap-1 shrink-0 mt-0.5">
             {uploadOpen ? 'Click to collapse' : 'Click to expand'}
             {uploadOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </span>
@@ -215,13 +215,13 @@ export default function StepUploadFiles({
                   <div className="w-12 h-12 rounded-2xl bg-brand-100 text-brand-600 flex items-center justify-center">
                     <UploadCloud size={20} />
                   </div>
-                  <div className="text-[14px] leading-4 font-semibold text-ink-800 mt-1">
+                  <div className="text-[13.5px] font-semibold text-ink-800 mt-1">
                     Drop files here or click to upload
                   </div>
                   <div className="text-[12px] text-ink-500">
                     CSV, PDF, images — any data files for this workflow
                   </div>
-                  <div className="text-[12px] leading-4 text-ink-400 mt-1">
+                  <div className="text-[11.5px] text-ink-400 mt-1">
                     Auto-mapped to required inputs
                   </div>
                 </button>
@@ -238,7 +238,7 @@ export default function StepUploadFiles({
 
                 {/* Existing data sources */}
                 <div className="rounded-xl border border-canvas-border bg-canvas p-3 flex flex-col min-h-0">
-                  <div className="text-center text-[10px] leading-3 font-bold uppercase tracking-[0.14em] text-ink-400 mb-2.5">
+                  <div className="text-center text-[10.5px] font-bold uppercase tracking-[0.14em] text-ink-400 mb-2.5">
                     Or link from existing data source
                   </div>
                   <div className="relative mb-2.5">
@@ -251,7 +251,7 @@ export default function StepUploadFiles({
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
                       placeholder="Search data sources…"
-                      className="w-full rounded-full border border-canvas-border bg-canvas-elevated pl-8 pr-3 py-2 text-[12px] leading-4 text-ink-800 placeholder:text-ink-400 focus:outline-none focus:ring-2 focus:ring-brand-600/15 focus:border-brand-400/50 transition-all"
+                      className="w-full rounded-full border border-canvas-border bg-canvas-elevated pl-8 pr-3 py-2 text-[12.5px] text-ink-800 placeholder:text-ink-400 focus:outline-none focus:ring-2 focus:ring-brand-600/15 focus:border-brand-400/50 transition-all"
                     />
                   </div>
                   <ul className="flex flex-col gap-1.5 max-h-[280px] overflow-y-auto pr-0.5">
@@ -274,10 +274,10 @@ export default function StepUploadFiles({
                               <Database size={13} className="text-brand-600" />
                             </div>
                             <div className="min-w-0 flex-1">
-                              <div className="text-[12px] leading-4 font-semibold text-ink-800 truncate">
+                              <div className="text-[12.5px] font-semibold text-ink-800 truncate">
                                 {s.name}
                               </div>
-                              <div className="text-[12px] leading-4 text-ink-400 truncate">
+                              <div className="text-[11.5px] text-ink-400 truncate">
                                 {s.records} records · last sync {s.lastSync}
                               </div>
                             </div>
@@ -299,7 +299,7 @@ export default function StepUploadFiles({
                       );
                     })}
                     {filteredSources.length === 0 && (
-                      <li className="rounded-lg border border-dashed border-canvas-border px-3 py-4 text-center text-[12px] leading-4 text-ink-400">
+                      <li className="rounded-lg border border-dashed border-canvas-border px-3 py-4 text-center text-[11.5px] text-ink-400">
                         No data sources match “{search}”.
                       </li>
                     )}
@@ -328,7 +328,7 @@ export default function StepUploadFiles({
                   if (view === 'list-only') onOpenUploadModal?.();
                   else fileInputRef.current?.click();
                 }}
-                className="ml-auto inline-flex items-center gap-1 rounded-full border border-canvas-border bg-canvas-elevated hover:border-brand-300 hover:text-brand-700 hover:bg-brand-50/40 text-[12px] leading-4 font-semibold text-ink-600 px-2.5 py-1 transition-colors cursor-pointer"
+                className="ml-auto inline-flex items-center gap-1 rounded-full border border-canvas-border bg-canvas-elevated hover:border-brand-300 hover:text-brand-700 hover:bg-brand-50/40 text-[11.5px] font-semibold text-ink-600 px-2.5 py-1 transition-colors cursor-pointer"
               >
                 <Plus size={11} />
                 Add more
@@ -349,14 +349,14 @@ export default function StepUploadFiles({
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-[12px] leading-4 font-semibold text-ink-800 truncate">
+                  <div className="text-[12.5px] font-semibold text-ink-800 truncate">
                     {file.name}
                   </div>
-                  <div className="text-[12px] leading-4 text-ink-400 truncate">
+                  <div className="text-[11.5px] text-ink-400 truncate">
                     {file.linkedSource ? 'Linked from data source' : humanSize(file.size)}
                   </div>
                 </div>
-                <span className="text-[10px] leading-3 font-semibold uppercase tracking-wide rounded-md bg-canvas-elevated border border-canvas-border text-ink-500 px-1.5 py-0.5 shrink-0 max-w-[130px] truncate">
+                <span className="text-[10.5px] font-semibold uppercase tracking-wide rounded-md bg-canvas-elevated border border-canvas-border text-ink-500 px-1.5 py-0.5 shrink-0 max-w-[130px] truncate">
                   {inputName}
                 </span>
                 <button

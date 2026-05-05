@@ -334,7 +334,7 @@ function FileSourceBody({
               placeholder="Search files…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-8 pr-3 h-9 rounded-md border border-canvas-border bg-canvas-elevated text-[12px] leading-4 text-ink-900 placeholder:text-ink-400 focus:outline-none focus:border-brand-600 transition-colors"
+              className="w-full pl-8 pr-3 h-9 rounded-md border border-canvas-border bg-canvas-elevated text-[12.5px] text-ink-900 placeholder:text-ink-400 focus:outline-none focus:border-brand-600 transition-colors"
             />
           </div>
           <div className="relative">
@@ -375,7 +375,7 @@ function FileSourceBody({
             />
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-2 px-3 h-9 rounded-md bg-brand-600 hover:bg-brand-500 active:bg-brand-800 text-white text-[12px] leading-4 font-semibold transition-colors cursor-pointer"
+              className="flex items-center gap-2 px-3 h-9 rounded-md bg-brand-600 hover:bg-brand-500 active:bg-brand-800 text-white text-[12.5px] font-semibold transition-colors cursor-pointer"
             >
               <Upload size={13} />
               Upload files
@@ -403,7 +403,7 @@ function FileSourceBody({
             <p className="text-[12px] text-ink-500 mt-1">Drop files here or click upload to get started.</p>
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="inline-flex items-center gap-2 mt-4 px-3 h-9 rounded-md bg-brand-600 hover:bg-brand-500 active:bg-brand-800 text-white text-[12px] leading-4 font-semibold transition-colors cursor-pointer"
+              className="inline-flex items-center gap-2 mt-4 px-3 h-9 rounded-md bg-brand-600 hover:bg-brand-500 active:bg-brand-800 text-white text-[12.5px] font-semibold transition-colors cursor-pointer"
             >
               <Upload size={13} />
               Upload files
@@ -422,7 +422,7 @@ function FileSourceBody({
             {visible.length === 0 && uploadingFiles.length === 0 ? (
               <li className="text-center py-12 px-6">
                 <Search size={22} className="mx-auto text-ink-400 mb-2" />
-                <p className="text-[12px] leading-4 text-ink-500">No files match "{search}".</p>
+                <p className="text-[12.5px] text-ink-500">No files match "{search}".</p>
               </li>
             ) : (
               visible.map(f => (
@@ -461,7 +461,7 @@ function UploadingRow({ file }: { file: UploadingFile }) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <div className="text-[13px] font-medium text-ink-900 truncate">{file.name}</div>
-            <span className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] leading-3 font-semibold text-evidence-700 bg-evidence-50">
+            <span className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10.5px] font-semibold text-evidence-700 bg-evidence-50">
               <Loader2 size={10} className="animate-spin" />
               Uploading
             </span>
@@ -513,7 +513,7 @@ function FileRow({ file, expanded, onToggle, onDownload }: FileRowProps) {
         <button onClick={onToggle} className="flex-1 min-w-0 text-left cursor-pointer">
           <div className="flex items-center gap-2">
             <div className="text-[13px] font-medium text-ink-900 truncate group-hover:text-brand-700 transition-colors">{file.name}</div>
-            <span className={`shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] leading-3 font-semibold ${status.tone}`}>
+            <span className={`shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10.5px] font-semibold ${status.tone}`}>
               <StatusIcon size={10} className={file.status === 'processing' ? 'animate-spin' : ''} />
               {status.label}
             </span>
@@ -606,7 +606,7 @@ function IntegratedSourceBody({ config, sourceName }: IntegratedSourceBodyProps)
         <p className="text-[12px] text-ink-500 mt-1">Contact IT to set up the integration.</p>
         <a
           href="mailto:support@irame.ai?subject=Integration%20setup%20request"
-          className="inline-flex items-center gap-2 mt-4 px-3 h-9 rounded-md bg-brand-600 hover:bg-brand-500 active:bg-brand-800 text-white text-[12px] leading-4 font-semibold transition-colors cursor-pointer"
+          className="inline-flex items-center gap-2 mt-4 px-3 h-9 rounded-md bg-brand-600 hover:bg-brand-500 active:bg-brand-800 text-white text-[12.5px] font-semibold transition-colors cursor-pointer"
         >
           <Mail size={13} />
           Email support@irame.ai
@@ -624,8 +624,8 @@ function IntegratedSourceBody({ config, sourceName }: IntegratedSourceBodyProps)
         <div className="flex items-center justify-between gap-2 px-5 py-3 border-b border-canvas-border bg-paper-50/40">
           <div className="flex items-center gap-2">
             <span className={`inline-block w-2 h-2 rounded-full ${health.dot}`} />
-            <span className="text-[12px] leading-4 font-semibold text-ink-900">{config.provider}</span>
-            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] leading-3 font-semibold ${health.tone}`}>
+            <span className="text-[12.5px] font-semibold text-ink-900">{config.provider}</span>
+            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-semibold ${health.tone}`}>
               {health.label}
             </span>
           </div>
@@ -684,7 +684,7 @@ function ConfigFieldRow({ field }: { field: { label: string; value: string; sens
   return (
     <div className="grid grid-cols-[180px_1fr_auto] items-center gap-3 px-5 py-2.5 hover:bg-paper-50/60 transition-colors">
       <div className="text-[12px] font-medium text-ink-500">{field.label}</div>
-      <div className={`text-[12px] leading-4 text-ink-900 ${field.sensitive && !revealed ? 'tracking-widest font-mono' : 'font-mono'} truncate`}>
+      <div className={`text-[12.5px] text-ink-900 ${field.sensitive && !revealed ? 'tracking-widest font-mono' : 'font-mono'} truncate`}>
         {display}
       </div>
       <div className="flex items-center gap-1 shrink-0">

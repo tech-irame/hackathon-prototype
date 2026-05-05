@@ -185,7 +185,7 @@ export default function AIConciergeView({ setView }: Props) {
                     </h3>
 
                     {/* Description */}
-                    <p className="text-[12px] leading-4 text-text-secondary leading-relaxed mb-4">
+                    <p className="text-[12.5px] text-text-secondary leading-relaxed mb-4">
                       {tool.description}
                     </p>
 

@@ -114,7 +114,7 @@ export function BulkRunProgressProvider({ children }: { children: React.ReactNod
                   {run.workflows.map(w => (
                     <div key={w.id} className="flex items-center gap-2.5">
                       <LayersPlus size={15} className="text-primary shrink-0" />
-                      <span className="flex-1 text-[12px] leading-4 text-text truncate">{w.name}</span>
+                      <span className="flex-1 text-[12.5px] text-text truncate">{w.name}</span>
                       {isComplete ? (
                         <span className="w-4 h-4 rounded-full bg-compliant text-white flex items-center justify-center shrink-0">
                           <Check size={10} strokeWidth={3} />
@@ -126,7 +126,7 @@ export function BulkRunProgressProvider({ children }: { children: React.ReactNod
                   ))}
                   <div className="flex items-center gap-2.5 pt-0.5">
                     <FileText size={15} className="text-text-muted shrink-0" />
-                    <span className="flex-1 text-[12px] leading-4 text-text">Generating Report</span>
+                    <span className="flex-1 text-[12.5px] text-text">Generating Report</span>
                     {isComplete && (
                       <span className="w-4 h-4 rounded-full bg-compliant text-white flex items-center justify-center shrink-0">
                         <Check size={10} strokeWidth={3} />
@@ -136,7 +136,7 @@ export function BulkRunProgressProvider({ children }: { children: React.ReactNod
                 </div>
 
                 <div className="border-t border-border-light px-4 py-3 flex items-center gap-3">
-                  <span className="text-[12px] leading-4 text-text-muted shrink-0">
+                  <span className="text-[11.5px] text-text-muted shrink-0">
                     {isComplete ? 'Complete' : 'Processing'}
                   </span>
                   <div className="flex-1 h-1.5 rounded-full bg-surface-2 overflow-hidden">
@@ -145,7 +145,7 @@ export function BulkRunProgressProvider({ children }: { children: React.ReactNod
                       style={{ width: `${run.progress}%` }}
                     />
                   </div>
-                  <span className="text-[12px] leading-4 font-mono font-semibold text-text shrink-0 tabular-nums w-9 text-right">
+                  <span className="text-[11.5px] font-mono font-semibold text-text shrink-0 tabular-nums w-9 text-right">
                     {Math.round(run.progress)}%
                   </span>
                 </div>

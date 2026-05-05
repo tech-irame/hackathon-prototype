@@ -39,7 +39,7 @@ const EVIDENCE_TYPES: EvidenceType[] = ['PO', 'Invoice', 'GRN', 'Approval', 'Sys
 
 /* ─── Shared styles ─── */
 const inputClass = 'w-full px-3 py-2 rounded-lg border border-canvas-border bg-white text-[13px] text-ink-800 placeholder:text-ink-400 outline-none focus:border-brand-500/60 focus:ring-2 focus:ring-brand-500/10 transition-all';
-const labelClass = 'block text-[12px] leading-4 font-semibold text-ink-700 mb-1.5';
+const labelClass = 'block text-[12.5px] font-semibold text-ink-700 mb-1.5';
 
 /* ─── Component ─── */
 export default function ControlDetailView({ control, onBack, onUpdate }: Props) {
@@ -318,7 +318,7 @@ export default function ControlDetailView({ control, onBack, onUpdate }: Props) 
                     <div className="flex flex-wrap gap-2">
                       {control.assertions.map(a => (<span key={a} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gray-50 text-gray-700 text-[12px] font-medium border border-gray-200/60"><Check size={11} className="text-gray-400" />{ASSERTION_LABELS[a] || a}</span>))}
                     </div>
-                  ) : <p className="text-[12px] leading-4 text-ink-400">No assertions defined.</p>}
+                  ) : <p className="text-[12.5px] text-ink-400">No assertions defined.</p>}
                 </div>
 
                 {/* Details */}
@@ -435,10 +435,10 @@ export default function ControlDetailView({ control, onBack, onUpdate }: Props) 
                               {/* Type */}
                               <td className="px-4 py-3.5 align-top">
                                 <div className="flex flex-wrap gap-1">
-                                  <span className={`px-1.5 py-0.5 rounded text-[10px] leading-3 font-bold ${wf.type === 'automated' ? 'bg-evidence-50 text-evidence-700' : 'bg-gray-100 text-gray-600'}`}>
+                                  <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${wf.type === 'automated' ? 'bg-evidence-50 text-evidence-700' : 'bg-gray-100 text-gray-600'}`}>
                                     {wf.type === 'automated' ? 'Automated' : 'Manual'}
                                   </span>
-                                  <span className="px-1.5 py-0.5 rounded text-[10px] leading-3 font-bold bg-surface-2 text-ink-600">
+                                  <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-surface-2 text-ink-600">
                                     {(wf as Record<string, unknown>).controlNature as string || 'Detective'}
                                   </span>
                                 </div>
@@ -515,7 +515,7 @@ export default function ControlDetailView({ control, onBack, onUpdate }: Props) 
                   <div className="glass-card rounded-xl p-8 text-center">
                     <Workflow size={32} className="mx-auto text-ink-300 mb-3" />
                     <p className="text-[14px] font-semibold text-ink-600 mb-1">No workflows linked</p>
-                    <p className="text-[12px] leading-4 text-ink-400">Link a workflow to define how this control will be tested during engagements.</p>
+                    <p className="text-[12.5px] text-ink-400">Link a workflow to define how this control will be tested during engagements.</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -531,7 +531,7 @@ export default function ControlDetailView({ control, onBack, onUpdate }: Props) 
                                 {i === 0 && <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-brand-50 text-brand-700">PRIMARY</span>}
                                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${wf.status === 'active' ? 'bg-compliant-50 text-compliant-700' : 'bg-gray-100 text-gray-600'}`}>{wf.status}</span>
                               </div>
-                              <p className="text-[12px] leading-4 text-ink-500 mb-3">{wf.desc}</p>
+                              <p className="text-[12.5px] text-ink-500 mb-3">{wf.desc}</p>
                               <div className="grid grid-cols-5 gap-4 text-[12px]">
                                 <div><span className="text-ink-400">Type</span><div className="font-medium text-ink-700 mt-0.5">{wf.type}</div></div>
                                 <div><span className="text-ink-400">Steps</span><div className="font-medium text-ink-700 mt-0.5">{wf.steps.length} steps</div></div>
@@ -592,7 +592,7 @@ export default function ControlDetailView({ control, onBack, onUpdate }: Props) 
                                 </span>
                               )}
                             </div>
-                            <div className="text-[12px] leading-4 text-ink-400 mt-0.5">{primaryAttributes.length} attribute{primaryAttributes.length !== 1 ? 's' : ''} defined</div>
+                            <div className="text-[11.5px] text-ink-400 mt-0.5">{primaryAttributes.length} attribute{primaryAttributes.length !== 1 ? 's' : ''} defined</div>
                           </div>
                         </div>
                         <button onClick={() => { setEditingAttribute(null); setShowAddModal(true); }} className="flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white rounded-lg text-[13px] font-semibold transition-colors cursor-pointer"><Plus size={14} />Add Attribute</button>
@@ -613,7 +613,7 @@ export default function ControlDetailView({ control, onBack, onUpdate }: Props) 
                     ) : (
                       <div className="glass-card rounded-xl overflow-hidden">
                         <div className="overflow-x-auto">
-                          <table className="w-full text-[12px] leading-4">
+                          <table className="w-full text-[12.5px]">
                             <thead><tr className="bg-canvas border-b border-canvas-border">
                               <th className="px-4 py-2.5 text-left font-semibold text-ink-500" style={{ width: '80px' }}>ID</th>
                               <th className="px-4 py-2.5 text-left font-semibold text-ink-500">Attribute Name</th>
@@ -627,8 +627,8 @@ export default function ControlDetailView({ control, onBack, onUpdate }: Props) 
                               {primaryAttributes.map((attr, i) => (
                                 <tr key={attr.id} className={`border-b border-canvas-border last:border-0 hover:bg-brand-50/30 transition-colors ${i % 2 === 1 ? 'bg-canvas/30' : ''}`}>
                                   <td className="px-4 py-3"><span className="font-mono text-[11px] text-ink-500">{attr.label}</span></td>
-                                  <td className="px-4 py-3"><div className="font-medium text-ink-800">{attr.name}</div><div className="text-[12px] leading-4 text-ink-400 mt-0.5 line-clamp-1">{attr.description}</div></td>
-                                  <td className="px-4 py-3"><div className="text-[12px] leading-4 text-ink-600 line-clamp-2">{attr.passCriteria}</div></td>
+                                  <td className="px-4 py-3"><div className="font-medium text-ink-800">{attr.name}</div><div className="text-[11.5px] text-ink-400 mt-0.5 line-clamp-1">{attr.description}</div></td>
+                                  <td className="px-4 py-3"><div className="text-[11.5px] text-ink-600 line-clamp-2">{attr.passCriteria}</div></td>
                                   <td className="px-4 py-3 text-center">{attr.evidenceRequired ? (<span className="inline-flex items-center gap-1 text-evidence-700 text-[11px] font-semibold"><Paperclip size={10} />{attr.evidenceType || 'Yes'}</span>) : <span className="text-[11px] text-ink-400">No</span>}</td>
                                   <td className="px-4 py-3 text-center">{attr.mandatory ? (<span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-risk-50 text-risk-700">Required</span>) : (<span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-gray-100 text-gray-500">Optional</span>)}</td>
                                   <td className="px-4 py-3 text-center"><span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold ${attr.status === 'Active' ? 'bg-compliant-50 text-compliant-700' : 'bg-gray-100 text-gray-600'}`}><span className={`w-1.5 h-1.5 rounded-full ${attr.status === 'Active' ? 'bg-compliant' : 'bg-gray-400'}`} />{attr.status}</span></td>
@@ -691,7 +691,7 @@ export default function ControlDetailView({ control, onBack, onUpdate }: Props) 
                       <div key={i} className="flex items-start gap-4 relative">
                         <div className={`w-[15px] h-[15px] rounded-full bg-white border-2 shrink-0 mt-0.5 z-10 ${i < liveHistory.length ? 'border-brand-600' : 'border-brand-300'}`} />
                         <div className="flex-1">
-                          <div className="text-[12px] leading-4 text-ink-800">{entry.action}</div>
+                          <div className="text-[12.5px] text-ink-800">{entry.action}</div>
                           <div className="flex items-center gap-3 mt-0.5 text-[11px] text-ink-400">
                             <span className="flex items-center gap-1"><User size={10} />{entry.user}</span>
                             <span className="flex items-center gap-1"><Calendar size={10} />{entry.date}</span>
@@ -760,7 +760,7 @@ function AttributeModal({ existing, onClose, onSave }: {
           <div className="px-6 pt-5 pb-4 border-b border-canvas-border flex items-start justify-between">
             <div>
               <h2 className="font-display text-[18px] font-semibold text-ink-900">{isEdit ? 'Edit Attribute' : 'Add Attribute'}</h2>
-              <p className="text-[12px] leading-4 text-ink-500 mt-0.5">Define a test condition for the linked workflow.</p>
+              <p className="text-[12.5px] text-ink-500 mt-0.5">Define a test condition for the linked workflow.</p>
             </div>
             <button onClick={onClose} className="w-8 h-8 rounded-full text-ink-500 hover:text-ink-800 hover:bg-[#F4F2F7] flex items-center justify-center cursor-pointer"><X size={16} /></button>
           </div>
@@ -777,7 +777,7 @@ function AttributeModal({ existing, onClose, onSave }: {
               <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}>
                 <label className={labelClass}>Evidence Type</label>
                 <div className="grid grid-cols-3 gap-2">
-                  {EVIDENCE_TYPES.map(t => (<button key={t} onClick={() => setEvidenceType(evidenceType === t ? '' : t)} className={`px-3 py-2 rounded-lg border text-[12px] leading-4 font-medium transition-all cursor-pointer ${evidenceType === t ? 'border-brand-500 bg-brand-50 text-brand-700 ring-2 ring-brand-500/20' : 'border-canvas-border bg-white text-ink-600 hover:bg-canvas'}`}>{t}</button>))}
+                  {EVIDENCE_TYPES.map(t => (<button key={t} onClick={() => setEvidenceType(evidenceType === t ? '' : t)} className={`px-3 py-2 rounded-lg border text-[12.5px] font-medium transition-all cursor-pointer ${evidenceType === t ? 'border-brand-500 bg-brand-50 text-brand-700 ring-2 ring-brand-500/20' : 'border-canvas-border bg-white text-ink-600 hover:bg-canvas'}`}>{t}</button>))}
                 </div>
               </motion.div>
             )}

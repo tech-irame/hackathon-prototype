@@ -1607,7 +1607,7 @@ export default function AdminView({ activeTab }: Props) {
                 <button
                   key={tab.id}
                   onClick={() => setCurrentTab(tab.id)}
-                  className={`relative flex items-center gap-2 px-4 py-2 rounded-lg text-[12px] leading-4 font-semibold transition-all cursor-pointer ${
+                  className={`relative flex items-center gap-2 px-4 py-2 rounded-lg text-[12.5px] font-semibold transition-all cursor-pointer ${
                     isActive
                       ? 'text-violet-700'
                       : 'text-text-muted hover:text-text-secondary hover:bg-white/60'

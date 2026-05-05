@@ -345,7 +345,7 @@ function ExtractionReviewWorkspace({ sop, onBack, onAccept, onUpdateRisks, onUpd
               <div className="flex items-center gap-2">
                 <h2 className="text-[16px] font-bold text-text">{sop.name}</h2>
                 <span className="text-[11px] font-mono text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded">{sop.version}</span>
-                <span className={`px-2 h-5 rounded-full text-[10px] leading-3 font-semibold inline-flex items-center ${SOP_STATUS_STYLES[sop.status]}`}>{sop.status}</span>
+                <span className={`px-2 h-5 rounded-full text-[9px] font-semibold inline-flex items-center ${SOP_STATUS_STYLES[sop.status]}`}>{sop.status}</span>
               </div>
               <div className="flex items-center gap-4 mt-1.5 text-[11px] text-gray-500">
                 <span>Uploaded by {sop.uploadedBy} · {sop.uploadedAt}</span>
@@ -511,7 +511,7 @@ function ExtractionReviewWorkspace({ sop, onBack, onAccept, onUpdateRisks, onUpd
                     <td className="px-3 py-2"><input value={newRiskDesc} onChange={e => setNewRiskDesc(e.target.value)} placeholder="Description" className={fieldCls} /></td>
                     <td className="px-3 py-2"><span className="text-[10px] text-gray-400">{sop.businessProcess}</span></td>
                     <td className="px-3 py-2"><input value={newRiskSection} onChange={e => setNewRiskSection(e.target.value)} placeholder="Section" className={fieldCls} /></td>
-                    <td className="px-3 py-2"><span className="text-[10px] leading-3 text-gray-400">Manual</span></td>
+                    <td className="px-3 py-2"><span className="text-[9px] text-gray-400">Manual</span></td>
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-1">
                         <button onClick={handleAddRisk} disabled={!newRiskName.trim()} className="p-1 rounded bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer disabled:opacity-40"><CheckCircle2 size={11} /></button>
@@ -608,7 +608,7 @@ function ExtractionReviewWorkspace({ sop, onBack, onAccept, onUpdateRisks, onUpd
                         <option value="Corrective">Corrective</option>
                       </select>
                     </td>
-                    <td className="px-3 py-2"><span className="text-[10px] leading-3 text-gray-400">Manual</span></td>
+                    <td className="px-3 py-2"><span className="text-[9px] text-gray-400">Manual</span></td>
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-1">
                         <button onClick={handleAddControl} disabled={!newCtrlName.trim()} className="p-1 rounded bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer disabled:opacity-40"><CheckCircle2 size={11} /></button>
@@ -870,7 +870,7 @@ function SOPPreviewDrawer({ sop, onClose, onGoToRacm }: { sop: LocalSOP; onClose
             <div><span className="text-[10px] text-gray-400 uppercase block">Upload Date</span><span className="text-[13px] text-text mt-0.5 block">{sop.uploadedAt}</span></div>
             <div><span className="text-[10px] text-gray-400 uppercase block">Business Process</span><span className="text-[13px] text-text mt-0.5 block">{sop.businessProcess}</span></div>
             <div><span className="text-[10px] text-gray-400 uppercase block">Version</span><span className="text-[13px] text-text mt-0.5 font-mono block">{sop.version}</span></div>
-            <div><span className="text-[10px] text-gray-400 uppercase block">Status</span><span className={`mt-0.5 px-2 h-5 rounded-full text-[10px] leading-3 font-semibold inline-flex items-center ${SOP_STATUS_STYLES[sop.status]}`}>{sop.status}</span></div>
+            <div><span className="text-[10px] text-gray-400 uppercase block">Status</span><span className={`mt-0.5 px-2 h-5 rounded-full text-[9px] font-semibold inline-flex items-center ${SOP_STATUS_STYLES[sop.status]}`}>{sop.status}</span></div>
             <div><span className="text-[10px] text-gray-400 uppercase block">File</span><span className="text-[13px] text-text mt-0.5 block">{sop.fileName}</span></div>
           </div>
           {/* Description */}
@@ -1424,7 +1424,7 @@ function SOPTabContent({ bpId, bpAbbr, existingSops, existingRacms, onGoToRacm, 
                           <span className="text-[10px] text-gray-400 block mt-0.5">{sop.uploadedBy} · {sop.uploadedAt}</span>
                         </td>
                         <td className="px-3 py-3">
-                          <span className={`px-2 h-5 rounded-full text-[10px] leading-3 font-semibold inline-flex items-center ${SOP_STATUS_STYLES[sop.status]}`}>
+                          <span className={`px-2 h-5 rounded-full text-[9px] font-semibold inline-flex items-center ${SOP_STATUS_STYLES[sop.status]}`}>
                             {isProcessing && <Loader2 size={9} className="animate-spin mr-1" />}
                             {sop.status}
                           </span>
@@ -1688,12 +1688,12 @@ function ControlDesignTab({ bpAbbr }: { bpAbbr: string }) {
                     <td className="px-3 py-3"><span className="text-[12px] text-text tabular-nums">{ctrl.mappedRisks.length}</span></td>
                     <td className="px-3 py-3"><span className="text-[12px] text-text tabular-nums">{ctrl.usedInRACMs}</span></td>
                     <td className="px-3 py-3">
-                      {(() => { const ds = getDesignStatus(ctrl); return <span className={`px-2 h-5 rounded-full text-[10px] leading-3 font-semibold inline-flex items-center ${ds === 'Complete' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-600'}`}>{ds}</span>; })()}
+                      {(() => { const ds = getDesignStatus(ctrl); return <span className={`px-2 h-5 rounded-full text-[9px] font-semibold inline-flex items-center ${ds === 'Complete' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-600'}`}>{ds}</span>; })()}
                     </td>
                     <td className="px-3 py-3 text-right" onClick={e => e.stopPropagation()}>
                       <div className="flex items-center gap-1 justify-end">
-                        {ctrl.workflows.length === 0 && <button onClick={() => handleCreateWorkflow(ctrl)} className="px-2 py-1 rounded text-[10px] leading-3 font-semibold bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer">Create Workflow</button>}
-                        <button onClick={() => setExpandedId(isExpanded ? null : ctrl.id)} className="px-2 py-1 rounded text-[10px] leading-3 font-bold bg-gray-100 text-gray-600 hover:bg-gray-200/70 cursor-pointer">{isExpanded ? 'Close' : 'View'}</button>
+                        {ctrl.workflows.length === 0 && <button onClick={() => handleCreateWorkflow(ctrl)} className="px-2 py-1 rounded text-[9px] font-semibold bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer">Create Workflow</button>}
+                        <button onClick={() => setExpandedId(isExpanded ? null : ctrl.id)} className="px-2 py-1 rounded text-[9px] font-bold bg-gray-100 text-gray-600 hover:bg-gray-200/70 cursor-pointer">{isExpanded ? 'Close' : 'View'}</button>
                       </div>
                     </td>
                   </motion.tr>
@@ -1703,22 +1703,22 @@ function ControlDesignTab({ bpAbbr }: { bpAbbr: string }) {
                       <td colSpan={8} className="p-0">
                         <div className="px-5 py-4 bg-surface-2/20 border-t border-border/30 space-y-3">
                           <div className="grid grid-cols-2 gap-4">
-                            <div><span className="text-[10px] leading-3 text-gray-400 uppercase block">Description</span><p className="text-[11px] text-text mt-0.5">{ctrl.description}</p></div>
+                            <div><span className="text-[9px] text-gray-400 uppercase block">Description</span><p className="text-[11px] text-text mt-0.5">{ctrl.description}</p></div>
                             <div className="grid grid-cols-2 gap-2">
-                              <div><span className="text-[10px] leading-3 text-gray-400 uppercase block">Automation</span><p className="text-[11px] text-text">{ctrl.automation}</p></div>
-                              <div><span className="text-[10px] leading-3 text-gray-400 uppercase block">Frequency</span><p className="text-[11px] text-text">{ctrl.frequency}</p></div>
+                              <div><span className="text-[9px] text-gray-400 uppercase block">Automation</span><p className="text-[11px] text-text">{ctrl.automation}</p></div>
+                              <div><span className="text-[9px] text-gray-400 uppercase block">Frequency</span><p className="text-[11px] text-text">{ctrl.frequency}</p></div>
                             </div>
                           </div>
                           {ctrl.assertions.length > 0 && (
-                            <div><span className="text-[10px] leading-3 text-gray-400 uppercase block mb-1">Assertions</span>
-                              <div className="flex flex-wrap gap-1">{ctrl.assertions.map(a => (<span key={a} className="px-2 py-0.5 rounded text-[10px] leading-3 font-medium bg-gray-50 text-gray-600 border border-gray-200/60">{a}</span>))}</div>
+                            <div><span className="text-[9px] text-gray-400 uppercase block mb-1">Assertions</span>
+                              <div className="flex flex-wrap gap-1">{ctrl.assertions.map(a => (<span key={a} className="px-2 py-0.5 rounded text-[9px] font-medium bg-gray-50 text-gray-600 border border-gray-200/60">{a}</span>))}</div>
                             </div>
                           )}
                           <div className="grid grid-cols-2 gap-3">
-                            <div><span className="text-[10px] leading-3 text-gray-400 uppercase block mb-1">Linked Risks</span>
+                            <div><span className="text-[9px] text-gray-400 uppercase block mb-1">Linked Risks</span>
                               {ctrl.mappedRisks.length > 0 ? ctrl.mappedRisks.map(r => (<div key={r} className="text-[10px] font-mono text-gray-500">{r}</div>)) : <span className="text-[10px] text-gray-300">None</span>}
                             </div>
-                            <div><span className="text-[10px] leading-3 text-gray-400 uppercase block mb-1">Used in RACMs</span>
+                            <div><span className="text-[9px] text-gray-400 uppercase block mb-1">Used in RACMs</span>
                               <span className="text-[10px] text-text">{ctrl.usedInRACMs} RACM{ctrl.usedInRACMs !== 1 ? 's' : ''}</span>
                             </div>
                           </div>
@@ -1726,8 +1726,8 @@ function ControlDesignTab({ bpAbbr }: { bpAbbr: string }) {
                           {/* Workflow bindings detail */}
                           <div>
                             <div className="flex items-center justify-between mb-1.5">
-                              <span className="text-[10px] leading-3 text-gray-400 uppercase font-bold">Workflows ({ctrl.workflows.length})</span>
-                              <button onClick={e => { e.stopPropagation(); handleCreateWorkflow(ctrl); }} className="text-[10px] leading-3 font-semibold text-primary hover:underline cursor-pointer">+ Create Workflow</button>
+                              <span className="text-[9px] text-gray-400 uppercase font-bold">Workflows ({ctrl.workflows.length})</span>
+                              <button onClick={e => { e.stopPropagation(); handleCreateWorkflow(ctrl); }} className="text-[9px] font-semibold text-primary hover:underline cursor-pointer">+ Create Workflow</button>
                             </div>
                             {ctrl.workflows.length === 0 ? (
                               <div className="text-[10px] text-amber-600 py-2">No workflows mapped. Create a workflow to enable testing.</div>
@@ -1735,12 +1735,12 @@ function ControlDesignTab({ bpAbbr }: { bpAbbr: string }) {
                               <div className="bg-white rounded-lg border border-border/50 overflow-hidden">
                                 <table className="w-full text-[11px]">
                                   <thead><tr className="border-b border-border/30 bg-gray-50/30">
-                                    <th className="px-3 py-1.5 text-left text-[10px] leading-3 font-semibold text-gray-400 uppercase">Workflow</th>
-                                    <th className="px-3 py-1.5 text-center text-[10px] leading-3 font-semibold text-gray-400 uppercase">Type</th>
-                                    <th className="px-3 py-1.5 text-center text-[10px] leading-3 font-semibold text-gray-400 uppercase">Status</th>
-                                    <th className="px-3 py-1.5 text-right text-[10px] leading-3 font-semibold text-gray-400 uppercase">Runs</th>
-                                    <th className="px-3 py-1.5 text-right text-[10px] leading-3 font-semibold text-gray-400 uppercase">Last Run</th>
-                                    <th className="px-3 py-1.5 text-right text-[10px] leading-3 font-semibold text-gray-400 uppercase">Actions</th>
+                                    <th className="px-3 py-1.5 text-left text-[9px] font-semibold text-gray-400 uppercase">Workflow</th>
+                                    <th className="px-3 py-1.5 text-center text-[9px] font-semibold text-gray-400 uppercase">Type</th>
+                                    <th className="px-3 py-1.5 text-center text-[9px] font-semibold text-gray-400 uppercase">Status</th>
+                                    <th className="px-3 py-1.5 text-right text-[9px] font-semibold text-gray-400 uppercase">Runs</th>
+                                    <th className="px-3 py-1.5 text-right text-[9px] font-semibold text-gray-400 uppercase">Last Run</th>
+                                    <th className="px-3 py-1.5 text-right text-[9px] font-semibold text-gray-400 uppercase">Actions</th>
                                   </tr></thead>
                                   <tbody>{ctrl.workflows.map((w, wi) => (
                                     <tr key={wi} className="border-b border-border/20">
@@ -1751,8 +1751,8 @@ function ControlDesignTab({ bpAbbr }: { bpAbbr: string }) {
                                       <td className="px-3 py-1.5 text-right text-gray-400">{w.lastRun}</td>
                                       <td className="px-3 py-1.5 text-right">
                                         <div className="flex items-center gap-1 justify-end">
-                                          <button onClick={e => { e.stopPropagation(); addToast({ message: `Viewing "${w.name}"`, type: 'info' }); }} className="text-[10px] leading-3 font-medium text-primary hover:underline cursor-pointer">View</button>
-                                          {w.type === 'Automated' && <button onClick={e => { e.stopPropagation(); addToast({ message: `Running "${w.name}"...`, type: 'info' }); }} className="text-[10px] leading-3 font-medium text-primary hover:underline cursor-pointer">Run</button>}
+                                          <button onClick={e => { e.stopPropagation(); addToast({ message: `Viewing "${w.name}"`, type: 'info' }); }} className="text-[9px] font-medium text-primary hover:underline cursor-pointer">View</button>
+                                          {w.type === 'Automated' && <button onClick={e => { e.stopPropagation(); addToast({ message: `Running "${w.name}"...`, type: 'info' }); }} className="text-[9px] font-medium text-primary hover:underline cursor-pointer">Run</button>}
                                         </div>
                                       </td>
                                     </tr>
@@ -2308,7 +2308,7 @@ function ReviewImportWorkspace({ racmName, bpAbbr, fileName, onBack, onFreeze }:
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-[16px] font-bold text-text">{racmName}</h2>
-                <span className="px-2 h-5 rounded-full text-[10px] leading-3 font-semibold inline-flex items-center bg-amber-50 text-amber-600">Draft Review</span>
+                <span className="px-2 h-5 rounded-full text-[9px] font-semibold inline-flex items-center bg-amber-50 text-amber-600">Draft Review</span>
               </div>
               <div className="flex items-center gap-3 mt-1 text-[11px] text-gray-500">
                 <span>{bpAbbr}</span>
@@ -2353,7 +2353,7 @@ function ReviewImportWorkspace({ racmName, bpAbbr, fileName, onBack, onFreeze }:
               <thead className="sticky top-0 z-10">
                 <tr className="border-b border-border bg-gray-50/80">
                   {GRID_COLUMNS.map(c => (
-                    <th key={c.key} className="px-1.5 py-2 text-left text-[10px] leading-3 font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap"
+                    <th key={c.key} className="px-1.5 py-2 text-left text-[9px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap"
                       style={{ minWidth: c.minW }}>
                       {c.label}
                       {c.required && <span className="text-red-400 ml-0.5">*</span>}
@@ -2433,7 +2433,7 @@ function ReviewImportWorkspace({ racmName, bpAbbr, fileName, onBack, onFreeze }:
                             style={{ minWidth: col.minW }}
                             onClick={e => { e.stopPropagation(); setSelectedRowId(row.id); startEdit(row.id, col.key, val === 'undefined' ? '' : val); }}>
                             {col.key === 'riskRating' && val && val !== 'undefined' ? (
-                              <span className={`px-1.5 h-4 rounded text-[10px] leading-3 font-bold inline-flex items-center ${ratingColor(val)}`}>{val}</span>
+                              <span className={`px-1.5 h-4 rounded text-[9px] font-bold inline-flex items-center ${ratingColor(val)}`}>{val}</span>
                             ) : (
                               <span className={`text-[11px] ${hasIssue && isEmpty ? 'text-amber-500' : isEmpty ? 'text-gray-300' : 'text-text'} truncate block`}>
                                 {hasIssue && isEmpty ? (
@@ -2507,18 +2507,18 @@ function ReviewImportWorkspace({ racmName, bpAbbr, fileName, onBack, onFreeze }:
 
             {/* Process */}
             <div>
-              <span className="text-[10px] leading-3 text-gray-400 uppercase block">Process</span>
+              <span className="text-[9px] text-gray-400 uppercase block">Process</span>
               <p className="text-[12px] font-medium text-text">{selectedRow.process || '—'}</p>
               {selectedRow.subProcess && <p className="text-[10px] text-gray-500 mt-0.5">{selectedRow.subProcess}</p>}
             </div>
 
             {/* Risk */}
             <div>
-              <span className="text-[10px] leading-3 text-gray-400 uppercase block">Risk</span>
+              <span className="text-[9px] text-gray-400 uppercase block">Risk</span>
               <p className="text-[12px] font-medium text-text">{selectedRow.riskName || '—'}</p>
               <p className="text-[10px] text-gray-500 mt-0.5">{selectedRow.riskDesc || '—'}</p>
               <div className="flex items-center gap-2 mt-1">
-                <span className="text-[10px] leading-3 font-mono text-gray-400">{selectedRow.riskId || '—'}</span>
+                <span className="text-[9px] font-mono text-gray-400">{selectedRow.riskId || '—'}</span>
                 {selectedRow.riskRating && (
                   <span className={`px-1.5 h-4 rounded text-[8px] font-bold inline-flex items-center ${ratingColor(selectedRow.riskRating)}`}>{selectedRow.riskRating}</span>
                 )}
@@ -2527,7 +2527,7 @@ function ReviewImportWorkspace({ racmName, bpAbbr, fileName, onBack, onFreeze }:
 
             {/* Control */}
             <div>
-              <span className="text-[10px] leading-3 text-gray-400 uppercase block">Control</span>
+              <span className="text-[9px] text-gray-400 uppercase block">Control</span>
               <p className="text-[12px] font-medium text-text">{selectedRow.controlName || '—'}</p>
               <p className="text-[10px] text-gray-500 mt-0.5">{selectedRow.controlDesc || '—'}</p>
               <div className="grid grid-cols-2 gap-1 mt-1.5 text-[10px]">
@@ -2541,20 +2541,20 @@ function ReviewImportWorkspace({ racmName, bpAbbr, fileName, onBack, onFreeze }:
 
             {/* Assertion / Attribute */}
             <div>
-              <span className="text-[10px] leading-3 text-gray-400 uppercase block">Assertion / Attribute</span>
+              <span className="text-[9px] text-gray-400 uppercase block">Assertion / Attribute</span>
               <p className="text-[11px] text-text">{selectedRow.assertion || '—'} / {selectedRow.attribute || '—'}</p>
             </div>
 
             {/* Source */}
             <div>
-              <span className="text-[10px] leading-3 text-gray-400 uppercase block">Source</span>
+              <span className="text-[9px] text-gray-400 uppercase block">Source</span>
               <p className="text-[10px] text-gray-500">Row {selectedRow.sourceRow} · {selectedRow.framework || '—'}</p>
             </div>
 
             {/* Validation Issues */}
             {selectedRow.validationIssues.length > 0 && (
               <div className="bg-amber-50/60 rounded-lg p-2.5 space-y-1">
-                <span className="text-[10px] leading-3 font-bold text-amber-700 uppercase flex items-center gap-1"><AlertTriangle size={10} />Validation Issues ({selectedRow.validationIssues.length})</span>
+                <span className="text-[9px] font-bold text-amber-700 uppercase flex items-center gap-1"><AlertTriangle size={10} />Validation Issues ({selectedRow.validationIssues.length})</span>
                 {selectedRow.validationIssues.map((issue, i) => (
                   <p key={i} className="text-[10px] text-amber-700 flex items-center gap-1.5">
                     <span className="w-1 h-1 rounded-full bg-amber-500 shrink-0" />{issue}
@@ -2604,7 +2604,7 @@ function ReviewImportWorkspace({ racmName, bpAbbr, fileName, onBack, onFreeze }:
 
                 {/* Stats Grid */}
                 <div className="bg-surface-2/60 rounded-xl p-4 mb-4">
-                  <span className="text-[10px] leading-3 font-bold text-text-muted uppercase tracking-wide block mb-3">Import Summary</span>
+                  <span className="text-[9px] font-bold text-text-muted uppercase tracking-wide block mb-3">Import Summary</span>
                   <div className="grid grid-cols-3 gap-3">
                     {[
                       { label: 'Total Rows', value: stats.totalRows, color: 'text-text' },
@@ -2616,7 +2616,7 @@ function ReviewImportWorkspace({ racmName, bpAbbr, fileName, onBack, onFreeze }:
                     ].map(s => (
                       <div key={s.label} className="bg-white rounded-lg px-3 py-2 border border-border-light">
                         <span className={`text-[18px] font-bold ${s.color} block`}>{s.value}</span>
-                        <span className="text-[10px] leading-3 text-gray-400 font-medium">{s.label}</span>
+                        <span className="text-[9px] text-gray-400 font-medium">{s.label}</span>
                       </div>
                     ))}
                   </div>
@@ -2625,7 +2625,7 @@ function ReviewImportWorkspace({ racmName, bpAbbr, fileName, onBack, onFreeze }:
                 {/* Validation warnings detail */}
                 {stats.validationWarnings > 0 && (
                   <div className="bg-amber-50/60 rounded-lg p-3 mb-4 space-y-1">
-                    <span className="text-[10px] leading-3 font-bold text-amber-700 uppercase flex items-center gap-1"><AlertTriangle size={10} />Rows with issues</span>
+                    <span className="text-[9px] font-bold text-amber-700 uppercase flex items-center gap-1"><AlertTriangle size={10} />Rows with issues</span>
                     {rows.filter(r => r.validationIssues.length > 0).slice(0, 3).map(r => (
                       <div key={r.id} className="flex items-start gap-2 text-[10px]">
                         <span className="text-amber-700 font-semibold shrink-0">Row {r.sourceRow}:</span>

@@ -1031,7 +1031,7 @@ export default function DashboardListPage({ onDashboardClick, onImportPowerBI, c
                             });
                           }
                           return Array.from(types).map(t => (
-                            <span key={t} className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] leading-3 font-semibold ${
+                            <span key={t} className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold ${
                               t === 'file' ? 'bg-green-50 text-green-700' :
                               t === 'query' ? 'bg-amber-50 text-amber-700' :
                               'bg-purple-50 text-purple-700'
@@ -1121,7 +1121,7 @@ export default function DashboardListPage({ onDashboardClick, onImportPowerBI, c
                   <Clock size={13} className="text-ink-400" />
                   <span className="text-[12px] text-ink-400">30 minutes ago</span>
                 </div>
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] leading-3 font-semibold bg-green-50 text-green-700">
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-green-50 text-green-700">
                   <Upload size={8} />
                   Excel
                 </span>
@@ -1162,7 +1162,7 @@ export default function DashboardListPage({ onDashboardClick, onImportPowerBI, c
                   <Clock size={13} className="text-ink-400" />
                   <span className="text-[12px] text-ink-400">Just now</span>
                 </div>
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] leading-3 font-semibold bg-purple-50 text-purple-700">
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-purple-50 text-purple-700">
                   <Database size={8} />
                   SQL
                 </span>

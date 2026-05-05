@@ -252,11 +252,7 @@ export interface StepState {
 
 export interface StepAvailability {
   overview: StepState;
-  population: StepState;
-  executionMode: StepState;
   samples: StepState;
-  createSamples: StepState;
-  evidence: StepState;
   attributeTesting: StepState;
   workingPaper: StepState;
   review: StepState;
@@ -288,22 +284,9 @@ export function deriveStepAvailability(ctrl: ExecutionControl): StepAvailability
   return {
     overview: { enabled: true, reason: '' },
 
-    population: { enabled: true, reason: '' },
-    executionMode: { enabled: true, reason: '' },
-
     samples: {
       enabled: coverage.isReadyForExecution || ctrl.attributes.length === 0,
       reason: !coverage.isReadyForExecution && ctrl.attributes.length > 0 ? 'Complete workflow mapping before uploading samples.' : '',
-    },
-
-    createSamples: {
-      enabled: coverage.isReadyForExecution || ctrl.attributes.length === 0,
-      reason: !coverage.isReadyForExecution && ctrl.attributes.length > 0 ? 'Complete workflow mapping before uploading samples.' : '',
-    },
-
-    evidence: {
-      enabled: hasTestItems,
-      reason: !hasTestItems ? 'Create samples first to attach evidence.' : '',
     },
 
     attributeTesting: {

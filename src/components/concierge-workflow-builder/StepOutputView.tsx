@@ -33,7 +33,7 @@ export default function StepOutputView({
     return (
       <div className="flex items-center gap-2 rounded-xl border border-canvas-border bg-canvas-elevated px-3 py-2.5">
         <Loader2 size={14} className="animate-spin text-brand-600 shrink-0" />
-        <div className="text-[12px] leading-4 text-ink-700">
+        <div className="text-[12.5px] text-ink-700">
           Running <b className="text-brand-700">{workflow.name}</b>…
         </div>
       </div>

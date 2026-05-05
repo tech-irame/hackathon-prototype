@@ -148,7 +148,7 @@ export default function SampleDataModal({
             </div>
             <div>
               <h2 className="text-[17px] font-semibold text-ink-900 leading-tight">Sample the Data</h2>
-              <p className="text-[12px] leading-4 text-ink-500 mt-1 leading-snug">
+              <p className="text-[12.5px] text-ink-500 mt-1 leading-snug">
                 Create a filtered or partial sample of your data to review, investigate, and resolve audit cases more efficiently.
               </p>
             </div>
@@ -227,7 +227,7 @@ export default function SampleDataModal({
                 ))}
                 <button
                   onClick={addFilter}
-                  className="inline-flex items-center gap-1.5 h-9 px-3 text-[12px] leading-4 font-medium text-ink-700 bg-canvas-elevated border border-canvas-border rounded-[8px] hover:border-brand-200 hover:text-brand-700 cursor-pointer"
+                  className="inline-flex items-center gap-1.5 h-9 px-3 text-[12.5px] font-medium text-ink-700 bg-canvas-elevated border border-canvas-border rounded-[8px] hover:border-brand-200 hover:text-brand-700 cursor-pointer"
                 >
                   <Plus size={13} />
                   Add another item
@@ -282,7 +282,7 @@ export default function SampleDataModal({
           {/* Info note */}
           <div className="flex items-start gap-2 bg-evidence-50/60 border border-evidence-50 rounded-[8px] px-3 py-2.5">
             <Info size={13} className="text-evidence-700 mt-0.5 shrink-0" />
-            <p className="text-[12px] leading-4 text-ink-700 leading-snug">
+            <p className="text-[12.5px] text-ink-700 leading-snug">
               <span className="font-semibold">Note:</span> New Sample Data Sheet will be created.{' '}
               <span className="tabular-nums">{availableCount}/{totalCount}</span> Sample data sets available.
             </p>

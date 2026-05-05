@@ -405,7 +405,7 @@ export default function WorkflowExecutor({ workflowId, onBack, onRunComplete }: 
               <div className="absolute -top-20 -right-20 w-60 h-60 bg-gradient-to-br from-brand-50 to-transparent rounded-full pointer-events-none" />
               <div className="flex items-start justify-between relative">
                 <div>
-                  <div className="flex items-center gap-2 text-[12px] leading-4 mb-2">
+                  <div className="flex items-center gap-2 text-[11.5px] mb-2">
                     <span className="flex items-center gap-1.5 text-compliant-700 font-bold uppercase tracking-wider">
                       <span className="w-1.5 h-1.5 rounded-full bg-compliant animate-pulse" />
                       Active
@@ -416,10 +416,10 @@ export default function WorkflowExecutor({ workflowId, onBack, onRunComplete }: 
                     {workflow.name}
                   </h1>
                   <div className="flex items-center gap-2">
-                    <span className="text-[12px] leading-4 font-semibold text-brand-700 bg-brand-50 px-2 py-0.5 rounded-full">
+                    <span className="text-[11.5px] font-semibold text-brand-700 bg-brand-50 px-2 py-0.5 rounded-full">
                       {workflow.category}
                     </span>
-                    <span className="text-[12px] leading-4 font-semibold text-ink-500 bg-canvas border border-canvas-border px-2 py-0.5 rounded-full font-mono">
+                    <span className="text-[11.5px] font-semibold text-ink-500 bg-canvas border border-canvas-border px-2 py-0.5 rounded-full font-mono">
                       v3.2
                     </span>
                   </div>
@@ -482,7 +482,7 @@ export default function WorkflowExecutor({ workflowId, onBack, onRunComplete }: 
                       {workflow.inputs.map((input) => (
                         <div
                           key={input.id}
-                          className="inline-flex items-center gap-2 rounded-lg border border-canvas-border bg-canvas-elevated px-3 py-1.5 text-[12px] leading-4 font-semibold text-ink-800"
+                          className="inline-flex items-center gap-2 rounded-lg border border-canvas-border bg-canvas-elevated px-3 py-1.5 text-[12.5px] font-semibold text-ink-800"
                         >
                           {input.name}
                           <span className="text-[11px] font-semibold uppercase rounded-md bg-canvas border border-canvas-border text-ink-500 px-1.5 py-0.5">
@@ -567,7 +567,7 @@ export default function WorkflowExecutor({ workflowId, onBack, onRunComplete }: 
                       <div className="text-[13px] font-semibold text-ink-800">
                         Drop files here or click to upload
                       </div>
-                      <div className="text-[12px] leading-4 text-ink-500 text-center">
+                      <div className="text-[11.5px] text-ink-500 text-center">
                         CSV, PDF, images — any data files for this workflow
                       </div>
                       <div className="mt-1 text-[11px] text-ink-400">
@@ -586,7 +586,7 @@ export default function WorkflowExecutor({ workflowId, onBack, onRunComplete }: 
                     />
 
                     <div className="rounded-xl border border-canvas-border bg-canvas p-3">
-                      <div className="text-center text-[10px] leading-3 font-bold uppercase tracking-wider text-ink-400 mb-2.5">
+                      <div className="text-center text-[10.5px] font-bold uppercase tracking-wider text-ink-400 mb-2.5">
                         Or link from existing data source
                       </div>
                       <div className="relative mb-2.5">
@@ -653,7 +653,7 @@ export default function WorkflowExecutor({ workflowId, onBack, onRunComplete }: 
                     <div className="mt-5">
                       <div className="flex items-center gap-2 mb-2.5">
                         <span className="text-[13px] font-semibold text-ink-800">Your Files</span>
-                        <span className="text-[12px] leading-4 text-ink-400 rounded-full bg-canvas px-2 py-0.5 border border-canvas-border">
+                        <span className="text-[11.5px] text-ink-400 rounded-full bg-canvas px-2 py-0.5 border border-canvas-border">
                           {totalFiles}
                         </span>
                       </div>
@@ -667,10 +667,10 @@ export default function WorkflowExecutor({ workflowId, onBack, onRunComplete }: 
                               <FileIcon size={13} className="text-brand-600" />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <div className="text-[12px] leading-4 font-semibold text-ink-800 truncate">
+                              <div className="text-[12.5px] font-semibold text-ink-800 truncate">
                                 {file.name}
                               </div>
-                              <div className="text-[12px] leading-4 text-ink-400 truncate">
+                              <div className="text-[11.5px] text-ink-400 truncate">
                                 {file.linkedSource
                                   ? 'Linked from data source'
                                   : humanSize(file.size)}
@@ -737,7 +737,7 @@ export default function WorkflowExecutor({ workflowId, onBack, onRunComplete }: 
                                 onChange={(e) =>
                                   handleParametersChange({ ...parameters, dateFrom: e.target.value })
                                 }
-                                className="rounded-lg border border-canvas-border bg-canvas-elevated px-2.5 py-2 text-[12px] leading-4 font-mono text-ink-800 focus:outline-none focus:ring-2 focus:ring-brand-600/20 focus:border-brand-600/30 transition-all"
+                                className="rounded-lg border border-canvas-border bg-canvas-elevated px-2.5 py-2 text-[12.5px] font-mono text-ink-800 focus:outline-none focus:ring-2 focus:ring-brand-600/20 focus:border-brand-600/30 transition-all"
                               />
                               <input
                                 type="date"
@@ -745,7 +745,7 @@ export default function WorkflowExecutor({ workflowId, onBack, onRunComplete }: 
                                 onChange={(e) =>
                                   handleParametersChange({ ...parameters, dateTo: e.target.value })
                                 }
-                                className="rounded-lg border border-canvas-border bg-canvas-elevated px-2.5 py-2 text-[12px] leading-4 font-mono text-ink-800 focus:outline-none focus:ring-2 focus:ring-brand-600/20 focus:border-brand-600/30 transition-all"
+                                className="rounded-lg border border-canvas-border bg-canvas-elevated px-2.5 py-2 text-[12.5px] font-mono text-ink-800 focus:outline-none focus:ring-2 focus:ring-brand-600/20 focus:border-brand-600/30 transition-all"
                               />
                             </div>
                           </div>
@@ -769,7 +769,7 @@ export default function WorkflowExecutor({ workflowId, onBack, onRunComplete }: 
                       </div>
                     </div>
                     {!hasRequired && (
-                      <div className="mt-3 text-[12px] leading-4 text-ink-400">
+                      <div className="mt-3 text-[11.5px] text-ink-400">
                         Add files for all required inputs to enable Execute
                       </div>
                     )}
@@ -819,7 +819,7 @@ export default function WorkflowExecutor({ workflowId, onBack, onRunComplete }: 
                       <span className="text-[12px] font-mono font-bold text-brand-700">{progress}%</span>
                       <button
                         onClick={stopExecution}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-risk-50 hover:bg-risk-50/80 text-risk text-[12px] leading-4 font-semibold transition-colors cursor-pointer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-risk-50 hover:bg-risk-50/80 text-risk text-[11.5px] font-semibold transition-colors cursor-pointer"
                       >
                         <Square size={12} />
                         Stop
@@ -847,12 +847,12 @@ export default function WorkflowExecutor({ workflowId, onBack, onRunComplete }: 
                         <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold rounded-md bg-canvas-elevated border border-mitigated-200 text-mitigated-700 px-1.5 py-0.5">
                           <FileIcon size={10} />
                           GL Trial Balance
-                          <span className="text-[10px] leading-3 font-bold uppercase tracking-wider text-risk">
+                          <span className="text-[9.5px] font-bold uppercase tracking-wider text-risk">
                             Required
                           </span>
                         </span>
                       </div>
-                      <div className="text-[12px] leading-4 text-ink-600 mt-1 leading-relaxed">
+                      <div className="text-[11.5px] text-ink-600 mt-1 leading-relaxed">
                         The file mapped to this required input has only <span className="font-mono font-semibold">2,340</span> rows
                         (expected ~<span className="font-mono font-semibold">5,000</span> for this period).
                         Execution will continue but results may be incomplete.
@@ -1007,7 +1007,7 @@ export default function WorkflowExecutor({ workflowId, onBack, onRunComplete }: 
                     <button
                       type="button"
                       onClick={resolveClarification}
-                      className="text-[12px] leading-4 font-semibold text-ink-500 hover:text-brand-700 transition-colors cursor-pointer"
+                      className="text-[12.5px] font-semibold text-ink-500 hover:text-brand-700 transition-colors cursor-pointer"
                     >
                       Skip
                     </button>
@@ -1031,7 +1031,7 @@ export default function WorkflowExecutor({ workflowId, onBack, onRunComplete }: 
                       <h3 className="text-[14px] font-bold text-ink-800 leading-snug">
                         Confirm column mapping
                       </h3>
-                      <p className="text-[12px] leading-4 text-ink-500 mt-0.5">
+                      <p className="text-[11.5px] text-ink-500 mt-0.5">
                         Review auto-mapped columns and resolve any that need attention before execution continues.
                       </p>
                     </div>
@@ -1057,7 +1057,7 @@ export default function WorkflowExecutor({ workflowId, onBack, onRunComplete }: 
                     <button
                       type="button"
                       onClick={resolveColumnMap}
-                      className="text-[12px] leading-4 font-semibold text-ink-500 hover:text-brand-700 transition-colors cursor-pointer"
+                      className="text-[12.5px] font-semibold text-ink-500 hover:text-brand-700 transition-colors cursor-pointer"
                     >
                       Skip
                     </button>
@@ -1089,7 +1089,7 @@ export default function WorkflowExecutor({ workflowId, onBack, onRunComplete }: 
                         </div>
                         <div className="text-[11px] text-ink-400 uppercase tracking-wider mb-1">{card.label}</div>
                         <div className="text-[22px] font-bold font-mono text-ink-800 leading-none mb-1">{card.value}</div>
-                        <div className="text-[12px] leading-4 text-ink-500">{card.note}</div>
+                        <div className="text-[11.5px] text-ink-500">{card.note}</div>
                       </div>
                     ))}
                   </div>
@@ -1129,21 +1129,21 @@ export default function WorkflowExecutor({ workflowId, onBack, onRunComplete }: 
                   </div>
 
                   <div className="flex items-center gap-2.5">
-                    <button className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-brand-600 hover:bg-brand-500 text-white rounded-lg text-[12px] leading-4 font-semibold transition-colors cursor-pointer">
+                    <button className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-brand-600 hover:bg-brand-500 text-white rounded-lg text-[12.5px] font-semibold transition-colors cursor-pointer">
                       <Download size={13} />
                       Download CSV
                     </button>
-                    <button className="inline-flex items-center gap-1.5 px-3.5 py-2 border border-canvas-border rounded-lg text-[12px] leading-4 font-semibold text-ink-600 hover:bg-canvas hover:border-brand-300 transition-colors cursor-pointer">
+                    <button className="inline-flex items-center gap-1.5 px-3.5 py-2 border border-canvas-border rounded-lg text-[12.5px] font-semibold text-ink-600 hover:bg-canvas hover:border-brand-300 transition-colors cursor-pointer">
                       <LayoutDashboard size={13} />
                       Add to Dashboard
                     </button>
-                    <button className="inline-flex items-center gap-1.5 px-3.5 py-2 border border-canvas-border rounded-lg text-[12px] leading-4 font-semibold text-ink-600 hover:bg-canvas hover:border-brand-300 transition-colors cursor-pointer">
+                    <button className="inline-flex items-center gap-1.5 px-3.5 py-2 border border-canvas-border rounded-lg text-[12.5px] font-semibold text-ink-600 hover:bg-canvas hover:border-brand-300 transition-colors cursor-pointer">
                       <AlertTriangle size={13} />
                       Create Exceptions
                     </button>
                     <button
                       onClick={() => setPhase('idle')}
-                      className="ml-auto inline-flex items-center gap-1.5 px-3.5 py-2 border border-canvas-border rounded-lg text-[12px] leading-4 font-semibold text-ink-600 hover:bg-canvas hover:border-brand-300 transition-colors cursor-pointer"
+                      className="ml-auto inline-flex items-center gap-1.5 px-3.5 py-2 border border-canvas-border rounded-lg text-[12.5px] font-semibold text-ink-600 hover:bg-canvas hover:border-brand-300 transition-colors cursor-pointer"
                     >
                       Run again
                     </button>
