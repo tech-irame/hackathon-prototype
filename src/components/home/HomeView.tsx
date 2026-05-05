@@ -55,11 +55,11 @@ interface OnboardingStep {
 }
 
 const ONBOARDING_STEPS: OnboardingStep[] = [
-  { id: 'team',       label: 'Invite your team',         cta: 'Open Users',   go: 'admin-users' },
-  { id: 'data',       label: 'Connect a data source',    cta: 'Connect',      go: 'knowledge-hub' },
-  { id: 'workflow',   label: 'Run your first workflow',  cta: 'Open library', go: 'workflow-library' },
-  { id: 'engagement', label: 'Create a test engagement', cta: 'Start',        go: 'audit-execution' },
-  { id: 'report',     label: 'Export your first report', cta: 'Open builder', go: 'reports' },
+  { id: 'team',       label: 'Invite your team',         cta: 'Invite',  go: 'admin-users' },
+  { id: 'data',       label: 'Connect a data source',    cta: 'Connect', go: 'knowledge-hub' },
+  { id: 'workflow',   label: 'Run your first workflow',  cta: 'Run',     go: 'workflow-library' },
+  { id: 'engagement', label: 'Create a test engagement', cta: 'Create',  go: 'audit-execution' },
+  { id: 'report',     label: 'Export your first report', cta: 'Export',  go: 'reports' },
 ];
 
 const ONBOARDING_KEY = 'home.onboarding.v1';
@@ -78,7 +78,10 @@ function QuickActionPanel({ setView, onDismiss }: { setView: Props['setView']; o
   const completed = done.size;
   const pct = Math.round((completed / total) * 100);
   const allDone = completed === total;
-  const nearDone = !allDone && completed >= total - 1;
+  // Collapse the panel as soon as the user makes any progress. The full
+  // 5-row card is only valuable on first visit; once even one step is done,
+  // a single-line strip with the next action is enough.
+  const inProgress = !allDone && completed >= 1;
 
   // Auto-dismiss permanently once every step is checked. Done as an effect so
   // localStorage and the parent flag stay in sync without a render-loop.
@@ -96,30 +99,36 @@ function QuickActionPanel({ setView, onDismiss }: { setView: Props['setView']; o
 
   if (allDone) return null;
 
-  // Near-complete: collapse to a single-line banner so the panel doesn't keep
-  // dominating above-the-fold once the workspace is mostly set up.
-  if (nearDone) {
+  // In-progress: collapse to a single-line strip so the full 5-step panel
+  // doesn't keep dominating above-the-fold once setup is underway. Shows the
+  // next step's CTA inline; user can always re-expand by clicking "Show steps".
+  if (inProgress) {
     const remaining = ONBOARDING_STEPS.find(s => !done.has(s.id));
+    const remainingCount = total - completed;
     return (
       <section className="rounded-2xl border border-canvas-border/70 bg-canvas-elevated shadow-[0_1px_2px_rgb(15_8_30_/_0.04)] px-5 py-3 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-7 h-7 rounded-md bg-brand-50 flex items-center justify-center shrink-0">
             <Sparkles size={13} className="text-brand-700" />
           </div>
-          <div className="min-w-0">
-            <span className="text-[13px] text-ink-800 font-medium">
+          <div className="min-w-0 flex items-baseline gap-2 flex-wrap">
+            <span className="text-meta text-ink-800 font-medium tabular-nums">
               Setup {pct}% complete
             </span>
-            <span className="text-[12.5px] text-ink-500 ml-2">
-              One step left{remaining ? ` — ${remaining.label.toLowerCase()}` : ''}.
+            <span className="text-meta text-ink-500">
+              {remainingCount} step{remainingCount === 1 ? '' : 's'} left{remaining ? ` — next: ${remaining.label.toLowerCase()}` : ''}.
             </span>
+          </div>
+          {/* Tabular progress bar mirrors the full-panel one for continuity. */}
+          <div className="hidden sm:block w-24 h-1 rounded-full bg-canvas-border overflow-hidden shrink-0 ml-2">
+            <div className="h-full bg-brand-600 transition-[width] duration-300 ease-out" style={{ width: `${pct}%` }} />
           </div>
         </div>
         <div className="flex items-center gap-3 shrink-0">
           {remaining && (
             <button
               onClick={() => setView(remaining.go)}
-              className="inline-flex items-center gap-1 text-[13px] font-semibold text-brand-700 hover:text-brand-600 transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1 text-meta font-semibold text-brand-700 hover:text-brand-600 transition-colors cursor-pointer"
             >
               {remaining.cta}
               <ArrowRight size={13} />
@@ -146,15 +155,18 @@ function QuickActionPanel({ setView, onDismiss }: { setView: Props['setView']; o
           </div>
           <div>
             <div className="font-display text-[20px] font-[420] text-ink-900 leading-tight">
-              Welcome, Administrator <span className="font-mono font-normal text-[12px] text-ink-500 ml-1">— {completed}/{total} done</span>
+              Set up your workspace <span className="font-mono font-normal text-xs text-ink-500 ml-1">— {completed}/{total} done</span>
             </div>
-            <p className="text-[13px] text-ink-500 mt-0.5">Get your workspace set up in a few quick steps.</p>
+            <p className="text-meta text-ink-500 mt-0.5">Get your workspace set up in a few quick steps.</p>
           </div>
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
-          <div className="text-[12px] font-mono text-ink-500 tabular-nums">{pct}%</div>
-          <div className="w-32 h-1.5 rounded-full bg-canvas-border overflow-hidden">
+          <div className="text-xs font-mono text-ink-500 tabular-nums">{pct}%</div>
+          {/* Track contrast bumps when empty so a 0% bar still reads as a track,
+              not a flat line. Once progress starts, switches back to the lighter
+              canvas-border so the brand fill is the dominant signal. */}
+          <div className={`w-32 h-1.5 rounded-full overflow-hidden ${pct === 0 ? 'bg-ink-300/40' : 'bg-canvas-border'}`}>
             <div
               className="h-full bg-brand-600 transition-[width] duration-300 ease-out"
               style={{ width: `${pct}%` }}
@@ -170,28 +182,40 @@ function QuickActionPanel({ setView, onDismiss }: { setView: Props['setView']; o
         </div>
       </div>
 
+      {/* First incomplete row gets a subtle brand tint + accented checkbox so the
+          user knows where to start at first visit. Falls back to default once
+          that step is checked. */}
       <ul className="divide-y divide-canvas-border">
-        {ONBOARDING_STEPS.map(step => {
+        {ONBOARDING_STEPS.map((step, idx) => {
           const isDone = done.has(step.id);
+          const firstIncompleteIdx = ONBOARDING_STEPS.findIndex(s => !done.has(s.id));
+          const isNext = !isDone && idx === firstIncompleteIdx;
           return (
-            <li key={step.id} className="flex items-center gap-3 py-3">
+            <li
+              key={step.id}
+              className={`flex items-center gap-3 py-3 -mx-2 px-2 rounded-md transition-colors ${
+                isNext ? 'bg-brand-50/60' : ''
+              }`}
+            >
               <button
                 onClick={() => toggle(step.id)}
                 className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors cursor-pointer ${
                   isDone
                     ? 'bg-compliant border-compliant text-white'
-                    : 'border-canvas-border hover:border-brand-300'
+                    : isNext
+                      ? 'border-brand-400 hover:border-brand-500'
+                      : 'border-canvas-border hover:border-brand-300'
                 }`}
                 aria-label={isDone ? 'Mark incomplete' : 'Mark complete'}
               >
                 {isDone && <Check size={12} strokeWidth={3} />}
               </button>
-              <span className={`flex-1 text-[14px] ${isDone ? 'text-ink-400 line-through' : 'text-ink-800'}`}>
+              <span className={`flex-1 text-sm ${isDone ? 'text-ink-400 line-through' : isNext ? 'text-ink-900 font-medium' : 'text-ink-800'}`}>
                 {step.label}
               </span>
               <button
                 onClick={() => setView(step.go)}
-                className="flex items-center gap-1 text-[13px] font-semibold text-brand-700 hover:text-brand-600 transition-colors cursor-pointer"
+                className="flex items-center gap-1 text-meta font-semibold text-brand-700 hover:text-brand-600 transition-colors cursor-pointer"
               >
                 {step.cta}
                 <ArrowRight size={13} />
@@ -296,7 +320,7 @@ function WorkQueueSection({ setView, rangeDays }: { setView: Props['setView']; r
             <span className="tabular-nums"><CountUp value={items.length} /></span> items waiting on you
           </h3>
           {overdueCount > 0 && (
-            <span className="hidden sm:inline-flex items-center gap-1 text-[10.5px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-risk-50 text-risk-700 border border-risk-200">
+            <span className="hidden sm:inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-risk-50 text-risk-700 border border-risk-200">
               <AlertTriangle size={9} strokeWidth={2.5} />
               <span className="tabular-nums">{overdueCount}</span> overdue
             </span>
@@ -304,14 +328,14 @@ function WorkQueueSection({ setView, rangeDays }: { setView: Props['setView']; r
         </div>
         <button
           onClick={() => setView('workflow-library')}
-          className="text-[12px] font-medium text-ink-500 hover:text-brand-700 transition-colors cursor-pointer shrink-0"
+          className="text-xs font-medium text-ink-500 hover:text-brand-700 transition-colors cursor-pointer shrink-0"
         >
           View all →
         </button>
       </div>
 
       <div className="flex-1 overflow-auto">
-        <table className="w-full text-[13px] tabular-nums">
+        <table className="w-full text-meta tabular-nums">
           <thead>
             <tr className="border-b border-canvas-border bg-paper-50/40">
               <th className="text-left font-semibold text-ink-500 px-4 h-10 w-[110px]">Type</th>
@@ -331,14 +355,14 @@ function WorkQueueSection({ setView, rangeDays }: { setView: Props['setView']; r
                   className={`h-12 ${idx > 0 ? 'border-t border-canvas-border' : ''} hover:bg-brand-50/40 transition-colors`}
                 >
                   <td className="px-4">
-                    <span className="inline-flex items-center gap-1.5 text-[12px] text-ink-700 font-medium">
+                    <span className="inline-flex items-center gap-1.5 text-xs text-ink-700 font-medium">
                       <Icon size={13} className="text-ink-500" />
                       {TYPE_META[it.type].label}
                     </span>
                   </td>
                   <td className="px-2">
                     <div className="text-ink-900">{it.item}</div>
-                    <div className="text-[12px] text-ink-500 mt-0.5">{it.context}</div>
+                    <div className="text-xs text-ink-500 mt-0.5">{it.context}</div>
                   </td>
                   <td className="px-2">
                     <SeverityBadge severity={it.risk} />
@@ -352,7 +376,7 @@ function WorkQueueSection({ setView, rangeDays }: { setView: Props['setView']; r
                   <td className="px-4 text-right">
                     <button
                       onClick={() => setView(it.action.go)}
-                      className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand-700 hover:text-brand-600 transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-brand-700 hover:text-brand-600 transition-colors cursor-pointer"
                     >
                       {it.action.label}
                       <ArrowRight size={12} />
@@ -418,15 +442,25 @@ function PulseDot({ tone = 'bg-compliant' }: { tone?: string }) {
 // Per-tile status pill — small chip that lives in the top-right corner of
 // every Health snapshot tile. Lets the user scan tile health without reading
 // any numbers. Tone tokens match the platform's semantic palette.
+//
+// Visual restraint: only the `action` state keeps the loud filled chip. The
+// other states (on-track / watch / info) render as text-only labels — they
+// communicate state without competing with the Material Weakness banner or
+// the actual KPI numbers. Most tiles sit at "watch", so a loud "WATCH" pill
+// on every tile was just chrome noise.
 type StatusKind = 'on-track' | 'watch' | 'action' | 'info';
-const STATUS_PILL_TONE: Record<StatusKind, { label: string; bg: string; text: string; border: string }> = {
-  'on-track': { label: 'On track', bg: 'bg-compliant-50', text: 'text-compliant-700', border: 'border-compliant-200' },
-  'watch':    { label: 'Watch',    bg: 'bg-mitigated-50', text: 'text-mitigated-700', border: 'border-mitigated-200' },
-  'action':   { label: 'Action',   bg: 'bg-risk-50',      text: 'text-risk-700',      border: 'border-risk-200' },
-  'info':     { label: 'Info',     bg: 'bg-paper-50',     text: 'text-ink-500',       border: 'border-canvas-border' },
+const STATUS_PILL_TONE: Record<StatusKind, { label: string; loud: boolean; bg: string; text: string; border: string }> = {
+  'on-track': { label: 'On track', loud: false, bg: '', text: 'text-compliant-700', border: '' },
+  'watch':    { label: 'Watch',    loud: false, bg: '', text: 'text-mitigated-700', border: '' },
+  'action':   { label: 'Action',   loud: true,  bg: 'bg-risk-50', text: 'text-risk-700', border: 'border-risk-200' },
+  'info':     { label: 'Info',     loud: false, bg: '', text: 'text-ink-500',       border: '' },
 };
 function StatusPill({ kind, label }: { kind: StatusKind; label?: string }) {
   const t = STATUS_PILL_TONE[kind];
+  // Default state (watch / on-track / info) renders nothing — the absence of a
+  // pill IS the signal. Only `action` is shown, so when a tile flags ACTION it
+  // actually means "this needs you" rather than "every tile shouts at once".
+  if (!t.loud) return null;
   return (
     <span className={`inline-flex items-center text-[9.5px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${t.bg} ${t.text} ${t.border}`}>
       {label ?? t.label}
@@ -439,7 +473,7 @@ function StatusPill({ kind, label }: { kind: StatusKind; label?: string }) {
 // per user. State is independent from the page-level widget catalogue.
 
 type HealthTileKey =
-  | 'completion' | 'risk' | 'controls' | 'deficiencies'
+  | 'completion' | 'risk' | 'controls'
   | 'compliance' | 'coverage' | 'calendar' | 'wf-performance' | 'top-workflows';
 
 // Note: the former 'workflow-kpi' tile (runs-this-period sparkline) was merged
@@ -450,7 +484,6 @@ const HEALTH_TILES: { id: HealthTileKey; label: string; description: string }[] 
   { id: 'completion',     label: 'FY26 Completion',      description: 'Hero KPI with trend chart' },
   { id: 'risk',           label: 'Risk overview',         description: 'Severity stacked pill' },
   { id: 'controls',       label: 'Controls',              description: 'Effective / pending / overdue' },
-  { id: 'deficiencies',   label: 'Open deficiencies',     description: 'Material weakness flag' },
   { id: 'compliance',     label: 'Compliance Score',      description: 'Donut ring + 8-point trend sparkline' },
   { id: 'coverage',       label: 'Framework Coverage',    description: 'SOX / ITGC / IFC bars' },
   { id: 'calendar',       label: 'Next audit',            description: 'Days until next audit' },
@@ -530,7 +563,7 @@ function HealthTilesPicker({
         onClick={(e) => { e.stopPropagation(); setOpen(o => !o); }}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="inline-flex items-center gap-1 h-6 px-2 rounded-md text-[11px] font-medium text-ink-500 hover:text-brand-700 hover:bg-canvas-border/40 transition-colors cursor-pointer"
+        className="inline-flex items-center gap-1 h-6 px-2 rounded-md text-xs font-medium text-ink-500 hover:text-brand-700 hover:bg-canvas-border/40 transition-colors cursor-pointer"
       >
         <Settings size={11} />
         <span>Customize tiles</span>
@@ -545,14 +578,14 @@ function HealthTilesPicker({
               exit   ={{ opacity: 0, y: -4, scale: 0.98 }}
               transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
               role="menu"
-              style={{ position: 'fixed', top: coords.top, right: coords.right, zIndex: 100 }}
+              style={{ position: 'fixed', top: coords.top, right: coords.right, zIndex: 'var(--z-popover)' }}
               className="w-80 max-h-[80vh] overflow-y-auto rounded-xl border border-canvas-border bg-canvas-elevated shadow-[0_16px_48px_rgb(15_8_30_/_0.16),_0_4px_12px_rgb(15_8_30_/_0.06)]"
             >
-              <div className="px-4 py-2 border-b border-canvas-border/60 bg-paper-50/40 flex items-center justify-between">
-                <span className="text-[10.5px] font-mono uppercase tracking-wider text-ink-500">
+              <div className="px-4 py-2 border-b border-canvas-border/60 bg-canvas flex items-center justify-between">
+                <span className="text-xs font-mono uppercase tracking-wider text-ink-500">
                   Health snapshot tiles
                 </span>
-                <span className="text-[10.5px] font-mono tabular-nums text-ink-500">
+                <span className="text-xs font-mono tabular-nums text-ink-500">
                   {visible.size}/{HEALTH_TILES.length}
                 </span>
               </div>
@@ -572,7 +605,7 @@ function HealthTilesPicker({
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className={`text-[12.5px] font-medium ${isVisible ? 'text-ink-900' : 'text-ink-700'}`}>{tile.label}</div>
-                        <div className="text-[11px] text-ink-500 mt-0.5 leading-snug">{tile.description}</div>
+                        <div className="text-xs text-ink-500 mt-0.5 leading-snug">{tile.description}</div>
                       </div>
                     </button>
                   );
@@ -644,9 +677,12 @@ function HealthDashboardSection({
   // upcoming audit timing inside the Health snapshot.
   const complianceScore = scaled(92);
   const FRAMEWORKS = [
-    { name: 'SOX',  pct: scaled(78), color: '#8838DE' },
-    { name: 'ITGC', pct: scaled(65), color: '#0284C7' },
-    { name: 'IFC',  pct: scaled(52), color: '#D97706' },
+    // Framework bars are categorical (3 frameworks), but they all communicate
+    // the same kind of fact (% coverage). Using one tone everywhere lets the
+    // numbers do the comparison instead of forcing the eye to decode hue.
+    { name: 'SOX',  pct: scaled(78), color: 'var(--color-brand-500)' },
+    { name: 'ITGC', pct: scaled(65), color: 'var(--color-brand-400)' },
+    { name: 'IFC',  pct: scaled(52), color: 'var(--color-brand-300)' },
   ];
   const nextAuditDays = 12;
 
@@ -655,15 +691,18 @@ function HealthDashboardSection({
   const wfTypeBreakdown: Array<{ type: string; runs: number; color: string }> = (() => {
     const acc: Record<string, number> = {};
     for (const w of WORKFLOWS) acc[w.type] = (acc[w.type] || 0) + w.runs;
+    // Single-hue brand scale — workflow types are categorical, not semantic,
+    // so encoding them with green/red/amber added meaning that wasn't there.
+    // The legend names tell the user which is which; the bar shows proportion.
     const colorMap: Record<string, string> = {
-      Detection: '#8838DE',
-      Monitoring: '#0284C7',
-      Compliance: '#1A7F5A',
-      Reconciliation: '#D97706',
+      Reconciliation: 'var(--color-brand-600)',
+      Detection:      'var(--color-brand-400)',
+      Compliance:     'var(--color-brand-300)',
+      Monitoring:     'var(--color-brand-200)',
     };
     return Object.entries(acc)
       .sort((a, b) => b[1] - a[1])
-      .map(([type, runs]) => ({ type, runs: scaled(runs), color: colorMap[type] ?? '#94A3B8' }));
+      .map(([type, runs]) => ({ type, runs: scaled(runs), color: colorMap[type] ?? 'var(--color-ink-300)' }));
   })();
   const topWorkflows = [...WORKFLOWS].sort((a, b) => b.runs - a.runs).slice(0, 3);
   const activeWorkflows = scaled(WORKFLOWS.length);
@@ -695,7 +734,7 @@ function HealthDashboardSection({
 
   return (
     <div className="rounded-xl border border-canvas-border/70 bg-canvas-elevated shadow-[0_1px_2px_rgb(15_15_20_/_0.04),_0_4px_12px_rgb(15_15_20_/_0.03)] overflow-hidden h-full flex flex-col">
-      <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-canvas-border/60 shrink-0">
+      <div className="flex items-center justify-between gap-3 px-5 py-2 border-b border-canvas-border/60 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           <BarChart3 size={14} className="text-ink-500 shrink-0" />
           <h3 className="text-[13.5px] font-semibold text-ink-900 truncate">{
@@ -708,105 +747,203 @@ function HealthDashboardSection({
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <HealthTilesPicker visible={visibleTiles} onToggle={toggleTile} />
-          <span className="text-[11px] text-ink-400 tabular-nums">Updated today</span>
+          <span className="text-xs text-ink-400 tabular-nums">Updated today</span>
         </div>
       </div>
       <motion.div
         variants={HEALTH_GRID_VARIANTS}
         initial="hidden"
         animate="show"
-        className={`flex-1 overflow-auto p-4 grid grid-flow-row-dense gap-3 ${visibleTiles.size === 1 ? 'grid-cols-1 [&>*]:!col-span-1 [&>*]:!row-span-1' : 'grid-cols-12'}`}
-        style={{ gridAutoRows: 'minmax(180px, auto)' }}
+        className={`flex-1 overflow-hidden p-3 grid grid-flow-row-dense gap-3 ${visibleTiles.size === 1 ? 'grid-cols-1 [&>*]:!col-span-1 [&>*]:!row-span-1' : 'grid-cols-12'}`}
+        style={{ gridAutoRows: '220px' }}
       >
-        {/* ── FY26 Completion — primary tile: aurora backdrop, gradient text,
-            path-drawn area chart, animated delta chip ── */}
-        {showTile('completion') && <motion.button
-          type="button"
-          onClick={() => setView('audit-execution')}
-          aria-label="Open audit execution"
-          variants={HEALTH_TILE_VARIANTS}
-          className="text-left col-span-5 row-span-2 order-1 rounded-2xl p-6 flex flex-col justify-between border border-canvas-border bg-white relative overflow-hidden cursor-pointer transition-[box-shadow,border-color] duration-300 ease-out hover:border-brand-300 hover:shadow-[0_0_0_1px_rgb(136_56_222_/_0.15),_0_8px_24px_rgb(136_56_222_/_0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
-        >
-          {/* Aurora — radial brand gradient anchored top-right, signals primary tile.
-              Slow 8s breath cycle drifts opacity + position by a few percent so
-              the hero feels alive without any visible motion. */}
-          <motion.div
-            className="absolute inset-0 pointer-events-none"
-            initial={{ opacity: 0.85 }}
-            animate={{
-              opacity: [0.85, 1, 0.85],
-              backgroundPosition: ['100% 0%', '95% 5%', '100% 0%'],
-            }}
-            transition={{ duration: 8, ease: [0.45, 0, 0.55, 1], repeat: Infinity }}
-            style={{
-              background: 'radial-gradient(circle at top right, rgba(136,56,222,0.14), transparent 60%)',
-              backgroundSize: '200% 200%',
-            }}
-          />
-
-          <div className="relative">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[12px] font-semibold text-brand-600 tracking-wide">FY26</span>
-              <motion.div
-                initial={{ y: 6, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 1.2, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-compliant-700 bg-compliant-50 px-2 py-0.5 rounded-full"
-              >
-                <TrendingUp size={11} />
-                +<span className="tabular-nums"><CountUp value={completionPct > 0 ? Math.round(completionPct * 0.13) : 0} /></span>%
-              </motion.div>
-            </div>
-            <div
-              className="text-[48px] font-semibold leading-none tabular-nums"
-              style={{
-                backgroundImage: 'linear-gradient(135deg, #8838DE 0%, #4B1A8A 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
-              }}
+        {/* ── FY26 Completion — primary hero tile.
+            Layout: FY26 brand pill + caption → giant gradient % + delta chip →
+            stat trio (executed / remaining / engagements) → 8-quarter area
+            chart on absolute 0–100 scale, with a dashed target line at 75%
+            and quarter labels on the x-axis. The chart now reads as data,
+            not decoration. */}
+        {showTile('completion') && (() => {
+          const remaining = Math.max(0, planned - executed);
+          // Force the last trend point to equal completionPct so the chart's
+          // current bar matches the hero number (the upstream trend is computed
+          // from unscaled values).
+          const displayTrend = [...COMPLETION_TREND.slice(0, -1), completionPct];
+          const priorPct = displayTrend[displayTrend.length - 2] ?? 0;
+          const delta = completionPct - priorPct;
+          const trendUp = delta >= 0;
+          // Rescale chart to the data range with 12% headroom top + bottom so
+          // the line uses the full canvas instead of being squashed.
+          const dataMin = Math.min(...displayTrend);
+          const dataMax = Math.max(...displayTrend);
+          const range = (dataMax - dataMin) || 1;
+          const padTop = 12;
+          const padBottom = 18;
+          const chartH = 130;
+          const yFor = (v: number) =>
+            chartH - padBottom - ((v - dataMin) / range) * (chartH - padTop - padBottom);
+          const xFor = (i: number) => (i / (COMPLETION_TREND.length - 1)) * 240;
+          // Smooth curve — cubic bezier between each pair of points using
+          // tangent points 1/3 of the way to neighbors (Catmull-Rom-ish).
+          // Reads as a flowing trend instead of a jagged polyline.
+          const points = COMPLETION_TREND.map((v, j) => ({ x: xFor(j), y: yFor(v) }));
+          const smooth = (i: number) => {
+            const p0 = points[Math.max(0, i - 1)];
+            const p1 = points[i];
+            const p2 = points[i + 1];
+            const p3 = points[Math.min(points.length - 1, i + 2)];
+            const t = 0.22;
+            const c1x = p1.x + (p2.x - p0.x) * t;
+            const c1y = p1.y + (p2.y - p0.y) * t;
+            const c2x = p2.x - (p3.x - p1.x) * t;
+            const c2y = p2.y - (p3.y - p1.y) * t;
+            return `C${c1x},${c1y} ${c2x},${c2y} ${p2.x},${p2.y}`;
+          };
+          const linePath = `M${points[0].x},${points[0].y} ${points.slice(0, -1).map((_, i) => smooth(i)).join(' ')}`;
+          const areaPath = `${linePath} L${points[points.length - 1].x},${chartH} L${points[0].x},${chartH} Z`;
+          return (
+            <motion.button
+              type="button"
+              onClick={() => setView('audit-planning')}
+              aria-label="Open audit planning"
+              variants={HEALTH_TILE_VARIANTS}
+              className="text-left col-span-4 row-span-2 order-1 rounded-2xl p-6 flex flex-col gap-5 border border-canvas-border bg-white relative overflow-hidden cursor-pointer transition-[box-shadow,border-color] duration-300 ease-out hover:border-brand-300 hover:shadow-[0_0_0_1px_rgb(15_8_30_/_0.06),_0_12px_28px_rgb(15_8_30_/_0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
             >
-              <CountUp value={completionPct} />%
-            </div>
-            <p className="text-[13px] text-ink-500 mt-2 leading-relaxed max-w-[280px]">
-              <CountUp value={executed} /> of <CountUp value={planned} /> controls executed across <CountUp value={active.length} /> active engagements.
-            </p>
-          </div>
+              {/* Aurora — pulled WAY back. The previous 14% alpha was washing
+                  everything in pink and killing chart contrast. 5% is just
+                  enough to mark this tile as the hero without crushing
+                  readability of the line and target text underneath. */}
+              <div
+                aria-hidden
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  background: 'radial-gradient(circle at top right, rgba(136,56,222,0.05), transparent 55%)',
+                }}
+              />
 
-          {/* Path-drawn area chart — line draws on first mount; on filter
-              changes the d attribute tweens smoothly via framer-motion's
-              animate prop (no key remount, no re-draw flash). */}
-          <svg width="100%" height="120" viewBox="0 0 240 120" preserveAspectRatio="none" className="mt-4 relative">
-            <defs>
-              <linearGradient id="homeCompFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#8838DE" stopOpacity="0.25" />
-                <stop offset="100%" stopColor="#8838DE" stopOpacity="0.02" />
-              </linearGradient>
-            </defs>
-            <motion.path
-              fill="url(#homeCompFill)"
-              initial={{ opacity: 0, d: `M0,120 ${COMPLETION_TREND.map((_, j) => `L${j * (240 / (COMPLETION_TREND.length - 1))},120`).join(' ')} L240,120 Z` }}
-              animate={{
-                opacity: 1,
-                d: `M0,120 ${COMPLETION_TREND.map((v, j) => `L${j * (240 / (COMPLETION_TREND.length - 1))},${120 - (compMax === compMin ? 50 : ((v - compMin) / (compMax - compMin)) * 100)}`).join(' ')} L240,120 Z`,
-              }}
-              transition={{ opacity: { delay: 1.0, duration: 0.6 }, d: { duration: 0.9, ease: [0.16, 1, 0.3, 1] } }}
-            />
-            <motion.path
-              fill="none"
-              stroke="#7C3AED"
-              strokeWidth={2.5}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              initial={{ pathLength: 0, d: `M0,120 ${COMPLETION_TREND.map((_, j) => `L${j * (240 / (COMPLETION_TREND.length - 1))},120`).join(' ')}` }}
-              animate={{
-                pathLength: 1,
-                d: `M0,${120 - (compMax === compMin ? 50 : ((COMPLETION_TREND[0] - compMin) / (compMax - compMin)) * 100)} ${COMPLETION_TREND.map((v, j) => `L${j * (240 / (COMPLETION_TREND.length - 1))},${120 - (compMax === compMin ? 50 : ((v - compMin) / (compMax - compMin)) * 100)}`).join(' ')}`,
-              }}
-              transition={{ pathLength: { delay: 0.3, duration: 1.4, ease: [0.16, 1, 0.3, 1] }, d: { duration: 0.9, ease: [0.16, 1, 0.3, 1] } }}
-            />
-          </svg>
-        </motion.button>}
+              {/* Header — FY26 brand pill + caption (both readable at glance) */}
+              <div className="relative flex items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-[0.12em] text-white bg-brand-700 px-2 py-1 rounded-md">FY26</span>
+                <span className="text-xs font-bold text-ink-700 uppercase tracking-wider">Completion</span>
+              </div>
+
+              {/* Hero pie — centered, dominant, fills the tile vertically.
+                  Stats live underneath as a single tight row, not crammed in
+                  a side column. */}
+              <div className="relative flex items-center justify-center flex-1">
+                {(() => {
+                  const size = 260;
+                  const cx = size / 2, cy = size / 2, r = size / 2 - 8;
+                  const pct = Math.max(0, Math.min(100, completionPct));
+                  const angle = (pct / 100) * 2 * Math.PI;
+                  const endX = cx + r * Math.sin(angle);
+                  const endY = cy - r * Math.cos(angle);
+                  const largeArc = pct > 50 ? 1 : 0;
+                  const slicePath = pct >= 99.99
+                    ? `M ${cx},${cy - r} A ${r},${r} 0 1,1 ${cx - 0.001},${cy - r} Z`
+                    : `M ${cx},${cy} L ${cx},${cy - r} A ${r},${r} 0 ${largeArc},1 ${endX},${endY} Z`;
+                  const exAngle = angle / 2;
+                  const exLx = cx + (r * 0.6) * Math.sin(exAngle);
+                  const exLy = cy - (r * 0.6) * Math.cos(exAngle);
+                  const remAngle = angle + (2 * Math.PI - angle) / 2;
+                  const remLx = cx + (r * 0.6) * Math.sin(remAngle);
+                  const remLy = cy - (r * 0.6) * Math.cos(remAngle);
+                  return (
+                    // aspect-square forces a strict 1:1 box so flex parents
+                    // cannot squeeze the pie into an oval.
+                    <div className="relative aspect-square" style={{ width: size, height: size }}>
+                      <svg viewBox={`0 0 ${size} ${size}`} className="block w-full h-full" preserveAspectRatio="xMidYMid meet">
+                        <defs>
+                          <linearGradient id="homeCompPie" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0%"   stopColor="var(--color-brand-500)" />
+                            <stop offset="100%" stopColor="var(--color-brand-800)" />
+                          </linearGradient>
+                        </defs>
+                        {/* Remaining slice — full circle behind everything. No drop
+                            shadow filter (it was distorting the apparent shape). */}
+                        <circle cx={cx} cy={cy} r={r} fill="var(--color-brand-100)" />
+                        {/* Executed wedge */}
+                        <motion.path
+                          d={slicePath}
+                          fill="url(#homeCompPie)"
+                          initial={{ opacity: 0, scale: 0.85 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          style={{ transformOrigin: `${cx}px ${cy}px` }}
+                          transition={{ delay: 0.4, duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+                        />
+                        {/* Crisp ring + slice dividers */}
+                        <circle cx={cx} cy={cy} r={r} fill="none" stroke="white" strokeWidth="3" />
+                        <line x1={cx} y1={cy} x2={cx} y2={cy - r} stroke="white" strokeWidth="3" />
+                        {pct > 0 && pct < 100 && (
+                          <line x1={cx} y1={cy} x2={endX} y2={endY} stroke="white" strokeWidth="3" />
+                        )}
+                        {/* Slice labels — big and centered */}
+                        {pct >= 12 && (
+                          <motion.text
+                            x={exLx} y={exLy}
+                            textAnchor="middle" dominantBaseline="central"
+                            fontSize="42" fontFamily="Inter, sans-serif" fontWeight="700"
+                            fill="white"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: 1.2, duration: 0.4 }}
+                          >
+                            {completionPct}%
+                          </motion.text>
+                        )}
+                        {pct < 88 && pct > 0 && (
+                          <motion.text
+                            x={remLx} y={remLy}
+                            textAnchor="middle" dominantBaseline="central"
+                            fontSize="30" fontFamily="Inter, sans-serif" fontWeight="700"
+                            fill="var(--color-brand-700)"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: 1.3, duration: 0.4 }}
+                          >
+                            {100 - completionPct}%
+                          </motion.text>
+                        )}
+                      </svg>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Stat row below the pie — three columns, tight, with swatches
+                  matching the pie palette. Plus the delta chip on the right. */}
+              <div className="relative flex items-center justify-between gap-4 pt-4 border-t border-canvas-border/70">
+                <div className="flex items-center gap-2.5">
+                  <span className="w-3 h-3 rounded-sm bg-brand-700 shrink-0" aria-hidden />
+                  <div>
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-ink-500">Executed</div>
+                    <div className="text-base font-semibold tabular-nums text-ink-900 leading-tight"><CountUp value={executed} /> of <CountUp value={planned} /></div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <span className="w-3 h-3 rounded-sm bg-brand-100 border border-brand-200 shrink-0" aria-hidden />
+                  <div>
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-ink-500">Remaining</div>
+                    <div className="text-base font-semibold tabular-nums text-ink-900 leading-tight"><CountUp value={remaining} /></div>
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-ink-500">Target</div>
+                  <div className="text-base font-semibold tabular-nums text-ink-900 leading-tight">75%</div>
+                </div>
+                <motion.span
+                  initial={{ y: 4, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ delay: 1.0, duration: 0.4 }}
+                  className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full ${trendUp ? 'text-compliant-700 bg-compliant-50' : 'text-mitigated-700 bg-mitigated-50'}`}
+                >
+                  <TrendingUp size={11} strokeWidth={2.5} className={trendUp ? '' : 'rotate-180'} />
+                  {trendUp ? '+' : ''}{delta} pts
+                </motion.span>
+              </div>
+            </motion.button>
+          );
+        })()}
 
         {/* ── Risk Overview — top middle ── */}
         {showTile('risk') && <motion.button
@@ -814,44 +951,47 @@ function HealthDashboardSection({
           onClick={() => setView('audit-risk-register')}
           aria-label="Open risk register"
           variants={HEALTH_TILE_VARIANTS}
-          className="relative text-left col-span-5 order-6 rounded-2xl p-5 flex flex-col justify-between border bg-canvas-elevated border-canvas-border/60 cursor-pointer transition-[box-shadow,border-color] duration-300 ease-out hover:shadow-[0_0_0_1px_rgb(15_8_30_/_0.06),_0_12px_28px_rgb(15_8_30_/_0.08)] hover:border-mitigated-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mitigated-400"
+          className="relative text-left col-span-4 order-6 rounded-2xl p-5 flex flex-col justify-between border bg-canvas-elevated border-canvas-border/60 cursor-pointer transition-[box-shadow,border-color] duration-300 ease-out hover:shadow-[0_0_0_1px_rgb(15_8_30_/_0.06),_0_12px_28px_rgb(15_8_30_/_0.08)] hover:border-brand-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
         >
           <div className="absolute top-3 right-3 z-10"><StatusPill kind={riskStatus} /></div>
           <div>
             <div className="flex items-center gap-2 mb-3">
-              <div className="w-6 h-6 rounded-lg flex items-center justify-center bg-mitigated">
-                <AlertTriangle size={13} className="text-white" />
-              </div>
-              <span className="text-[12px] font-semibold text-mitigated-700">Risk overview</span>
+              <AlertTriangle size={14} className="text-ink-400 shrink-0" strokeWidth={1.75} />
+              <span className="text-xs font-semibold text-ink-500 uppercase tracking-wider">Risk overview</span>
             </div>
-            <div className="flex items-end gap-2">
-              <div className="text-[32px] font-semibold leading-none tabular-nums text-ink-900"><CountUp value={riskTotal} /> risks</div>
-              <span className="inline-flex items-center gap-0.5 text-[10.5px] font-semibold text-compliant-700 bg-compliant-50 border border-compliant-200 rounded px-1.5 py-0.5 mb-1">
-                <TrendingUp size={9} className="rotate-180" strokeWidth={2.5} />
-                4% vs last quarter
-              </span>
-            </div>
-            <div className="flex items-center gap-1.5 mt-2 text-[12px] font-semibold text-risk-700">
-              <Shield size={10} />
-              <span className="tabular-nums"><CountUp value={riskFailed} /></span> critical/high <span className="text-ink-500 font-normal">· <span className="tabular-nums"><CountUp value={riskHealthy} /></span> mitigated</span>
+            <div className="flex items-baseline gap-3">
+              <div className="text-[40px] font-semibold leading-none tabular-nums text-ink-900"><CountUp value={riskTotal} /></div>
+              <span className="text-meta text-ink-500">open risks</span>
             </div>
           </div>
-          <div className="mt-3 space-y-2">
-            <StackedPill
-              className="h-3"
-              segments={[
-                { value: scaled(RISKS.filter(r => r.severity === 'critical').length), tone: 'bg-risk',          label: 'critical'  },
-                { value: scaled(RISKS.filter(r => r.severity === 'high').length),     tone: 'bg-risk/70',       label: 'high'      },
-                { value: scaled(RISKS.filter(r => r.severity === 'medium').length),   tone: 'bg-mitigated',     label: 'medium'    },
-                { value: scaled(RISKS.filter(r => r.severity === 'low').length),      tone: 'bg-mitigated/40',  label: 'low'       },
-                { value: riskHealthy,                                                  tone: 'bg-compliant',     label: 'mitigated' },
-              ]}
-            />
-            <div className="flex items-center gap-3 text-[10.5px] text-ink-500">
-              <span className="inline-flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-risk" /> Critical/High</span>
-              <span className="inline-flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-mitigated" /> Med/Low</span>
-              <span className="inline-flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-compliant" /> Mitigated</span>
-            </div>
+          {/* Labeled severity histogram — each row carries label, count, and a
+              proportional bar. The chart IS the breakdown; no separate stacked
+              pill needed. Saturations stepped so Critical reads as the loudest. */}
+          <div className="mt-4 space-y-1.5">
+            {(() => {
+              const rows = [
+                { label: 'Critical',  count: scaled(RISKS.filter(r => r.severity === 'critical').length), tone: 'bg-risk/85'      },
+                { label: 'High',      count: scaled(RISKS.filter(r => r.severity === 'high').length),     tone: 'bg-risk/55'      },
+                { label: 'Medium',    count: scaled(RISKS.filter(r => r.severity === 'medium').length),   tone: 'bg-mitigated/70' },
+                { label: 'Low',       count: scaled(RISKS.filter(r => r.severity === 'low').length),      tone: 'bg-mitigated/35' },
+                { label: 'Mitigated', count: riskHealthy,                                                  tone: 'bg-compliant/70' },
+              ];
+              const max = Math.max(1, ...rows.map(r => r.count));
+              return rows.map((r, i) => (
+                <div key={r.label} className="flex items-center gap-3 text-xs">
+                  <span className="w-20 text-ink-500 shrink-0">{r.label}</span>
+                  <div className="flex-1 h-2 rounded-full bg-canvas-border/40 overflow-hidden">
+                    <motion.div
+                      className={`h-full rounded-full ${r.tone}`}
+                      initial={{ width: 0 }}
+                      animate={{ width: `${(r.count / max) * 100}%` }}
+                      transition={{ delay: 0.4 + i * 0.06, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+                    />
+                  </div>
+                  <span className="w-6 text-right tabular-nums font-semibold text-ink-900 shrink-0">{r.count}</span>
+                </div>
+              ));
+            })()}
           </div>
         </motion.button>}
 
@@ -867,237 +1007,158 @@ function HealthDashboardSection({
           <div className="absolute top-3 right-3 z-10"><StatusPill kind={ctlStatus} /></div>
           <div>
             <div className="flex items-center gap-2 mb-3">
-              <div className="w-6 h-6 rounded-lg flex items-center justify-center bg-brand-600">
-                <Shield size={13} className="text-white" />
-              </div>
-              <span className="text-[12px] font-semibold text-brand-700">Controls</span>
+              <Shield size={14} className="text-ink-400 shrink-0" strokeWidth={1.75} />
+              <span className="text-xs font-semibold text-ink-500 uppercase tracking-wider">Controls</span>
             </div>
             <div className="flex items-baseline gap-1.5">
-              <span className="text-[28px] font-semibold leading-none tabular-nums text-ink-900"><CountUp value={ctlEffective} /></span>
-              <span className="text-[14px] font-medium text-ink-500 tabular-nums">/ <CountUp value={ctlTotal} /></span>
+              <span className="text-[40px] font-semibold leading-none tabular-nums text-ink-900"><CountUp value={ctlEffective} /></span>
+              <span className="text-base font-medium text-ink-400 tabular-nums">/ <CountUp value={ctlTotal} /></span>
             </div>
-            <div className="text-[12px] text-ink-500 mt-1">effective in library</div>
+            <div className="text-meta text-ink-500 mt-1">effective in library</div>
           </div>
-          <div className="mt-3 space-y-1.5">
-            <StackedPill
-              className="h-3"
-              segments={[
-                { value: ctlEffective, tone: 'bg-compliant',     label: 'effective' },
-                { value: ctlPending,   tone: 'bg-brand-300',     label: 'pending'   },
-                { value: ctlOverdue,   tone: 'bg-mitigated-500', label: 'overdue'   },
-              ]}
-            />
-            <div className="flex items-center justify-between text-[10.5px] text-ink-500 tabular-nums">
-              <span><span className="font-semibold text-ink-700"><CountUp value={ctlPending} /></span> pending</span>
-              <span><span className="font-semibold text-mitigated-700"><CountUp value={ctlOverdue} /></span> overdue</span>
-            </div>
-          </div>
-        </motion.button>}
-
-        {/* ── Deficiencies — stacked pill + conditional glow when MW > 0 ── */}
-        {showTile('deficiencies') && <motion.button
-          type="button"
-          onClick={() => setView('findings')}
-          aria-label="Open findings and deficiencies"
-          variants={HEALTH_TILE_VARIANTS}
-          className="relative text-left col-span-7 order-8 rounded-2xl p-5 flex flex-col justify-between border bg-canvas-elevated border-canvas-border/60 cursor-pointer transition-[box-shadow,border-color] duration-300 ease-out hover:shadow-[0_0_0_1px_rgb(15_8_30_/_0.06),_0_12px_28px_rgb(15_8_30_/_0.08)] hover:border-risk-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-risk-400"
-        >
-          <div className="absolute top-3 right-3 z-10"><StatusPill kind={defStatus} /></div>
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-6 h-6 rounded-lg flex items-center justify-center bg-risk">
-                <ShieldAlert size={13} className="text-white" />
-              </div>
-              <span className="text-[12px] font-semibold text-risk-700">Open deficiencies</span>
-            </div>
-            <div className="flex items-end gap-2">
-              <div className="text-[32px] font-semibold leading-none tabular-nums text-ink-900"><CountUp value={defTotal} /></div>
-              {defTotal > 0 && (
-                <span className="inline-flex items-center gap-0.5 text-[10.5px] font-semibold text-risk-700 bg-risk-50 border border-risk-200 rounded px-1.5 py-0.5 mb-1">
-                  <TrendingUp size={9} strokeWidth={2.5} />
-                  2 new this period
-                </span>
-              )}
-            </div>
-            {/* Compact open/in-progress inline so it doesn't claim its own row.
-                Frees vertical space below for the expanded MW list. */}
-            <div className="text-[11.5px] text-ink-500 mt-1 tabular-nums">
-              <span className="font-semibold text-ink-700"><CountUp value={defOpen} /></span> open
-              <span className="text-ink-300"> · </span>
-              <span className="font-semibold text-ink-700"><CountUp value={defInProgress} /></span> in progress
-            </div>
-          </div>
-          <div className="mt-3 space-y-2.5">
-            {/* Severity stacked bar — MW (deepest red) · SD (mid) · D (light).
-                Status split (open vs in-progress) was removed since it's
-                already conveyed by the inline `N open · N in progress` text. */}
-            <div>
-              <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider text-ink-500 mb-1">
-                <span>By severity</span>
-                <span className="tabular-nums">{(() => {
-                  const sd = Math.round(DEFICIENCIES.filter(d => d.severity === 'SD' && d.status !== 'resolved').length * scale);
-                  const dSev = Math.round(DEFICIENCIES.filter(d => d.severity === 'D' && d.status !== 'resolved').length * scale);
-                  return `${defMW} MW · ${sd} SD · ${dSev} D`;
-                })()}</span>
-              </div>
-              <StackedPill
-                className="h-3"
-                segments={[
-                  { value: defMW,                                                                                    tone: 'bg-risk',      label: 'material weakness' },
-                  { value: Math.round(DEFICIENCIES.filter(d => d.severity === 'SD' && d.status !== 'resolved').length * scale), tone: 'bg-risk/60',   label: 'significant deficiency' },
-                  { value: Math.round(DEFICIENCIES.filter(d => d.severity === 'D'  && d.status !== 'resolved').length * scale), tone: 'bg-mitigated', label: 'deficiency' },
-                ]}
-              />
-            </div>
-            {defMW > 0 && (() => {
-              // Multi-row MW list — every finding gets its own full-text line,
-              // nothing is truncated. Header row carries the count badge + a
-              // single Escalate CTA that applies to all listed findings.
-              const allMW = DEFICIENCIES.filter(d => d.severity === 'MW' && d.status !== 'resolved');
-              return (
-                <div className="relative bg-risk-50 border border-risk-200 rounded-md overflow-hidden">
-                  {/* Left accent stripe — full-height, 3px solid risk red */}
-                  <span aria-hidden className="absolute left-0 top-0 bottom-0 w-[3px] bg-risk" />
-                  <div className="pl-3.5 pr-2.5 py-2">
-                    {/* Header — pulsing icon, count badge, label, escalate CTA */}
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <span className="relative inline-flex items-center justify-center w-4 h-4 shrink-0 rounded-full bg-risk">
-                        <motion.span
-                          aria-hidden
-                          className="absolute inset-0 rounded-full bg-risk"
-                          animate={{ scale: [1, 1.7], opacity: [0.45, 0] }}
-                          transition={{ repeat: Infinity, duration: 2, ease: 'easeOut' }}
-                        />
-                        <AlertTriangle size={9} strokeWidth={2.75} className="relative text-white" />
-                      </span>
-                      <span className="inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 text-[9.5px] font-bold tabular-nums rounded-full bg-risk text-white leading-none shrink-0">
-                        <CountUp value={defMW} />
-                      </span>
-                      <span className="text-[10.5px] font-bold uppercase tracking-wider text-risk-700">
-                        Material weakness{defMW === 1 ? '' : 'es'}
-                      </span>
-                      <span className="ml-auto inline-flex items-center gap-0.5 text-[10.5px] font-bold uppercase tracking-wider text-risk-700 shrink-0 whitespace-nowrap">
-                        Escalate
-                        <ArrowRight size={10} strokeWidth={2.5} />
-                      </span>
-                    </div>
-                    {/* Findings — one per row, fully visible (wraps if long).
-                        Up to 3 inline; remainder appears as a "+N more" line. */}
-                    <ul className="space-y-1">
-                      {allMW.slice(0, 3).map(mw => (
-                        <li key={mw.id} className="flex items-start gap-1.5 text-[11px] text-ink-900 leading-snug">
-                          <span aria-hidden className="text-risk-700 shrink-0 leading-snug">▸</span>
-                          <span className="flex-1 break-words">{mw.finding}</span>
-                        </li>
-                      ))}
-                      {allMW.length > 3 && (
-                        <li className="text-[10.5px] font-semibold text-risk-700 ml-3.5">
-                          +{allMW.length - 3} more · click to view all
-                        </li>
-                      )}
-                    </ul>
+          {/* Status breakdown — three labeled rows: effective / pending / overdue.
+              Each shows count + proportional bar. Saturations: compliant for the
+              good state, brand-300 for in-flight, mitigated for the slipping one. */}
+          <div className="mt-4 space-y-1.5">
+            {(() => {
+              const rows = [
+                { label: 'Effective', count: ctlEffective, tone: 'bg-compliant/70' },
+                { label: 'Pending',   count: ctlPending,   tone: 'bg-brand-300'    },
+                { label: 'Overdue',   count: ctlOverdue,   tone: 'bg-mitigated/70' },
+              ];
+              const max = Math.max(1, ...rows.map(r => r.count));
+              return rows.map((r, i) => (
+                <div key={r.label} className="flex items-center gap-2 text-xs">
+                  <span className="w-16 text-ink-500 shrink-0">{r.label}</span>
+                  <div className="flex-1 h-2 rounded-full bg-canvas-border/40 overflow-hidden">
+                    <motion.div
+                      className={`h-full rounded-full ${r.tone}`}
+                      initial={{ width: 0 }}
+                      animate={{ width: `${(r.count / max) * 100}%` }}
+                      transition={{ delay: 0.4 + i * 0.06, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+                    />
                   </div>
+                  <span className="w-5 text-right tabular-nums font-semibold text-ink-900 shrink-0">{r.count}</span>
                 </div>
-              );
+              ));
             })()}
           </div>
         </motion.button>}
 
-        {/* ── Row 3 — Compliance Score (donut ring + sparkline) ── */}
-        {showTile('compliance') && <motion.button
-          type="button"
-          onClick={() => setView('dashboards')}
-          aria-label="Open compliance posture"
-          variants={HEALTH_TILE_VARIANTS}
-          className="text-left col-span-4 order-2 rounded-2xl p-5 flex items-center gap-4 border bg-canvas-elevated border-canvas-border/60 relative overflow-hidden cursor-pointer transition-[box-shadow,border-color] duration-300 ease-out hover:shadow-[0_0_0_1px_rgb(15_8_30_/_0.06),_0_12px_28px_rgb(15_8_30_/_0.08)] hover:border-brand-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
-        >
-          <div className="absolute top-3 right-3 z-10"><StatusPill kind={complianceStatus} /></div>
-          {/* Donut ring chart — animates via stroke-dashoffset on mount */}
-          <div className="relative w-24 h-24 shrink-0">
-            <svg viewBox="0 0 80 80" className="w-full h-full -rotate-90">
-              <defs>
-                <linearGradient id="complianceRing" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stopColor="#8838DE" />
-                  <stop offset="100%" stopColor="#4B1A8A" />
-                </linearGradient>
-              </defs>
-              <circle cx="40" cy="40" r="32" fill="none" stroke="rgba(136,56,222,0.15)" strokeWidth="7" />
-              <motion.circle
-                cx="40" cy="40" r="32"
-                fill="none"
-                stroke="url(#complianceRing)"
-                strokeWidth="7"
-                strokeLinecap="round"
-                strokeDasharray={`${2 * Math.PI * 32}`}
-                initial={{ strokeDashoffset: 2 * Math.PI * 32 }}
-                animate={{ strokeDashoffset: 2 * Math.PI * 32 * (1 - complianceScore / 100) }}
-                transition={{ delay: 0.5, duration: 1.4, ease: [0.16, 1, 0.3, 1] }}
-              />
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-[22px] font-semibold leading-none tabular-nums text-brand-700">
-                <CountUp value={complianceScore} />%
-              </span>
-            </div>
-          </div>
-          <div className="relative flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-6 h-6 rounded-lg flex items-center justify-center bg-brand-600">
-                <Shield size={13} className="text-white" />
+        {/* ── Row 3 — Compliance Score
+            Layout: header → side-by-side (donut + delta context) → 8-quarter
+            bar chart → weakest-framework callout. The donut visualizes the
+            current %, the bar chart shows trajectory, the callout tells the
+            user where to actually focus. */}
+        {showTile('compliance') && (() => {
+          const trend = [78, 81, 80, 84, 86, 88, 90, complianceScore];
+          const priorQuarter = trend[trend.length - 2];
+          const delta = complianceScore - priorQuarter;
+          const trendUp = delta >= 0;
+          const trendMax = Math.max(...trend);
+          const weakest = [...FRAMEWORKS].sort((a, b) => a.pct - b.pct)[0];
+          return (
+            <motion.button
+              type="button"
+              onClick={() => setView('dashboards')}
+              aria-label="Open compliance posture"
+              variants={HEALTH_TILE_VARIANTS}
+              className="text-left col-span-5 order-2 rounded-2xl p-5 flex flex-col gap-3 border bg-canvas-elevated border-canvas-border/60 relative overflow-hidden cursor-pointer transition-[box-shadow,border-color] duration-300 ease-out hover:shadow-[0_0_0_1px_rgb(15_8_30_/_0.06),_0_12px_28px_rgb(15_8_30_/_0.08)] hover:border-brand-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+            >
+              <div className="absolute top-3 right-3 z-10"><StatusPill kind={complianceStatus} /></div>
+
+              {/* Header */}
+              <div className="flex items-center gap-2">
+                <Shield size={14} className="text-ink-400 shrink-0" strokeWidth={1.75} />
+                <span className="text-xs font-semibold text-ink-500 uppercase tracking-wider">Compliance Score</span>
               </div>
-              <span className="text-[12px] font-semibold text-brand-700">Compliance Score</span>
-            </div>
-            <div className="text-[12.5px] text-ink-500 font-medium">Across SOX · ITGC · IFC</div>
-            {/* Sparkline — last 8 quarters of compliance score. Bumped to 40px
-                tall so the trend reads at a glance. */}
-            <div className="mt-2" aria-hidden>
-              <svg width="100%" height="40" viewBox="0 0 100 40" preserveAspectRatio="none" className="block">
-                <defs>
-                  <linearGradient id="complianceSparkFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#8838DE" stopOpacity="0.22" />
-                    <stop offset="100%" stopColor="#8838DE" stopOpacity="0" />
-                  </linearGradient>
-                </defs>
+
+              {/* Donut + delta context */}
+              <div className="flex items-center gap-3">
+                <div className="relative w-16 h-16 shrink-0">
+                  <svg viewBox="0 0 80 80" className="w-full h-full -rotate-90">
+                    <defs>
+                      <linearGradient id="complianceRing" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0%" stopColor="var(--color-brand-500)" />
+                        <stop offset="100%" stopColor="var(--color-brand-800)" />
+                      </linearGradient>
+                    </defs>
+                    <circle cx="40" cy="40" r="32" fill="none" stroke="var(--color-brand-100)" strokeWidth="7" />
+                    <motion.circle
+                      cx="40" cy="40" r="32"
+                      fill="none"
+                      stroke="url(#complianceRing)"
+                      strokeWidth="7"
+                      strokeLinecap="round"
+                      strokeDasharray={`${2 * Math.PI * 32}`}
+                      initial={{ strokeDashoffset: 2 * Math.PI * 32 }}
+                      animate={{ strokeDashoffset: 2 * Math.PI * 32 * (1 - complianceScore / 100) }}
+                      transition={{ delay: 0.5, duration: 1.4, ease: [0.16, 1, 0.3, 1] }}
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-[16px] font-semibold leading-none tabular-nums text-ink-900">
+                      <CountUp value={complianceScore} />%
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex-1 min-w-0 space-y-0.5">
+                  <div className={`inline-flex items-center gap-1 text-xs font-semibold ${trendUp ? 'text-compliant-700' : 'text-mitigated-700'}`}>
+                    <TrendingUp size={11} strokeWidth={2.5} className={trendUp ? '' : 'rotate-180'} />
+                    {trendUp ? '+' : ''}{delta} pts vs prior quarter
+                  </div>
+                  <div className="text-meta text-ink-500">across SOX · ITGC · IFC <span className="text-ink-300">·</span> target <span className="font-semibold text-ink-900 tabular-nums">85%</span></div>
+                </div>
+              </div>
+
+              {/* 8-quarter bar chart — bars rescaled with a min-floor so the
+                  ~80→90→72 trajectory actually reads (not all bars look equal).
+                  Current quarter is brand-600, prior quarters are brand-200. */}
+              <div>
+                <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider text-ink-400 mb-1">
+                  <span>8-quarter trend</span>
+                  <span className="tabular-nums text-ink-500">{trend[0]} → {complianceScore}%</span>
+                </div>
                 {(() => {
-                  const points = [78, 81, 80, 84, 86, 88, 90, complianceScore];
-                  const max = Math.max(...points);
-                  const min = Math.min(...points);
-                  const range = max - min || 1;
-                  const xs = (j: number) => (j / (points.length - 1)) * 100;
-                  const ys = (v: number) => 38 - ((v - min) / range) * 34;
-                  const linePath = `M${xs(0)},${ys(points[0])} ${points.map((v, j) => `L${xs(j)},${ys(v)}`).join(' ')}`;
-                  const areaPath = `${linePath} L100,40 L0,40 Z`;
+                  const trendMin = Math.min(...trend);
+                  const trendRange = (trendMax - trendMin) || 1;
                   return (
-                    <>
-                      <motion.path
-                        d={areaPath}
-                        fill="url(#complianceSparkFill)"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ delay: 0.9, duration: 0.6 }}
-                      />
-                      <motion.path
-                        d={linePath}
-                        fill="none"
-                        stroke="#8838DE"
-                        strokeWidth={2.25}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        initial={{ pathLength: 0 }}
-                        animate={{ pathLength: 1 }}
-                        transition={{ delay: 0.4, duration: 1.1, ease: [0.16, 1, 0.3, 1] }}
-                      />
-                    </>
+                    <div className="h-9 flex items-end justify-between gap-[3px]">
+                      {trend.map((v, j) => {
+                        const isCurrent = j === trend.length - 1;
+                        // 25% floor + 75% range so the lowest bar is still visible
+                        // and the differences read clearly.
+                        const heightPct = 25 + ((v - trendMin) / trendRange) * 75;
+                        return (
+                          <motion.div
+                            key={j}
+                            initial={{ height: 0 }}
+                            animate={{ height: `${heightPct}%` }}
+                            transition={{ delay: 0.5 + j * 0.05, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                            className={`flex-1 rounded-t-sm ${isCurrent ? 'bg-brand-600' : 'bg-brand-200'}`}
+                            style={{ minHeight: 3 }}
+                          />
+                        );
+                      })}
+                    </div>
                   );
                 })()}
-              </svg>
-            </div>
-            <div className="text-[11px] text-compliant-700 mt-1 inline-flex items-center gap-1 font-semibold">
-              <TrendingUp size={11} />
-              +<CountUp value={3} />% vs last quarter
-            </div>
-          </div>
-        </motion.button>}
+              </div>
+
+              {/* Weakest-framework callout — single actionable insight, only when
+                  it clears the tile constraint. Subtle inline so it doesn't push
+                  the bars out of the visible row. */}
+              {weakest && weakest.pct < 60 && (
+                <div className="flex items-center gap-1.5 text-xs">
+                  <span className="text-ink-500">Weakest:</span>
+                  <span className="font-semibold text-mitigated-700">{weakest.name}</span>
+                  <span className="font-semibold tabular-nums text-mitigated-700">{weakest.pct}%</span>
+                </div>
+              )}
+            </motion.button>
+          );
+        })()}
 
         {/* ── Row 3 — Coverage by framework (animated bars) ── */}
         {showTile('coverage') && <motion.button
@@ -1105,184 +1166,253 @@ function HealthDashboardSection({
           onClick={() => setView('governance-controls')}
           aria-label="Open framework coverage"
           variants={HEALTH_TILE_VARIANTS}
-          className="relative text-left col-span-4 order-4 rounded-2xl p-5 flex flex-col justify-between border bg-canvas-elevated border-canvas-border/60 cursor-pointer transition-[box-shadow,border-color] duration-300 ease-out hover:border-brand-300 hover:shadow-[0_0_0_1px_rgb(136_56_222_/_0.15),_0_8px_24px_rgb(136_56_222_/_0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
+          className="relative text-left col-span-5 order-4 rounded-2xl p-5 flex flex-col gap-4 border bg-canvas-elevated border-canvas-border/60 cursor-pointer transition-[box-shadow,border-color] duration-300 ease-out hover:border-brand-300 hover:shadow-[0_0_0_1px_rgb(15_8_30_/_0.06),_0_12px_28px_rgb(15_8_30_/_0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
         >
-          <div className="absolute top-3 right-3 z-10"><StatusPill kind="info" /></div>
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-6 h-6 rounded-lg flex items-center justify-center bg-ink-900">
-              <Layers size={13} className="text-white" />
-            </div>
-            <span className="text-[12px] font-semibold text-ink-900">Framework coverage</span>
+          <div className="flex items-center gap-2">
+            <Layers size={14} className="text-ink-400 shrink-0" strokeWidth={1.75} />
+            <span className="text-xs font-semibold text-ink-500 uppercase tracking-wider">Framework coverage</span>
           </div>
-          <div className="space-y-2.5">
+
+          {/* Three mini-cards, one per framework. Each is a self-contained
+              read: name, ring-gauge with %, status word. The ring tone IS the
+              signal — green for on-track, amber for watch, red for action —
+              so the user can scan three rings and instantly know which
+              framework needs work. */}
+          <div className="grid grid-cols-3 gap-2.5 flex-1">
             {FRAMEWORKS.map((f, i) => {
-              const rowStatus: StatusKind = f.pct >= 70 ? 'on-track' : f.pct >= 50 ? 'watch' : 'action';
+              const status: 'ontrack' | 'watch' | 'action' =
+                f.pct >= 70 ? 'ontrack' : f.pct >= 50 ? 'watch' : 'action';
+              const ringStroke =
+                status === 'action'  ? 'var(--color-risk)' :
+                status === 'watch'   ? 'var(--color-mitigated)' :
+                                       'var(--color-compliant)';
+              const ringTrack =
+                status === 'action'  ? 'var(--color-risk-50)' :
+                status === 'watch'   ? 'var(--color-mitigated-50)' :
+                                       'var(--color-compliant-50)';
+              const statusTone =
+                status === 'action'  ? 'text-risk-700' :
+                status === 'watch'   ? 'text-mitigated-700' :
+                                       'text-compliant-700';
+              const statusLabel =
+                status === 'action'  ? 'Action' :
+                status === 'watch'   ? 'Watch'  :
+                                       'On track';
               return (
-                <div key={f.name}>
-                  <div className="flex items-center justify-between text-[11.5px] mb-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-semibold text-ink-700">{f.name}</span>
-                      <StatusPill kind={rowStatus} />
+                <div
+                  key={f.name}
+                  className="flex flex-col items-center justify-between text-center rounded-xl border border-canvas-border/50 bg-canvas/40 px-2 py-3 transition-colors hover:border-canvas-border hover:bg-canvas"
+                >
+                  <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-ink-500">{f.name}</span>
+
+                  <div className="relative w-14 h-14 my-2">
+                    <svg viewBox="0 0 80 80" className="w-full h-full -rotate-90">
+                      <circle cx="40" cy="40" r="32" fill="none" stroke={ringTrack} strokeWidth="7" />
+                      <motion.circle
+                        cx="40" cy="40" r="32"
+                        fill="none"
+                        stroke={ringStroke}
+                        strokeWidth="7"
+                        strokeLinecap="round"
+                        strokeDasharray={`${2 * Math.PI * 32}`}
+                        initial={{ strokeDashoffset: 2 * Math.PI * 32 }}
+                        animate={{ strokeDashoffset: 2 * Math.PI * 32 * (1 - f.pct / 100) }}
+                        transition={{ delay: 0.4 + i * 0.1, duration: 1.1, ease: [0.16, 1, 0.3, 1] }}
+                      />
+                    </svg>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="text-[14px] font-semibold tabular-nums text-ink-900 leading-none">
+                        <CountUp value={f.pct} />%
+                      </span>
                     </div>
-                    <span className="font-bold tabular-nums" style={{ color: f.color }}><CountUp value={f.pct} />%</span>
                   </div>
-                  <div className="h-1.5 rounded-full bg-canvas-border/50 overflow-hidden">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${f.pct}%` }}
-                      transition={{ delay: 0.5 + i * 0.12, duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
-                      className="h-full rounded-full"
-                      style={{ background: f.color }}
-                    />
-                  </div>
+
+                  <span className={`text-[9.5px] font-bold uppercase tracking-wider ${statusTone}`}>
+                    {statusLabel}
+                  </span>
                 </div>
               );
             })}
           </div>
         </motion.button>}
 
-        {/* ── Row 3 — Upcoming audit timing ── */}
+        {/* ── Row 3 — Upcoming audit timing
+            Premium layout: hero calendar tear (w/ day-of-week) on the left,
+            big countdown number on the right. Below: cycle name + lead on a
+            single line. Footer: 14 dots representing the prep window — days
+            elapsed are filled, audit-day is the brand-600 anchor on the right.
+            The dot row replaces the generic progress bar with something the
+            eye can actually count. */}
         {showTile('calendar') && (() => {
-          // 14-day window for the countdown bar — fills more as days run down.
-          const pct = Math.max(0, Math.min(100, ((14 - nextAuditDays) / 14) * 100));
-          const barTone = nextAuditDays <= 7 ? 'bg-risk' : nextAuditDays <= 14 ? 'bg-mitigated' : 'bg-evidence-500';
+          const elapsed = Math.max(0, Math.min(14, 14 - nextAuditDays));
+          const dotTone = nextAuditDays <= 7 ? 'bg-risk/85' : nextAuditDays <= 14 ? 'bg-mitigated/75' : 'bg-brand-500';
           return (
             <motion.button
               type="button"
               onClick={() => setView('audit-planning')}
               aria-label="Open audit calendar"
               variants={HEALTH_TILE_VARIANTS}
-              className="relative text-left col-span-3 order-3 rounded-2xl p-5 flex flex-col justify-between border bg-canvas-elevated border-canvas-border/60 cursor-pointer transition-[box-shadow,border-color] duration-300 ease-out hover:shadow-[0_0_0_1px_rgb(15_8_30_/_0.06),_0_12px_28px_rgb(15_8_30_/_0.08)] hover:border-evidence-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-evidence-400"
+              className="relative text-left col-span-3 order-3 rounded-2xl p-5 flex flex-col gap-4 border bg-canvas-elevated border-canvas-border/60 cursor-pointer transition-[box-shadow,border-color] duration-300 ease-out hover:shadow-[0_0_0_1px_rgb(15_8_30_/_0.06),_0_12px_28px_rgb(15_8_30_/_0.08)] hover:border-brand-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
             >
               <div className="absolute top-3 right-3 z-10"><StatusPill kind={auditStatus} /></div>
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-6 h-6 rounded-lg flex items-center justify-center bg-evidence-600">
-                    <Calendar size={13} className="text-white" />
-                  </div>
-                  <span className="text-[12px] font-semibold text-evidence-700">Next audit</span>
-                </div>
-                <div className="text-[28px] font-semibold leading-none tabular-nums text-ink-900">
-                  <CountUp value={nextAuditDays} />
-                  <span className="text-[13px] font-medium text-ink-500 ml-1">days</span>
-                </div>
-                <div className="text-[12px] font-semibold text-ink-900 mt-2">FY26 Q2 SOX cycle</div>
-                <div className="text-[11px] text-ink-500 mt-0.5">Apr 23 · Karan Mehta</div>
+
+              {/* Header */}
+              <div className="flex items-center gap-2">
+                <Calendar size={14} className="text-ink-400 shrink-0" strokeWidth={1.75} />
+                <span className="text-xs font-semibold text-ink-500 uppercase tracking-wider">Next audit</span>
               </div>
-              <div className="mt-3">
-                <div className="h-2 rounded-full bg-canvas-border/40 overflow-hidden">
-                  <motion.div
-                    className={`h-full rounded-full ${barTone}`}
-                    initial={{ width: 0 }}
-                    animate={{ width: `${pct}%` }}
-                    transition={{ delay: 0.5, duration: 1.0, ease: [0.16, 1, 0.3, 1] }}
-                  />
+
+              {/* Hero row — calendar tear (left) + countdown (right) */}
+              <div className="flex items-stretch gap-4">
+                {/* Calendar tear: month band, big day, weekday footer.
+                    Two-zone styling reads like a desk-calendar page. */}
+                <div className="shrink-0 w-16 rounded-lg border border-canvas-border bg-canvas-elevated overflow-hidden text-center shadow-[0_1px_2px_rgb(15_8_30_/_0.04)]">
+                  <div className="text-[9px] font-bold uppercase tracking-[0.12em] text-evidence-700 bg-evidence-50 py-0.5">Apr</div>
+                  <div className="text-[26px] font-semibold leading-none tabular-nums text-ink-900 mt-1.5">23</div>
+                  <div className="text-[9.5px] font-medium uppercase tracking-wider text-ink-400 mt-1 mb-1.5">Thu</div>
                 </div>
-                <div className="text-[10px] font-mono uppercase tracking-wider text-ink-500 mt-1">14-day window</div>
+                {/* Countdown — number + days label stacked, supporting text below */}
+                <div className="min-w-0 flex flex-col justify-center">
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-[36px] font-semibold leading-none tabular-nums text-ink-900">
+                      <CountUp value={nextAuditDays} />
+                    </span>
+                    <span className="text-meta text-ink-500">days</span>
+                  </div>
+                  <div className="text-meta font-medium text-ink-900 mt-1.5 truncate">FY26 Q2 SOX</div>
+                  <div className="text-xs text-ink-500 truncate">Karan Mehta</div>
+                </div>
+              </div>
+
+              {/* 14-day countdown dots — the visual hero of the lower half.
+                  Elapsed days = filled (mitigated tone, low alpha), today's
+                  position = brand-600 (hollow ring), upcoming = canvas-border
+                  outline, audit-day (last dot) = brand-600 solid as the anchor. */}
+              <div className="mt-auto">
+                <div className="flex items-center justify-between gap-1">
+                  {Array.from({ length: 14 }, (_, i) => {
+                    const isElapsed = i < elapsed;
+                    const isToday   = i === elapsed;
+                    const isAudit   = i === 13;
+                    let cls: string;
+                    if (isAudit)        cls = 'bg-brand-600 ring-2 ring-brand-100';
+                    else if (isElapsed) cls = dotTone;
+                    else if (isToday)   cls = 'bg-canvas-elevated border-2 border-brand-500';
+                    else                cls = 'bg-canvas-border/60';
+                    return (
+                      <motion.span
+                        key={i}
+                        aria-hidden
+                        initial={{ scale: 0, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{ delay: 0.4 + i * 0.025, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                        className={`block rounded-full shrink-0 ${isAudit ? 'w-2.5 h-2.5' : 'w-1.5 h-1.5'} ${cls}`}
+                      />
+                    );
+                  })}
+                </div>
+                <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider text-ink-400 mt-2">
+                  <span>Day {elapsed} of 14</span>
+                  <span className="text-brand-700 font-semibold">audit day →</span>
+                </div>
               </div>
             </motion.button>
           );
         })()}
 
         {/* ── Row 4 — Workflow Performance: success rate + type breakdown ── */}
-        {showTile('wf-performance') && <motion.button
-          type="button"
-          onClick={() => setView('workflow-library')}
-          aria-label="Open workflow performance"
-          variants={HEALTH_TILE_VARIANTS}
-          className="relative text-left col-span-5 order-9 rounded-2xl p-5 flex flex-col justify-between border bg-canvas-elevated border-canvas-border/60 cursor-pointer transition-[box-shadow,border-color] duration-300 ease-out hover:shadow-[0_0_0_1px_rgb(15_8_30_/_0.06),_0_12px_28px_rgb(15_8_30_/_0.08)] hover:border-compliant-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-compliant-400"
-        >
-          <div className="absolute top-3 right-3 z-10"><StatusPill kind={wfPerfStatus} /></div>
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-6 h-6 rounded-lg flex items-center justify-center bg-compliant">
-                <TrendingUp size={13} className="text-white" />
+        {showTile('wf-performance') && (() => {
+          const wfTypeMax = Math.max(1, ...wfTypeBreakdown.map(t => t.runs));
+          return (
+            <motion.button
+              type="button"
+              onClick={() => setView('workflow-library')}
+              aria-label="Open workflow performance"
+              variants={HEALTH_TILE_VARIANTS}
+              className="relative text-left col-span-4 order-9 rounded-2xl p-5 flex flex-col gap-4 border bg-canvas-elevated border-canvas-border/60 cursor-pointer transition-[box-shadow,border-color] duration-300 ease-out hover:shadow-[0_0_0_1px_rgb(15_8_30_/_0.06),_0_12px_28px_rgb(15_8_30_/_0.08)] hover:border-brand-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+            >
+              {/* Header */}
+              <div className="flex items-center gap-2">
+                <TrendingUp size={14} className="text-ink-400 shrink-0" strokeWidth={1.75} />
+                <span className="text-xs font-semibold text-ink-500 uppercase tracking-wider">Workflow performance</span>
               </div>
-              <span className="text-[12px] font-semibold text-compliant-700">Workflow performance</span>
-            </div>
-            <div className="flex items-baseline gap-3">
-              <div className="text-[32px] font-semibold leading-none tabular-nums text-compliant-700">
-                <CountUp value={wfSuccessRate} />%
-              </div>
-              <div className="text-[11.5px] text-ink-500 font-medium tabular-nums">
-                <span className="font-bold text-ink-800"><CountUp value={totalWorkflowRuns} /></span> runs <span className="text-ink-300">·</span> <span className="font-bold text-ink-800"><CountUp value={activeWorkflows} /></span> active
-                {wfExceptionsDetected > 0 && (
-                  <> <span className="text-ink-300">·</span> <span className="text-risk-700 font-bold inline-flex items-center gap-0.5"><AlertTriangle size={9} /><CountUp value={wfExceptionsDetected} /> except.</span></>
-                )}
-              </div>
-            </div>
-            <div className="text-[11px] text-ink-500 mt-0.5 uppercase tracking-wider font-medium">Success rate</div>
-          </div>
 
-          {/* Type breakdown stacked pill */}
-          <div className="mt-3">
-            <div className="text-[10px] font-mono uppercase tracking-wider text-ink-500 mb-1.5">Runs by type</div>
-            <div className="flex h-3 rounded-full overflow-hidden bg-canvas-border/40">
-              {wfTypeBreakdown.map((t, i) => {
-                const total = wfTypeBreakdown.reduce((s, x) => s + x.runs, 0);
-                if (total === 0) return null;
-                return (
-                  <motion.div
-                    key={t.type}
-                    initial={{ width: 0 }}
-                    animate={{ width: `${(t.runs / total) * 100}%` }}
-                    transition={{ delay: 0.6 + i * 0.08, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-                    style={{ backgroundColor: t.color }}
-                    aria-label={`${t.type}: ${t.runs}`}
-                  />
-                );
-              })}
-            </div>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2">
-              {wfTypeBreakdown.map(t => (
-                <span key={t.type} className="inline-flex items-center gap-1 text-[10.5px] text-ink-700">
-                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
-                  <span className="font-medium">{t.type}</span>
-                  <span className="tabular-nums text-ink-500">{t.runs}</span>
-                </span>
-              ))}
-            </div>
-          </div>
-        </motion.button>}
+              {/* Side-by-side: hero stack on left, runs-by-type chart on
+                  right. Avoids vertical overflow when there are 4+ types and
+                  uses the tile width efficiently. */}
+              <div className="grid grid-cols-[auto_1fr] gap-5 items-stretch flex-1">
+                {/* Hero column */}
+                <div className="min-w-[120px] flex flex-col justify-center">
+                  <div className="flex items-baseline gap-1.5">
+                    <div className="text-[44px] font-semibold leading-none tabular-nums text-ink-900">
+                      <CountUp value={wfSuccessRate} />%
+                    </div>
+                  </div>
+                  <div className="text-meta text-ink-500 mt-1">success rate</div>
+                  <div className="text-xs text-ink-500 mt-3 tabular-nums space-y-0.5">
+                    <div><span className="font-semibold text-ink-900"><CountUp value={totalWorkflowRuns} /></span> runs</div>
+                    <div><span className="font-semibold text-ink-900"><CountUp value={activeWorkflows} /></span> active</div>
+                    {wfExceptionsDetected > 0 && (
+                      <div><span className="font-semibold text-risk-700"><CountUp value={wfExceptionsDetected} /></span> exceptions</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Runs-by-type chart column */}
+                <div className="border-l border-canvas-border/70 pl-5 flex flex-col">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-ink-500 mb-2">Runs by type</div>
+                  <div className="space-y-1.5 flex-1 flex flex-col justify-center">
+                    {wfTypeBreakdown.map((t, i) => (
+                      <div key={t.type} className="flex items-center gap-2 text-xs">
+                        <span className="w-20 text-ink-700 truncate shrink-0">{t.type}</span>
+                        <div className="flex-1 h-1.5 rounded-full bg-canvas-border/40 overflow-hidden min-w-0">
+                          <motion.div
+                            className="h-full rounded-full"
+                            style={{ backgroundColor: t.color }}
+                            initial={{ width: 0 }}
+                            animate={{ width: `${(t.runs / wfTypeMax) * 100}%` }}
+                            transition={{ delay: 0.4 + i * 0.07, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+                          />
+                        </div>
+                        <span className="ml-auto w-6 text-right tabular-nums font-semibold text-ink-900 shrink-0">{t.runs}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </motion.button>
+          );
+        })()}
 
         {/* ── Row 4 — Top Workflows mini-list ── */}
         {showTile('top-workflows') && <motion.div
           variants={HEALTH_TILE_VARIANTS}
-          className="text-left col-span-7 order-10 rounded-2xl p-5 flex flex-col border border-canvas-border relative overflow-hidden transition-[transform,box-shadow,border-color] duration-150 ease-out hover:shadow-md hover:border-brand-200"
-          style={{ background: 'linear-gradient(135deg, #FAFAF9 0%, #F2EEFA 100%)' }}
+          className="text-left col-span-4 order-10 rounded-2xl p-5 flex flex-col border border-canvas-border/60 bg-canvas-elevated relative overflow-hidden transition-[box-shadow,border-color] duration-150 ease-out hover:shadow-[0_0_0_1px_rgb(15_8_30_/_0.06),_0_12px_28px_rgb(15_8_30_/_0.08)] hover:border-brand-300"
         >
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-lg flex items-center justify-center bg-brand-600 shadow-[0_2px_8px_rgb(136_56_222_/_0.35)]">
-                <WorkflowIcon size={13} className="text-white" />
-              </div>
-              <span className="text-[12px] font-semibold text-brand-700">Top workflows</span>
+              <WorkflowIcon size={14} className="text-ink-400 shrink-0" strokeWidth={1.75} />
+              <span className="text-xs font-semibold text-ink-500 uppercase tracking-wider">Top workflows</span>
             </div>
             <button
               type="button"
               onClick={() => setView('workflow-library')}
-              className="text-[10.5px] font-medium text-brand-700 hover:text-brand-800 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 rounded"
+              className="text-xs font-medium text-brand-700 hover:text-brand-800 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 rounded"
             >
               View library →
             </button>
           </div>
-          <div className="flex-1 grid grid-cols-1 gap-1.5">
+          <div className="flex-1 grid grid-cols-1 gap-1">
             {topWorkflows.map((w, idx) => {
               const exc = Math.round(w.runs * 0.05);
-              // Synthesize last-10-runs health from the workflow's own
-              // run/exception counts so the strip reads as a per-workflow
-              // success signal. Failures = ceil(exceptions / runs * 10),
-              // distributed across the strip so failing runs cluster
-              // toward the start (older).
               const failures = Math.min(10, Math.ceil((exc / Math.max(1, w.runs)) * 10));
-              const dots = Array.from({ length: 10 }, (_, i) => i < failures);
               return (
                 <motion.div
                   key={w.id}
                   initial={{ opacity: 0, x: -4 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.7 + idx * 0.08, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                  className="group w-full flex items-center gap-3 px-2.5 py-1.5 rounded-md hover:bg-brand-50/60 transition-colors"
+                  className="group w-full flex items-center gap-3 px-2.5 py-2 rounded-md hover:bg-brand-50/40 transition-colors"
                 >
                   <button
                     type="button"
@@ -1290,37 +1420,25 @@ function HealthDashboardSection({
                     aria-label={`Open ${w.name}`}
                     className="flex-1 min-w-0 flex items-center gap-3 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 rounded"
                   >
-                    <PulseDot tone="bg-compliant" />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[12.5px] font-medium text-ink-900 truncate">{w.name}</span>
-                        <span className="shrink-0 inline-flex items-center text-[9.5px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-brand-50 text-brand-700">{w.type}</span>
-                      </div>
-                    </div>
-                    {/* Last-10-runs health strip — green = pass, red = fail.
-                        Read left-to-right as old → recent. Bumped to 3px dots
-                        with 2px gap so the row is actually scannable. */}
+                    <span className="flex-1 min-w-0 text-sm font-medium text-ink-900 truncate">{w.name}</span>
+                    {/* Last-10 runs health strip — left=oldest, right=most recent.
+                        Failure dots cluster at the start; passes dominate the right.
+                        Compliant green / risk red are the legitimate semantic pair. */}
                     <span className="hidden md:inline-flex items-center gap-[2px] shrink-0" aria-label={`Last 10 runs · ${10 - failures} pass · ${failures} fail`}>
-                      {dots.map((isFail, i) => (
+                      {Array.from({ length: 10 }, (_, i) => (
                         <span
                           key={i}
-                          className={`w-[5px] h-[5px] rounded-full ${isFail ? 'bg-risk' : 'bg-compliant'}`}
-                          style={{ opacity: 0.55 + (i / 9) * 0.45 }}
+                          className={`w-[5px] h-[5px] rounded-full ${i < failures ? 'bg-risk/70' : 'bg-compliant/70'}`}
+                          style={{ opacity: 0.5 + (i / 9) * 0.5 }}
                         />
                       ))}
                     </span>
-                    <span className="text-[11px] tabular-nums text-ink-500 shrink-0 font-medium">
-                      <span className="text-ink-800 font-bold">{w.runs}</span> runs
+                    <span className="text-xs tabular-nums text-ink-500 shrink-0">
+                      <span className="font-semibold text-ink-900">{w.runs}</span> runs
                       {failures > 0 && (
-                        <> <span className="text-ink-300">·</span> <span className="text-risk-700 font-bold">{failures} fail</span></>
+                        <> <span className="text-ink-300">·</span> <span className="font-semibold text-risk-700">{failures} fail</span></>
                       )}
                     </span>
-                    {exc > 0 && (
-                      <span className="text-[11px] tabular-nums text-risk-700 shrink-0 inline-flex items-center gap-0.5 font-medium">
-                        <AlertTriangle size={9} />
-                        {exc}
-                      </span>
-                    )}
                   </button>
                   <PinButton active={isPinned('workflow', w.id)} onToggle={() => togglePin('workflow', w.id)} label={w.name} />
                 </motion.div>
@@ -1398,19 +1516,19 @@ function PlatformActivitySection({
           <Bell size={14} className="text-ink-500 shrink-0" />
           <h3 className="text-[13.5px] font-semibold text-ink-900 truncate">Platform activity</h3>
           {unreadCount > 0 && (
-            <span className="inline-flex items-center text-[10.5px] font-semibold tabular-nums text-brand-700 bg-brand-50 px-1.5 py-0.5 rounded-full shrink-0">
+            <span className="inline-flex items-center text-xs font-semibold tabular-nums text-brand-700 bg-brand-50 px-1.5 py-0.5 rounded-full shrink-0">
               {unreadCount}
             </span>
           )}
           {actionCount > 0 && (
-            <span className="inline-flex items-center text-[10.5px] font-semibold tabular-nums text-risk-700 bg-risk-50 px-1.5 py-0.5 rounded-full shrink-0">
+            <span className="inline-flex items-center text-xs font-semibold tabular-nums text-risk-700 bg-risk-50 px-1.5 py-0.5 rounded-full shrink-0">
               {actionCount} action
             </span>
           )}
         </div>
         <button
           onClick={onOpenDrawer}
-          className="text-[12px] font-medium text-ink-500 hover:text-brand-700 transition-colors cursor-pointer shrink-0"
+          className="text-xs font-medium text-ink-500 hover:text-brand-700 transition-colors cursor-pointer shrink-0"
         >
           View all →
         </button>
@@ -1446,15 +1564,15 @@ function PlatformActivitySection({
         {grouped.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
             <Bell size={22} className="text-ink-400 mb-2" />
-            <p className="text-[13px] text-ink-700 font-medium">You&rsquo;re caught up.</p>
-            <p className="text-[12px] text-ink-500 mt-0.5">New events from across the platform will land here.</p>
+            <p className="text-meta text-ink-700 font-medium">You&rsquo;re caught up.</p>
+            <p className="text-xs text-ink-500 mt-0.5">New events from across the platform will land here.</p>
           </div>
         ) : (
           grouped.map(group => (
             <section key={group.label}>
               <div className="bg-paper-50/40 px-6 py-1.5 border-b border-canvas-border flex items-center justify-between">
-                <span className="text-[11px] font-semibold tracking-tight text-ink-500 uppercase">{group.label}</span>
-                <span className="text-[11px] text-ink-400 tabular-nums">
+                <span className="text-xs font-semibold tracking-tight text-ink-500 uppercase">{group.label}</span>
+                <span className="text-xs text-ink-400 tabular-nums">
                   {group.items.length} {group.items.length === 1 ? 'event' : 'events'}
                 </span>
               </div>
@@ -1564,7 +1682,7 @@ function RecentSharedSection({ setView, rangeDays }: { setView: Props['setView']
         </div>
         <button
           onClick={() => setView('dashboards')}
-          className="text-[12px] font-medium text-ink-500 hover:text-brand-700 transition-colors cursor-pointer shrink-0"
+          className="text-xs font-medium text-ink-500 hover:text-brand-700 transition-colors cursor-pointer shrink-0"
         >
           View all →
         </button>
@@ -1572,8 +1690,8 @@ function RecentSharedSection({ setView, rangeDays }: { setView: Props['setView']
       <div className="flex-1 overflow-auto p-4 grid grid-cols-2 gap-3 auto-rows-min">
         {items.length === 0 ? (
           <div className="col-span-2 rounded-2xl border border-dashed border-canvas-border bg-canvas-elevated/50 p-6 text-center">
-            <p className="text-[13px] text-ink-700 font-medium">Nothing shared in this window.</p>
-            <p className="text-[12px] text-ink-500 mt-0.5">Try widening the date range.</p>
+            <p className="text-meta text-ink-700 font-medium">Nothing shared in this window.</p>
+            <p className="text-xs text-ink-500 mt-0.5">Try widening the date range.</p>
           </div>
         ) : items.map(item => {
           const Icon = item.kind === 'dashboard' ? LayoutGrid : FileText;
@@ -1588,11 +1706,11 @@ function RecentSharedSection({ setView, rangeDays }: { setView: Props['setView']
                   <Icon size={10} className="shrink-0" />
                   <span className="truncate">{item.kind}</span>
                 </div>
-                <span className="text-[10.5px] text-ink-400 tabular-nums whitespace-nowrap shrink-0">{item.timeAgo}</span>
+                <span className="text-xs text-ink-400 tabular-nums whitespace-nowrap shrink-0">{item.timeAgo}</span>
               </div>
               <div>
                 <div className="font-display text-[15px] leading-snug text-ink-900 line-clamp-1">{item.name}</div>
-                <div className="text-[12px] text-ink-500 line-clamp-2 mt-1">{item.description}</div>
+                <div className="text-xs text-ink-500 line-clamp-2 mt-1">{item.description}</div>
               </div>
               <div className="text-[11.5px] text-ink-400 mt-auto">Shared by {item.sharedBy}</div>
             </button>
@@ -1653,7 +1771,7 @@ function RecentAskIraSection({
         </div>
         <button
           onClick={() => setView('recents')}
-          className="text-[12px] font-medium text-ink-500 hover:text-brand-700 transition-colors cursor-pointer shrink-0"
+          className="text-xs font-medium text-ink-500 hover:text-brand-700 transition-colors cursor-pointer shrink-0"
         >
           View all →
         </button>
@@ -1661,8 +1779,8 @@ function RecentAskIraSection({
       <div className="flex-1 overflow-auto divide-y divide-canvas-border/60">
         {items.length === 0 && (
           <div className="px-5 py-8 text-center">
-            <p className="text-[13px] text-ink-700 font-medium">No queries in this window.</p>
-            <p className="text-[12px] text-ink-500 mt-0.5">Try widening the date range.</p>
+            <p className="text-meta text-ink-700 font-medium">No queries in this window.</p>
+            <p className="text-xs text-ink-500 mt-0.5">Try widening the date range.</p>
           </div>
         )}
         {items.map((it, i) => (
@@ -1675,8 +1793,8 @@ function RecentAskIraSection({
               <MessageSquare size={13} />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-[13px] text-ink-900 truncate">{it.query}</div>
-              <div className="text-[11px] text-ink-400 mt-0.5 tracking-wide">{it.group}</div>
+              <div className="text-meta text-ink-900 truncate">{it.query}</div>
+              <div className="text-xs text-ink-400 mt-0.5 tracking-wide">{it.group}</div>
             </div>
             <ArrowRight size={13} className="text-ink-400 group-hover:text-brand-700 shrink-0" />
           </button>
@@ -1698,10 +1816,10 @@ function ActiveEngagementsSection({ setView, rangeDays, openAuditExecution }: { 
           <Briefcase size={14} className="text-ink-500 shrink-0" />
           <h3 className="text-[13.5px] font-semibold text-ink-900 truncate"><span className="tabular-nums"><CountUp value={items.length} /></span> active engagements</h3>
         </div>
-        <button onClick={() => setView('audit-execution')} className="text-[12px] font-medium text-ink-500 hover:text-brand-700 transition-colors cursor-pointer shrink-0">View all →</button>
+        <button onClick={() => setView('audit-execution')} className="text-xs font-medium text-ink-500 hover:text-brand-700 transition-colors cursor-pointer shrink-0">View all →</button>
       </div>
       <div className="flex-1 overflow-auto">
-        <table className="w-full text-[13px] tabular-nums">
+        <table className="w-full text-meta tabular-nums">
           <thead>
             <tr className="border-b border-canvas-border bg-paper-50/40">
               <th className="text-left font-semibold text-ink-500 px-4 h-10">Engagement</th>
@@ -1720,14 +1838,14 @@ function ActiveEngagementsSection({ setView, rangeDays, openAuditExecution }: { 
                 <tr key={e.id} className={`h-12 ${idx > 0 ? 'border-t border-canvas-border' : ''} hover:bg-brand-50/40 transition-colors cursor-pointer`} onClick={() => openAuditExecution(e.id)}>
                   <td className="px-4">
                     <div className="text-ink-900">{e.name}</div>
-                    <div className="text-[12px] text-ink-500 mt-0.5">{e.type} · {e.bps.length} processes</div>
+                    <div className="text-xs text-ink-500 mt-0.5">{e.type} · {e.bps.length} processes</div>
                   </td>
                   <td className="px-2">
                     <div className="flex items-center gap-2">
                       <div className="flex-1 h-1.5 rounded-full bg-canvas-border overflow-hidden">
                         <div className="h-full bg-brand-500" style={{ width: `${pct}%` }} />
                       </div>
-                      <span className="text-[12px] text-ink-700 tabular-nums shrink-0">{testedScaled}/{e.controls}</span>
+                      <span className="text-xs text-ink-700 tabular-nums shrink-0">{testedScaled}/{e.controls}</span>
                     </div>
                   </td>
                   <td className="px-2 text-ink-700"><span className="tabular-nums">{defScaled}</span></td>
@@ -1768,17 +1886,17 @@ function OpenExceptionsSection({ setView, rangeDays }: { setView: Props['setView
           <AlertOctagon size={14} className="text-ink-500 shrink-0" />
           <h3 className="text-[13.5px] font-semibold text-ink-900 truncate"><span className="tabular-nums"><CountUp value={totalOpen} /></span> open exceptions</h3>
         </div>
-        <button onClick={() => setView('manage-exceptions')} className="text-[12px] font-medium text-ink-500 hover:text-brand-700 transition-colors cursor-pointer shrink-0">View all →</button>
+        <button onClick={() => setView('manage-exceptions')} className="text-xs font-medium text-ink-500 hover:text-brand-700 transition-colors cursor-pointer shrink-0">View all →</button>
       </div>
       <div className="flex-1 overflow-auto">
         {items.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
             <AlertOctagon size={22} className="text-ink-400 mb-2" />
-            <p className="text-[13px] text-ink-700 font-medium">No open exceptions in this window.</p>
-            <p className="text-[12px] text-ink-500 mt-0.5">Try widening the date range.</p>
+            <p className="text-meta text-ink-700 font-medium">No open exceptions in this window.</p>
+            <p className="text-xs text-ink-500 mt-0.5">Try widening the date range.</p>
           </div>
         ) : (
-          <table className="w-full text-[13px]">
+          <table className="w-full text-meta">
             <thead>
               <tr className="border-b border-canvas-border bg-paper-50/40">
                 <th className="text-left font-semibold text-ink-500 px-4 h-10 w-[100px]">Severity</th>
@@ -1791,11 +1909,11 @@ function OpenExceptionsSection({ setView, rangeDays }: { setView: Props['setView
               {items.map((e, idx) => (
                 <tr key={e.id} className={`h-12 ${idx > 0 ? 'border-t border-canvas-border' : ''} hover:bg-brand-50/40 transition-colors cursor-pointer`} onClick={() => setView('manage-exceptions')}>
                   <td className="px-4">
-                    <span className={`inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-md border ${SEV_TONE[e.severity] ?? 'bg-canvas-border/40 text-ink-700 border-canvas-border'}`}>{e.severity}</span>
+                    <span className={`inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded-md border ${SEV_TONE[e.severity] ?? 'bg-canvas-border/40 text-ink-700 border-canvas-border'}`}>{e.severity}</span>
                   </td>
                   <td className="px-2">
                     <div className="text-ink-900 line-clamp-1">{e.title}</div>
-                    <div className="text-[12px] text-ink-500 mt-0.5">{e.riskCategory} · {e.status}</div>
+                    <div className="text-xs text-ink-500 mt-0.5">{e.riskCategory} · {e.status}</div>
                   </td>
                   <td className="px-2 text-ink-700">{e.assignedTo.name}</td>
                   <td className="px-4 text-right text-ink-500">{e.lastUpdated}</td>
@@ -1850,9 +1968,9 @@ const RUN_FILTERS: { id: RunFilter; label: string }[] = [
 ];
 
 const STATUS_TONE: Record<WorkflowRunStatus, { dot: string; edge: string; label: string; tone: string; bgTint: string }> = {
-  success:       { dot: 'bg-compliant',  edge: '#1A7F5A', label: 'Success',     tone: 'text-compliant-700', bgTint: 'rgba(26,127,90,0.04)' },
-  error:         { dot: 'bg-risk',       edge: '#B42318', label: 'Failed',      tone: 'text-risk-700',      bgTint: 'rgba(180,35,24,0.06)' },
-  'in-progress': { dot: 'bg-mitigated',  edge: '#B54708', label: 'In progress', tone: 'text-mitigated-700', bgTint: 'rgba(181,71,8,0.06)'  },
+  success:       { dot: 'bg-compliant',  edge: 'var(--color-compliant)',  label: 'Success',     tone: 'text-compliant-700', bgTint: 'var(--color-compliant-50)' },
+  error:         { dot: 'bg-risk',       edge: 'var(--color-risk)',       label: 'Failed',      tone: 'text-risk-700',      bgTint: 'var(--color-risk-50)'      },
+  'in-progress': { dot: 'bg-mitigated',  edge: 'var(--color-mitigated)',  label: 'In progress', tone: 'text-mitigated-700', bgTint: 'var(--color-mitigated-50)' },
 };
 
 const TYPE_TONE: Record<string, { bg: string; text: string }> = {
@@ -1902,7 +2020,7 @@ function TopWorkflowsSection({ setView, rangeDays, setSelectedWorkflow }: { setV
         <div className="flex items-center gap-2 min-w-0">
           <Activity size={14} className="text-ink-500 shrink-0" />
           <h3 className="text-[13.5px] font-semibold text-ink-900 truncate">Workflow activity</h3>
-          <span className="hidden sm:inline-flex items-center text-[10.5px] font-mono tabular-nums text-ink-500 ml-1">
+          <span className="hidden sm:inline-flex items-center text-xs font-mono tabular-nums text-ink-500 ml-1">
             <span className="text-ink-700 font-bold mr-0.5">{totalRuns}</span> runs
             {failedCount > 0 && (
               <>
@@ -1921,7 +2039,7 @@ function TopWorkflowsSection({ setView, rangeDays, setSelectedWorkflow }: { setV
             )}
           </span>
         </div>
-        <button onClick={() => setView('workflow-library')} className="text-[12px] font-medium text-ink-500 hover:text-brand-700 transition-colors cursor-pointer shrink-0">View library →</button>
+        <button onClick={() => setView('workflow-library')} className="text-xs font-medium text-ink-500 hover:text-brand-700 transition-colors cursor-pointer shrink-0">View library →</button>
       </div>
 
       {/* Filter chips with sliding pill */}
@@ -1954,14 +2072,14 @@ function TopWorkflowsSection({ setView, rangeDays, setSelectedWorkflow }: { setV
         {grouped.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
             <Activity size={22} className="text-ink-400 mb-2" />
-            <p className="text-[13px] text-ink-700 font-medium">No runs match this filter.</p>
-            <p className="text-[12px] text-ink-500 mt-0.5">Try widening the date range or removing filters.</p>
+            <p className="text-meta text-ink-700 font-medium">No runs match this filter.</p>
+            <p className="text-xs text-ink-500 mt-0.5">Try widening the date range or removing filters.</p>
           </div>
         ) : grouped.map(group => (
           <section key={group.label}>
             <div className="bg-paper-50/40 px-5 py-1.5 border-b border-canvas-border/60 flex items-center justify-between sticky top-0 backdrop-blur-sm z-10">
-              <span className="text-[10.5px] font-mono uppercase tracking-wider text-ink-500 font-semibold">{group.label}</span>
-              <span className="text-[10.5px] font-mono tabular-nums text-ink-400">
+              <span className="text-xs font-mono uppercase tracking-wider text-ink-500 font-semibold">{group.label}</span>
+              <span className="text-xs font-mono tabular-nums text-ink-400">
                 {group.items.length} {group.items.length === 1 ? 'run' : 'runs'}
               </span>
             </div>
@@ -1978,7 +2096,6 @@ function TopWorkflowsSection({ setView, rangeDays, setSelectedWorkflow }: { setV
                   transition={{ delay: 0.05 * idx, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
                   onClick={() => setSelectedWorkflow(run.workflowId)}
                   className="w-full relative flex items-start gap-3 px-5 py-3 border-b border-canvas-border/40 last:border-b-0 hover:bg-brand-50/40 transition-colors cursor-pointer text-left group"
-                  style={{ background: isLive ? statusMeta.bgTint : isError ? statusMeta.bgTint : undefined }}
                 >
                   {/* Colored left edge — status indicator stripe */}
                   <span
@@ -2006,10 +2123,10 @@ function TopWorkflowsSection({ setView, rangeDays, setSelectedWorkflow }: { setV
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-[13px] font-medium text-ink-900 truncate">{run.name}</span>
+                      <span className="text-meta font-medium text-ink-900 truncate">{run.name}</span>
                       <span className={`shrink-0 inline-flex items-center text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${typeMeta.bg} ${typeMeta.text}`}>{run.type}</span>
                     </div>
-                    <div className="text-[11px] text-ink-500 mt-0.5 tabular-nums flex items-center gap-2 flex-wrap">
+                    <div className="text-xs text-ink-500 mt-0.5 tabular-nums flex items-center gap-2 flex-wrap">
                       <span className="font-mono text-ink-700">{run.duration}</span>
                       <span className="text-ink-300">·</span>
                       <span className={`font-medium ${statusMeta.tone}`}>{statusMeta.label}</span>
@@ -2025,14 +2142,14 @@ function TopWorkflowsSection({ setView, rangeDays, setSelectedWorkflow }: { setV
                     </div>
                     {/* Inline error preview for failed runs */}
                     {run.errorMessage && (
-                      <div className="mt-1.5 text-[11px] text-risk-700/90 bg-risk-50/60 border border-risk-200/40 rounded px-2 py-1 font-mono italic">
+                      <div className="mt-1.5 text-xs text-risk-700/90 bg-risk-50/60 border border-risk-200/40 rounded px-2 py-1 font-mono italic">
                         “{run.errorMessage}”
                       </div>
                     )}
                   </div>
 
                   <div className="shrink-0 flex flex-col items-end gap-0.5 self-start mt-0.5">
-                    <span className="text-[11px] text-ink-400 tabular-nums">{run.ranAt}</span>
+                    <span className="text-xs text-ink-400 tabular-nums">{run.ranAt}</span>
                     <ArrowRight size={11} className="text-ink-300 group-hover:text-brand-700 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
                 </motion.button>
@@ -2063,13 +2180,13 @@ function ConnectedSourcesSection({ setView, rangeDays }: { setView: Props['setVi
         <div className="flex items-center gap-2 min-w-0">
           <Database size={14} className="text-ink-500 shrink-0" />
           <h3 className="text-[13.5px] font-semibold text-ink-900 truncate"><span className="tabular-nums"><CountUp value={connected} /></span> of <CountUp value={DATA_SOURCES.length} /> connected</h3>
-          <span className="hidden sm:inline-flex items-center text-[10.5px] font-mono tabular-nums text-ink-500 ml-1">
+          <span className="hidden sm:inline-flex items-center text-xs font-mono tabular-nums text-ink-500 ml-1">
             <span className="mx-1 text-ink-300">·</span>
             <span className="text-ink-700 font-bold mr-0.5">{syncsInRange}</span>
             synced{rangeDays === null ? ' YTD' : ` · ${rangeDays}d`}
           </span>
         </div>
-        <button onClick={() => setView('data-sources')} className="text-[12px] font-medium text-ink-500 hover:text-brand-700 transition-colors cursor-pointer shrink-0">Manage →</button>
+        <button onClick={() => setView('data-sources')} className="text-xs font-medium text-ink-500 hover:text-brand-700 transition-colors cursor-pointer shrink-0">Manage →</button>
       </div>
       <div className="flex-1 overflow-auto p-4 grid grid-cols-2 gap-3 auto-rows-min">
         {DATA_SOURCES.map(s => {
@@ -2081,7 +2198,7 @@ function ConnectedSourcesSection({ setView, rangeDays }: { setView: Props['setVi
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-[13px] font-medium text-ink-900 truncate">{s.name}</span>
+                  <span className="text-meta font-medium text-ink-900 truncate">{s.name}</span>
                   <span className={`shrink-0 inline-flex items-center text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${SOURCE_TYPE_TONE[s.type] ?? 'bg-canvas-border/40 text-ink-700'}`}>{s.type}</span>
                 </div>
                 <div className="text-[11.5px] text-ink-500 mt-0.5">
@@ -2109,7 +2226,7 @@ function BusinessProcessesSection({ setView, rangeDays, setSelectedBP }: { setVi
           <Layers size={14} className="text-ink-500 shrink-0" />
           <h3 className="text-[13.5px] font-semibold text-ink-900 truncate">Business processes</h3>
         </div>
-        <button onClick={() => setView('business-processes')} className="text-[12px] font-medium text-ink-500 hover:text-brand-700 transition-colors cursor-pointer shrink-0">View all →</button>
+        <button onClick={() => setView('business-processes')} className="text-xs font-medium text-ink-500 hover:text-brand-700 transition-colors cursor-pointer shrink-0">View all →</button>
       </div>
       <div className="flex-1 overflow-auto p-4 grid grid-cols-2 gap-3 auto-rows-min">
         {BUSINESS_PROCESSES.map(bp => (
@@ -2126,7 +2243,7 @@ function BusinessProcessesSection({ setView, rangeDays, setSelectedBP }: { setVi
               >
                 {bp.abbr}
               </span>
-              <span className="text-[10.5px] tabular-nums font-semibold" style={{ color: bp.color }}>{bp.coverage}%</span>
+              <span className="text-xs tabular-nums font-semibold" style={{ color: bp.color }}>{bp.coverage}%</span>
             </div>
             <div className="text-[12.5px] font-medium text-ink-900 truncate">{bp.name}</div>
             <div className="mt-1.5 h-1 rounded-full bg-canvas-border/40 overflow-hidden">
@@ -2138,7 +2255,7 @@ function BusinessProcessesSection({ setView, rangeDays, setSelectedBP }: { setVi
                 style={{ backgroundColor: bp.color }}
               />
             </div>
-            <div className="text-[10.5px] text-ink-500 mt-1.5 tabular-nums">
+            <div className="text-xs text-ink-500 mt-1.5 tabular-nums">
               {Math.round(bp.risks * scale)} risks · {Math.round(bp.controls * scale)} controls
             </div>
           </button>
@@ -2176,13 +2293,13 @@ function RecentReportsSection({
             <span className="tabular-nums"><CountUp value={items.length} /></span> recent reports
           </h3>
         </div>
-        <button onClick={() => setView('reports')} className="text-[12px] font-medium text-ink-500 hover:text-brand-700 transition-colors cursor-pointer shrink-0">View all →</button>
+        <button onClick={() => setView('reports')} className="text-xs font-medium text-ink-500 hover:text-brand-700 transition-colors cursor-pointer shrink-0">View all →</button>
       </div>
       <div className="flex-1 overflow-auto divide-y divide-canvas-border/60">
         {items.length === 0 ? (
           <div className="px-5 py-8 text-center">
-            <p className="text-[13px] text-ink-700 font-medium">No reports generated in this window.</p>
-            <p className="text-[12px] text-ink-500 mt-0.5">Try widening the date range.</p>
+            <p className="text-meta text-ink-700 font-medium">No reports generated in this window.</p>
+            <p className="text-xs text-ink-500 mt-0.5">Try widening the date range.</p>
           </div>
         ) : items.map(r => (
           <div
@@ -2199,10 +2316,10 @@ function RecentReportsSection({
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-[13px] text-ink-900 truncate">{r.name}</span>
+                  <span className="text-meta text-ink-900 truncate">{r.name}</span>
                   <span className={`shrink-0 inline-flex items-center text-[9.5px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${REPORT_STATUS_TONE[r.status] ?? 'bg-canvas-border/40 text-ink-700'}`}>{r.status}</span>
                 </div>
-                <div className="text-[11px] text-ink-500 mt-0.5 tabular-nums">
+                <div className="text-xs text-ink-500 mt-0.5 tabular-nums">
                   {r.generatedBy} · {r.generatedAt} · {r.pages}p
                 </div>
               </div>
@@ -2235,13 +2352,13 @@ function ConciergeSection({ setView, rangeDays }: { setView: Props['setView']; r
         <div className="flex items-center gap-2 min-w-0">
           <Sparkles size={14} className="text-ink-500 shrink-0" />
           <h3 className="text-[13.5px] font-semibold text-ink-900 truncate">AI Concierge</h3>
-          <span className="hidden sm:inline-flex items-center text-[10.5px] font-mono tabular-nums text-ink-500 ml-1">
+          <span className="hidden sm:inline-flex items-center text-xs font-mono tabular-nums text-ink-500 ml-1">
             <span className="mx-1 text-ink-300">·</span>
             <span className="text-ink-700 font-bold mr-0.5">{usedInRange}</span>
             runs{rangeDays === null ? ' YTD' : ` · ${rangeDays}d`}
           </span>
         </div>
-        <button onClick={() => setView('ai-concierge')} className="text-[12px] font-medium text-ink-500 hover:text-brand-700 transition-colors cursor-pointer shrink-0">Open →</button>
+        <button onClick={() => setView('ai-concierge')} className="text-xs font-medium text-ink-500 hover:text-brand-700 transition-colors cursor-pointer shrink-0">Open →</button>
       </div>
       <div className="flex-1 overflow-auto divide-y divide-canvas-border/60">
         {CONCIERGE_TOOLS.map(tool => {
@@ -2256,7 +2373,7 @@ function ConciergeSection({ setView, rangeDays }: { setView: Props['setView']; r
                 <Icon size={15} />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="text-[13px] font-medium text-ink-900 truncate">{tool.label}</div>
+                <div className="text-meta font-medium text-ink-900 truncate">{tool.label}</div>
                 <div className="text-[11.5px] text-ink-500 mt-0.5 line-clamp-1">{tool.description}</div>
               </div>
               <ArrowRight size={13} className="text-ink-400 group-hover:text-brand-700 shrink-0" />
@@ -2400,20 +2517,20 @@ function AuditCalendarSection({ setView, rangeDays, openAuditExecution }: { setV
             <span className="tabular-nums"><CountUp value={events.length} /></span> upcoming
           </h3>
         </div>
-        <button onClick={() => setView('audit-planning')} className="text-[12px] font-medium text-ink-500 hover:text-brand-700 transition-colors cursor-pointer shrink-0">View calendar →</button>
+        <button onClick={() => setView('audit-planning')} className="text-xs font-medium text-ink-500 hover:text-brand-700 transition-colors cursor-pointer shrink-0">View calendar →</button>
       </div>
       <div className="flex-1 overflow-auto">
         {grouped.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
             <Calendar size={22} className="text-ink-400 mb-2" />
-            <p className="text-[13px] text-ink-700 font-medium">Nothing scheduled in this window.</p>
-            <p className="text-[12px] text-ink-500 mt-0.5">Try widening the date range.</p>
+            <p className="text-meta text-ink-700 font-medium">Nothing scheduled in this window.</p>
+            <p className="text-xs text-ink-500 mt-0.5">Try widening the date range.</p>
           </div>
         ) : grouped.map(group => (
           <section key={group.label}>
             <div className="bg-paper-50/40 px-5 py-1.5 border-b border-canvas-border/60 flex items-center justify-between sticky top-0 backdrop-blur-sm z-10">
-              <span className="text-[10.5px] font-mono uppercase tracking-wider text-ink-500 font-semibold">{group.label}</span>
-              <span className="text-[10.5px] font-mono tabular-nums text-ink-400">
+              <span className="text-xs font-mono uppercase tracking-wider text-ink-500 font-semibold">{group.label}</span>
+              <span className="text-xs font-mono tabular-nums text-ink-400">
                 {group.items.length} {group.items.length === 1 ? 'event' : 'events'}
               </span>
             </div>
@@ -2440,10 +2557,10 @@ function AuditCalendarSection({ setView, rangeDays, openAuditExecution }: { setV
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-[13px] font-medium text-ink-900 truncate">{ev.title}</span>
+                      <span className="text-meta font-medium text-ink-900 truncate">{ev.title}</span>
                       <span className={`shrink-0 inline-flex items-center text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${tone}`}>{ev.kind}</span>
                     </div>
-                    <div className="text-[11px] text-ink-500 mt-0.5 tabular-nums">
+                    <div className="text-xs text-ink-500 mt-0.5 tabular-nums">
                       {ev.context} · <span className={isUrgent ? 'text-risk-700 font-semibold' : ''}>{days <= 0 ? 'today' : `in ${days} ${days === 1 ? 'day' : 'days'}`}</span>
                     </div>
                   </div>
@@ -2491,8 +2608,8 @@ function PinnedSection({
         {total === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
             <Pin size={22} className="text-ink-400 mb-2" />
-            <p className="text-[13px] text-ink-700 font-medium">Nothing pinned yet.</p>
-            <p className="text-[12px] text-ink-500 mt-0.5">Click the star on any workflow or report to pin it here.</p>
+            <p className="text-meta text-ink-700 font-medium">Nothing pinned yet.</p>
+            <p className="text-xs text-ink-500 mt-0.5">Click the star on any workflow or report to pin it here.</p>
           </div>
         ) : (
           <>
@@ -2506,8 +2623,8 @@ function PinnedSection({
                   <WorkflowIcon size={13} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-[13px] font-medium text-ink-900 truncate">{w.name}</div>
-                  <div className="text-[11px] text-ink-500 mt-0.5 truncate">Workflow · {w.type} · {w.runs} runs</div>
+                  <div className="text-meta font-medium text-ink-900 truncate">{w.name}</div>
+                  <div className="text-xs text-ink-500 mt-0.5 truncate">Workflow · {w.type} · {w.runs} runs</div>
                 </div>
                 <PinButton active={isPinned('workflow', w.id)} onToggle={() => toggle('workflow', w.id)} label={w.name} />
               </button>
@@ -2522,8 +2639,8 @@ function PinnedSection({
                   <FileText size={13} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-[13px] font-medium text-ink-900 truncate">{r.name}</div>
-                  <div className="text-[11px] text-ink-500 mt-0.5 truncate">Report · {r.status}</div>
+                  <div className="text-meta font-medium text-ink-900 truncate">{r.name}</div>
+                  <div className="text-xs text-ink-500 mt-0.5 truncate">Report · {r.status}</div>
                 </div>
                 <PinButton active={isPinned('report', r.id)} onToggle={() => toggle('report', r.id)} label={r.name} />
               </button>
@@ -2538,8 +2655,8 @@ function PinnedSection({
                   <Briefcase size={13} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-[13px] font-medium text-ink-900 truncate">{e.name}</div>
-                  <div className="text-[11px] text-ink-500 mt-0.5 truncate">Engagement · {e.type} · {e.owner}</div>
+                  <div className="text-meta font-medium text-ink-900 truncate">{e.name}</div>
+                  <div className="text-xs text-ink-500 mt-0.5 truncate">Engagement · {e.type} · {e.owner}</div>
                 </div>
                 <PinButton active={isPinned('engagement', e.id)} onToggle={() => toggle('engagement', e.id)} label={e.name} />
               </button>
@@ -2781,7 +2898,7 @@ function AddWidgetModal({
       >
         <header className="shrink-0 px-6 py-5 border-b border-white/40 bg-white/20">
           <h2 className="font-display text-[20px] font-[420] text-ink-900 leading-tight">Edit widgets</h2>
-          <p className="text-[13px] text-ink-500 mt-0.5">
+          <p className="text-meta text-ink-500 mt-0.5">
             Add or remove widgets from your homepage. Drag the handle on a widget to reorder it.
           </p>
         </header>
@@ -2808,13 +2925,13 @@ function AddWidgetModal({
         </div>
 
         <footer className="shrink-0 px-6 py-4 border-t border-white/40 flex items-center justify-between gap-4 bg-white/30">
-          <span className="text-[12px] text-ink-500 tabular-nums font-medium">
+          <span className="text-xs text-ink-500 tabular-nums font-medium">
             {visibleCount} of {widgets.length} enabled
           </span>
           <button
             ref={closeBtnRef}
             onClick={onClose}
-            className="inline-flex items-center justify-center gap-2 h-10 px-6 rounded-full text-[13px] font-semibold cursor-pointer bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-[0_8px_24px_rgb(136_56_222_/_0.32),_0_0_0_1px_rgb(136_56_222_/_0.18)] hover:shadow-[0_12px_32px_rgb(136_56_222_/_0.40),_0_0_0_1px_rgb(136_56_222_/_0.25)] transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+            className="inline-flex items-center justify-center gap-2 h-10 px-6 rounded-full text-meta font-semibold cursor-pointer bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-[0_8px_24px_rgb(136_56_222_/_0.32),_0_0_0_1px_rgb(136_56_222_/_0.18)] hover:shadow-[0_12px_32px_rgb(136_56_222_/_0.40),_0_0_0_1px_rgb(136_56_222_/_0.25)] transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
           >
             <X size={14} strokeWidth={2.5} />
             Close
@@ -2856,8 +2973,8 @@ function WidgetTile({ state, onToggle }: { state: WidgetState; onToggle: () => v
             <Icon size={13} strokeWidth={2.25} />
           </span>
           <div className="min-w-0">
-            <h3 className="text-[13px] font-semibold text-ink-900 leading-tight tracking-[-0.01em] truncate">{meta.label}</h3>
-            <p className="text-[11px] text-ink-500 leading-snug line-clamp-1 mt-0.5">{meta.description}</p>
+            <h3 className="text-meta font-semibold text-ink-900 leading-tight tracking-[-0.01em] truncate">{meta.label}</h3>
+            <p className="text-xs text-ink-500 leading-snug line-clamp-1 mt-0.5">{meta.description}</p>
           </div>
         </div>
 
@@ -2944,24 +3061,24 @@ function WidgetPreview({ kind }: { kind: WidgetKey }) {
             <div className="text-[16px] font-bold text-ink-900 leading-none mt-0.5 tabular-nums">76%</div>
           </div>
           <svg viewBox="0 0 60 20" preserveAspectRatio="none" className="w-full h-4">
-            <polyline points="0,16 12,13 24,9 36,7 48,5 60,3" fill="none" stroke="#7C3AED" strokeWidth="1.5" strokeLinecap="round" />
+            <polyline points="0,16 12,13 24,9 36,7 48,5 60,3" fill="none" stroke="var(--color-brand-500)" strokeWidth="1.5" strokeLinecap="round" />
           </svg>
         </div>
         <div className="rounded-md bg-mitigated-50 border border-mitigated-50 p-1.5 flex flex-col justify-between">
           <div className="text-[7px] font-semibold text-mitigated-700">Risk</div>
-          <div className="text-[11px] font-bold text-ink-900 tabular-nums">28</div>
+          <div className="text-xs font-bold text-ink-900 tabular-nums">28</div>
         </div>
         <div className="rounded-md bg-brand-50 border border-brand-100 p-1.5 flex flex-col justify-between">
           <div className="text-[7px] font-semibold text-brand-700">Controls</div>
-          <div className="text-[11px] font-bold text-brand-700 tabular-nums">87</div>
+          <div className="text-xs font-bold text-brand-700 tabular-nums">87</div>
         </div>
         <div className="rounded-md bg-risk-50 border border-risk-50 p-1.5 flex flex-col justify-between">
           <div className="text-[7px] font-semibold text-risk-700">Defs</div>
-          <div className="text-[11px] font-bold text-ink-900 tabular-nums">12</div>
+          <div className="text-xs font-bold text-ink-900 tabular-nums">12</div>
         </div>
         <div className="rounded-md bg-compliant-50 border border-compliant-50 p-1.5 flex flex-col justify-between">
           <div className="text-[7px] font-semibold text-compliant-700">Runs</div>
-          <div className="text-[11px] font-bold text-compliant-700 tabular-nums">142</div>
+          <div className="text-xs font-bold text-compliant-700 tabular-nums">142</div>
         </div>
       </div>
     );
@@ -3129,10 +3246,10 @@ function WidgetPreview({ kind }: { kind: WidgetKey }) {
 
   if (kind === 'processes') {
     const tiles = [
-      { abbr: 'P2P', color: '#6a12cd', pct: 72 },
-      { abbr: 'O2C', color: '#0284c7', pct: 58 },
-      { abbr: 'S2C', color: '#8b5cf6', pct: 40 },
-      { abbr: 'R2R', color: '#d97706', pct: 85 },
+      { abbr: 'P2P', color: 'var(--color-brand-600)',     pct: 72 },
+      { abbr: 'O2C', color: 'var(--color-evidence-600)',  pct: 58 },
+      { abbr: 'S2C', color: 'var(--color-compliant)',     pct: 40 },
+      { abbr: 'R2R', color: 'var(--color-mitigated)',     pct: 85 },
     ];
     return (
       <div className="absolute inset-0 grid grid-cols-2 gap-1.5">
@@ -3214,7 +3331,7 @@ function WidgetPreview({ kind }: { kind: WidgetKey }) {
             <div key={i} className="px-3 py-2 flex items-center gap-2 flex-1">
               <div className="w-7 flex flex-col items-center shrink-0">
                 <div className="text-[6.5px] font-mono uppercase tracking-wider text-ink-500">{e.mo}</div>
-                <div className="text-[11px] font-bold tabular-nums text-ink-900 leading-none">{e.day}</div>
+                <div className="text-xs font-bold tabular-nums text-ink-900 leading-none">{e.day}</div>
               </div>
               <div className="text-[8px] text-ink-900 truncate flex-1">{e.label}</div>
               <span className={`text-[6.5px] font-bold uppercase px-1 rounded ${e.tone}`}>{i === 1 ? 'def' : 'eng'}</span>
@@ -3493,7 +3610,7 @@ function DateRangeDropdown({
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={`Period: ${currentLabel}`}
-        className="inline-flex items-center gap-1.5 h-7 px-3 rounded-full border border-canvas-border bg-canvas-elevated hover:border-brand-200 hover:text-brand-700 text-[12px] font-medium text-ink-700 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
+        className="inline-flex items-center gap-1.5 h-7 px-3 rounded-full border border-canvas-border bg-canvas-elevated hover:border-brand-200 hover:text-brand-700 text-xs font-medium text-ink-700 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
       >
         <Calendar size={12} className="text-ink-500" />
         <span className="text-ink-500">Period:</span>
@@ -3511,11 +3628,11 @@ function DateRangeDropdown({
               exit   ={{ opacity: 0, y: -4, scale: 0.98 }}
               transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
               role="menu"
-              style={{ position: 'fixed', top: coords.top, right: coords.right, zIndex: 100 }}
+              style={{ position: 'fixed', top: coords.top, right: coords.right, zIndex: 'var(--z-popover)' }}
               className="w-64 rounded-xl border border-canvas-border bg-canvas-elevated shadow-[0_16px_48px_rgb(15_8_30_/_0.16),_0_4px_12px_rgb(15_8_30_/_0.06)] overflow-hidden"
             >
               <div className="px-4 py-2 border-b border-canvas-border/60 bg-paper-50/40">
-                <span className="text-[10.5px] font-mono uppercase tracking-wider text-ink-500">Period</span>
+                <span className="text-xs font-mono uppercase tracking-wider text-ink-500">Period</span>
               </div>
               <div className="py-1">
                 {DATE_RANGE_OPTIONS.map(opt => {
@@ -3529,7 +3646,7 @@ function DateRangeDropdown({
                       onClick={() => pickFixed(opt.id)}
                       className={`w-full flex items-center justify-between gap-3 px-4 py-2 hover:bg-brand-50/40 transition-colors cursor-pointer text-left ${active ? 'bg-brand-50/60' : ''}`}
                     >
-                      <span className={`text-[13px] ${active ? 'font-semibold text-brand-800' : 'text-ink-900'}`}>{opt.label}</span>
+                      <span className={`text-meta ${active ? 'font-semibold text-brand-800' : 'text-ink-900'}`}>{opt.label}</span>
                       {active && !isCustom && <Check size={13} className="text-brand-700 shrink-0" />}
                       {isCustom && <ChevronDown size={11} className={`text-ink-400 shrink-0 -rotate-90`} />}
                     </button>
@@ -3539,36 +3656,36 @@ function DateRangeDropdown({
               {customMode && (
                 <div className="border-t border-canvas-border/60 bg-paper-50/40 px-4 py-3 space-y-2">
                   <div className="flex items-center gap-2">
-                    <label className="text-[11px] font-medium text-ink-500 w-10">From</label>
+                    <label className="text-xs font-medium text-ink-500 w-10">From</label>
                     <input
                       type="date"
                       value={from}
                       max={to || undefined}
                       onChange={e => setFrom(e.target.value)}
-                      className="flex-1 h-7 px-2 rounded-md border border-canvas-border bg-canvas-elevated text-[12px] text-ink-900 focus:outline-none focus:border-brand-400"
+                      className="flex-1 h-7 px-2 rounded-md border border-canvas-border bg-canvas-elevated text-xs text-ink-900 focus:outline-none focus:border-brand-400"
                     />
                   </div>
                   <div className="flex items-center gap-2">
-                    <label className="text-[11px] font-medium text-ink-500 w-10">To</label>
+                    <label className="text-xs font-medium text-ink-500 w-10">To</label>
                     <input
                       type="date"
                       value={to}
                       min={from || undefined}
                       onChange={e => setTo(e.target.value)}
-                      className="flex-1 h-7 px-2 rounded-md border border-canvas-border bg-canvas-elevated text-[12px] text-ink-900 focus:outline-none focus:border-brand-400"
+                      className="flex-1 h-7 px-2 rounded-md border border-canvas-border bg-canvas-elevated text-xs text-ink-900 focus:outline-none focus:border-brand-400"
                     />
                   </div>
                   <div className="flex items-center justify-end gap-2 pt-1">
                     <button
                       onClick={() => { setCustomMode(false); setOpen(false); }}
-                      className="h-7 px-3 rounded-md text-[12px] font-medium text-ink-600 hover:bg-canvas-border/40 transition-colors cursor-pointer"
+                      className="h-7 px-3 rounded-md text-xs font-medium text-ink-600 hover:bg-canvas-border/40 transition-colors cursor-pointer"
                     >
                       Cancel
                     </button>
                     <button
                       onClick={applyCustom}
                       disabled={!from || !to || new Date(from).getTime() > new Date(to).getTime()}
-                      className="h-7 px-3 rounded-md text-[12px] font-semibold text-white bg-brand-600 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                      className="h-7 px-3 rounded-md text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
                     >
                       Apply
                     </button>
@@ -3645,7 +3762,7 @@ function PersonaDropdown({
         onClick={() => setOpen(o => !o)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full border border-canvas-border bg-canvas-elevated hover:border-brand-200 hover:text-brand-700 text-[12px] font-medium text-ink-700 transition-colors cursor-pointer"
+        className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full border border-canvas-border bg-canvas-elevated hover:border-brand-200 hover:text-brand-700 text-xs font-medium text-ink-700 transition-colors cursor-pointer"
       >
         <CurrentIcon size={12} className="text-ink-500" />
         <span className="tabular-nums">{current.label}</span>
@@ -3664,12 +3781,12 @@ function PersonaDropdown({
               exit   ={{ opacity: 0, y: -4, scale: 0.98 }}
               transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
               role="menu"
-              style={{ position: 'fixed', top: coords.top, right: coords.right, zIndex: 100 }}
+              style={{ position: 'fixed', top: coords.top, right: coords.right, zIndex: 'var(--z-popover)' }}
               className="w-72 rounded-xl border border-canvas-border bg-canvas-elevated shadow-[0_16px_48px_rgb(15_8_30_/_0.16),_0_4px_12px_rgb(15_8_30_/_0.06)] overflow-hidden"
             >
               <div className="px-4 py-2 border-b border-canvas-border/60 bg-paper-50/40 flex items-center gap-2">
                 <Shield size={11} className="text-ink-400" />
-                <span className="text-[10.5px] font-mono uppercase tracking-wider text-ink-500">
+                <span className="text-xs font-mono uppercase tracking-wider text-ink-500">
                   Set by administrator · demo only
                 </span>
               </div>
@@ -3687,7 +3804,7 @@ function PersonaDropdown({
                       <PIcon size={13} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className={`text-[13px] font-semibold ${active ? 'text-brand-800' : 'text-ink-900'}`}>{p.label}</div>
+                      <div className={`text-meta font-semibold ${active ? 'text-brand-800' : 'text-ink-900'}`}>{p.label}</div>
                       <div className="text-[11.5px] text-ink-500 mt-0.5 leading-snug">{p.description}</div>
                     </div>
                     {active && <Check size={14} className="text-brand-700 shrink-0 mt-1" />}
@@ -3715,7 +3832,7 @@ interface LayoutProps {
 
 const compactLayoutKeyFor = (p: Persona) => `home.compact-layout.v23.${p}`;
 
-// Default sizes (12-col grid, rowHeight = 40px).
+// Default sizes (12-col grid, rowHeight = 48px on 8pt scale).
 // Widths constrained to {4, 8, 12} so rows always pack to 12 (8+4, 4+4+4, 12).
 // Heights are content-tuned. minW/minH derived from "what's the smallest size
 // where this widget still renders all its essential content?"
@@ -3742,7 +3859,7 @@ const WIDGET_SIZES: Record<WidgetKey, Record<WidgetSize, SizeSpec>> = {
   recents:        { small: { w: 4, h:  6 }, medium: { w:  4, h:  9 }, large: { w:  6, h: 11 }, xxl: { w:  8, h: 14 } },
   sources:        { small: { w: 4, h:  6 }, medium: { w:  4, h:  9 }, large: { w:  6, h: 11 }, xxl: { w:  8, h: 12 } },
   shared:         { small: { w: 4, h:  7 }, medium: { w:  4, h:  9 }, large: { w:  6, h: 11 }, xxl: { w:  8, h: 14 } },
-  health:         { small: { w: 8, h: 10 }, medium: { w: 12, h: 14 }, large: { w: 12, h: 18 }, xxl: { w: 12, h: 22 } },
+  health:         { small: { w: 8, h: 10 }, medium: { w: 12, h: 12 }, large: { w: 12, h: 13 }, xxl: { w: 12, h: 13 } },
   'reports-list': { small: { w: 3, h:  4 }, medium: { w: 12, h:  6 }, large: { w: 12, h:  8 }, xxl: { w: 12, h: 10 } },
   calendar:       { small: { w: 4, h:  6 }, medium: { w:  6, h:  9 }, large: { w:  8, h: 11 }, xxl: { w: 12, h: 14 } },
   pinned:         { small: { w: 4, h:  6 }, medium: { w:  6, h:  9 }, large: { w:  8, h: 11 }, xxl: { w: 12, h: 12 } },
@@ -3776,7 +3893,7 @@ const COMPACT_DEFAULTS: Record<WidgetKey, { w: number; h: number; minW: number; 
   engagements:    { w: 8,  h:  8, minW: 4, minH: 4, maxH: 14 },
   exceptions:     { w: 8,  h: 10, minW: 5, minH: 4, maxH: 18 },
   // KPI bento — 5-card internal bento requires the full 8-col width to render readably
-  health:         { w: 12, h: 18, minW: 8, minH: 16, maxH: 22 },
+  health:         { w: 12, h: 13, minW: 8, minH: 10, maxH: 13 },
   // 2×2 card grid — needs 2 cards across (minW=4) and 1 row min
   processes:      { w: 8,  h:  8, minW: 4, minH: 5, maxH: 14 },
   // 2×2 grid of 4 shared cards — 2 cards-wide min × 2 rows min
@@ -3951,7 +4068,7 @@ function CompactLayout({
   if (!CompactGrid) {
     return (
       <div className="rounded-2xl border border-dashed border-canvas-border bg-canvas-elevated/50 p-10 text-center">
-        <p className="text-[14px] text-ink-700 font-medium">Compact layout unavailable</p>
+        <p className="text-sm text-ink-700 font-medium">Compact layout unavailable</p>
         <p className="text-[12.5px] text-ink-500 mt-1">
           react-grid-layout couldn&rsquo;t initialize (likely a v1/v2 API mismatch).
         </p>
@@ -3970,13 +4087,13 @@ function CompactLayout({
           <div className="flex items-center gap-2">
             <button
               onClick={reset}
-              className="text-[12px] font-medium text-ink-600 hover:text-brand-700 cursor-pointer px-2 h-7"
+              className="text-xs font-medium text-ink-600 hover:text-brand-700 cursor-pointer px-2 h-7"
             >
               Reset layout
             </button>
             <button
               onClick={onExitEdit}
-              className="inline-flex items-center h-7 px-3 rounded-md bg-brand-600 hover:bg-brand-500 text-white text-[12px] font-semibold cursor-pointer"
+              className="inline-flex items-center h-7 px-3 rounded-md bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold cursor-pointer"
             >
               Done
             </button>
@@ -3988,8 +4105,8 @@ function CompactLayout({
         layouts={{ lg: layout, md: layout, sm: layout, xs: layout, xxs: layout }}
         breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
         cols={{ lg: 12, md: 12, sm: 8, xs: 4, xxs: 2 }}
-        rowHeight={40}
-        margin={[20, 20]}
+        rowHeight={48}
+        margin={[16, 16]}
         containerPadding={[0, 0]}
         isDraggable={editMode}
         isResizable={editMode}
@@ -4098,12 +4215,13 @@ export default function HomeView({
     const cutoff = Date.now() - rangeDays * 24 * 60 * 60 * 1000;
     return notifications.filter(n => !n.read && new Date(n.createdAt).getTime() >= cutoff).length;
   }, [notifications, rangeDays]);
-  // Material Weakness count drives the inline alert pill in the hero subhead.
-  // MW is the highest-severity SOX deficiency — when present it should
-  // override the "everything's fine" narrative and surface immediately.
-  const mwCount = useMemo(() => {
-    const open = DEFICIENCIES.filter(d => d.severity === 'MW' && d.status !== 'resolved');
-    return Math.round(open.length * scaleForRange(rangeDays));
+  // Control Breaks count — all unresolved deficiencies, surfaced as an
+  // inline alert pill in the hero subhead. Replaces the prior "Material
+  // Weakness" chip so the signal generalises across deficiency severities,
+  // not just MW.
+  const breakCount = useMemo(() => {
+    const unresolved = DEFICIENCIES.filter(d => d.status !== 'resolved');
+    return Math.round(unresolved.length * scaleForRange(rangeDays));
   }, [rangeDays]);
 
   // Always reads the button's *current* rect — so the open animation expands
@@ -4167,7 +4285,7 @@ export default function HomeView({
   const visibleWidgets = widgets.filter(w => w.visible);
 
   return (
-    <div className="h-full overflow-y-auto" style={{ background: '#FAFAF9' }}>
+    <div className="h-full overflow-y-auto bg-canvas">
       {/* Page header */}
       <div className="border-b border-canvas-border bg-canvas-elevated relative overflow-hidden">
         {/* Ambient brand glow — top-right radial. The single premium move that
@@ -4177,7 +4295,7 @@ export default function HomeView({
           className="absolute pointer-events-none"
           style={{
             top: -120, right: -160, width: 720, height: 720,
-            background: 'radial-gradient(circle, rgba(136,56,222,0.14) 0%, rgba(136,56,222,0.06) 30%, transparent 65%)',
+            background: 'radial-gradient(circle, rgba(136,56,222,0.22) 0%, rgba(136,56,222,0.10) 30%, transparent 65%)',
             filter: 'blur(40px)',
           }}
         />
@@ -4188,7 +4306,7 @@ export default function HomeView({
           className="absolute pointer-events-none"
           style={{
             bottom: -180, left: -140, width: 520, height: 520,
-            background: 'radial-gradient(circle, rgba(99,102,241,0.08) 0%, rgba(99,102,241,0.03) 35%, transparent 65%)',
+            background: 'radial-gradient(circle, rgba(136,56,222,0.14) 0%, rgba(136,56,222,0.05) 35%, transparent 65%)',
             filter: 'blur(48px)',
           }}
         />
@@ -4218,7 +4336,7 @@ export default function HomeView({
                 // they wrap as a unit on narrow screens. Per-character delay
                 // is computed from a running index for a clean global stagger.
                 const gradientStyle: React.CSSProperties = {
-                  backgroundImage: 'linear-gradient(110deg, #6A12CD, #8838DE)',
+                  backgroundImage: 'linear-gradient(110deg, var(--color-brand-600), var(--color-brand-500))',
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
                   backgroundClip: 'text',
@@ -4275,37 +4393,54 @@ export default function HomeView({
                 initial="hidden"
                 animate="show"
               >
-              <motion.div variants={HERO_CHILD_VARIANTS} className="flex items-center justify-between gap-4 flex-wrap">
-                <p className="text-[14px] text-ink-500 leading-relaxed">
-                  Here&rsquo;s your <span className="font-semibold text-ink-800">{
-                    dateRange === 'all'    ? 'FY26' :
-                    dateRange === 'qtd'    ? 'quarterly' :
-                    dateRange === 'ytd'    ? 'year-to-date' :
-                    dateRange === 'custom' ? 'custom range' :
-                    `last ${rangeDays} days`
-                  }</span> audit landscape at a glance &mdash;{' '}
-                  <span className="font-semibold text-ink-800 tabular-nums"><CountUp value={completionPct} />%</span> controls executed
-                  {' · '}
-                  <span className="font-semibold text-ink-800 tabular-nums"><CountUp value={queueCount} /></span> waiting on you
-                  {' · '}
-                  <span className="font-semibold text-ink-800 tabular-nums"><CountUp value={unreadCount} /></span> unread
-                  {' · '}
-                  <span className="font-semibold text-ink-800">{PERSONAS.find(p => p.id === persona)?.label ?? 'Internal Auditor'}</span>
-                  {mwCount > 0 && (
-                    <>
-                      {' '}
+              <motion.div variants={HERO_CHILD_VARIANTS} className="flex items-start justify-between gap-4 flex-wrap">
+                <div className="min-w-0 flex-1 flex flex-col gap-2.5">
+                  <p className="text-sm text-ink-500 leading-relaxed">
+                    Here&rsquo;s your <span className="font-semibold text-ink-800">{
+                      dateRange === 'all'    ? 'FY26' :
+                      dateRange === 'qtd'    ? 'quarterly' :
+                      dateRange === 'ytd'    ? 'year-to-date' :
+                      dateRange === 'custom' ? 'custom range' :
+                      `last ${rangeDays} days`
+                    }</span> audit landscape at a glance.
+                  </p>
+                  {/* Stat strip — tabular-num pill chips replace the inline `·` wall.
+                      Order mirrors the operational priority: progress → queue → inbox → role. */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="inline-flex items-baseline gap-1.5 px-2 py-0.5 rounded-full border border-canvas-border bg-canvas-elevated text-xs">
+                      <span className="font-semibold tabular-nums text-ink-800"><CountUp value={completionPct} />%</span>
+                      <span className="text-ink-500">executed</span>
+                    </span>
+                    <span className="inline-flex items-baseline gap-1.5 px-2 py-0.5 rounded-full border border-canvas-border bg-canvas-elevated text-xs">
+                      <span className="font-semibold tabular-nums text-ink-800"><CountUp value={queueCount} /></span>
+                      <span className="text-ink-500">in queue</span>
+                    </span>
+                    <span className="inline-flex items-baseline gap-1.5 px-2 py-0.5 rounded-full border border-canvas-border bg-canvas-elevated text-xs">
+                      <span className="font-semibold tabular-nums text-ink-800"><CountUp value={unreadCount} /></span>
+                      <span className="text-ink-500">unread</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border border-canvas-border bg-canvas-elevated text-xs">
+                      <span className="font-semibold text-ink-800">{PERSONAS.find(p => p.id === persona)?.label ?? 'Internal Auditor'}</span>
+                    </span>
+                    {breakCount > 0 && (
                       <button
                         type="button"
-                        onClick={() => setView('findings')}
-                        className="ml-1 inline-flex items-center gap-1 align-middle text-[11.5px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-risk-50 text-risk-700 border border-risk-200 hover:bg-risk-100 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-risk-400"
+                        onClick={() => {
+                          // Deep-link into Control Library at a specific
+                          // control detail page. ControlLibraryView consumes
+                          // this flag on mount.
+                          sessionStorage.setItem('control-library.open-control-id', 'C-001');
+                          setView('governance-controls');
+                        }}
+                        className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-risk-50 text-risk-700 border border-risk-200 hover:bg-risk-100 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-risk-400"
                       >
                         <AlertOctagon size={11} strokeWidth={2.5} />
-                        <span className="tabular-nums">{mwCount}</span>
-                        Material Weakness{mwCount === 1 ? '' : 'es'}
+                        <span className="tabular-nums">{breakCount}</span>
+                        Control Break{breakCount === 1 ? '' : 's'}
                       </button>
-                    </>
-                  )}
-                </p>
+                    )}
+                  </div>
+                </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <DateRangeDropdown
                     value={dateRange}
@@ -4317,7 +4452,7 @@ export default function HomeView({
                 </div>
               </motion.div>
               <motion.div variants={HERO_CHILD_VARIANTS} className="flex items-center gap-2 mt-4 flex-wrap">
-                <span className="inline-flex items-center gap-1.5 text-[12px] text-ink-500 shrink-0">
+                <span className="inline-flex items-center gap-1.5 text-xs text-ink-500 shrink-0">
                   <Sparkles size={13} className="text-brand-400" />
                   Try
                 </span>
@@ -4329,7 +4464,7 @@ export default function HomeView({
                     transition={{ delay: 1.5 + i * 0.06, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
                     whileHover={{ y: -1 }}
                     onClick={() => { setChatInitialQuery(prompt); setView('chat'); }}
-                    className="inline-flex items-center h-7 px-3 rounded-full border border-canvas-border bg-canvas-elevated text-[12px] text-ink-700 hover:border-brand-200 hover:text-brand-700 hover:bg-brand-50/60 transition-colors cursor-pointer"
+                    className="inline-flex items-center h-7 px-3 rounded-full border border-canvas-border bg-canvas-elevated text-xs text-ink-700 hover:border-brand-200 hover:text-brand-700 hover:bg-brand-50/60 transition-colors cursor-pointer"
                   >
                     &ldquo;{prompt}&rdquo;
                   </motion.button>
@@ -4352,7 +4487,7 @@ export default function HomeView({
             {dismissed ? (
               <button
                 onClick={() => { setDismissed(false); localStorage.removeItem(ONBOARDING_DISMISSED_KEY); }}
-                className="inline-flex items-center gap-1.5 text-[12px] text-ink-500 hover:text-brand-700 transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 text-xs text-ink-500 hover:text-brand-700 transition-colors cursor-pointer"
               >
                 <Plus size={12} />
                 Restore onboarding
@@ -4372,7 +4507,7 @@ export default function HomeView({
 
         {visibleWidgets.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-canvas-border bg-canvas-elevated/50 p-10 text-center">
-            <p className="text-[14px] text-ink-700 font-medium">No widgets enabled</p>
+            <p className="text-sm text-ink-700 font-medium">No widgets enabled</p>
             <p className="text-[12.5px] text-ink-500 mt-1">Use the &ldquo;Add widget&rdquo; button below to bring widgets back.</p>
           </div>
         ) : isTransitioning ? (
