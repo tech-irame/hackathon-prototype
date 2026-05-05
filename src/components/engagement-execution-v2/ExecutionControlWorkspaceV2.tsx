@@ -2444,6 +2444,7 @@ function WorkingPaperStep({ ctrl, controlType, onNavigate }: {
   const items = exec.testItems;
   const hasItems = items.length > 0;
   const isConcluded = exec.status === ControlExecStatus.CONCLUDED;
+  const isReviewed = exec.review.status === ReviewStatus.APPROVED;
 
   // Before testing has started
   if (!hasItems) {
@@ -2483,15 +2484,38 @@ function WorkingPaperStep({ ctrl, controlType, onNavigate }: {
       </button>
       <div className="flex items-center justify-between">
         <div>
-          <h4 className="text-[14px] font-bold text-text mb-0.5">Working Paper — Draft</h4>
+          <div className="flex items-center gap-2 mb-0.5">
+            <h4 className="text-[14px] font-bold text-text">Working Paper</h4>
+            <span className={`px-2 h-5 rounded-full text-[9px] font-semibold inline-flex items-center ${isReviewed ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
+              {isReviewed ? 'Reviewed' : 'Not Reviewed'}
+            </span>
+          </div>
           <p className="text-[11px] text-text-muted">System-generated audit documentation for this control test instance.</p>
         </div>
         <div className="flex items-center gap-2">
-          <button className="px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-[11px] font-semibold cursor-pointer hover:bg-primary/20 flex items-center gap-1.5 transition-colors">
-            <Download size={12} />Download Draft
+          <button
+            onClick={() => {
+              const a = document.createElement('a');
+              a.href = '/working-paper-final.pdf';
+              a.download = `Working Paper — ${ctrl.name}.pdf`;
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+            }}
+            className="px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-[11px] font-semibold cursor-pointer hover:bg-primary/20 flex items-center gap-1.5 transition-colors">
+            <Download size={12} />Download
           </button>
           <button disabled={!isConcluded}
-            className="px-3 py-1.5 rounded-lg bg-gray-100 text-gray-400 text-[11px] font-semibold cursor-not-allowed flex items-center gap-1.5 disabled:opacity-50"
+            onClick={() => {
+              if (!isConcluded) return;
+              const a = document.createElement('a');
+              a.href = '/working-paper-final.pdf';
+              a.download = `Working Paper Final — ${ctrl.name}.pdf`;
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+            }}
+            className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 transition-colors ${isConcluded ? 'bg-primary hover:bg-primary/90 text-white cursor-pointer' : 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-50'}`}
             title={isConcluded ? 'Download final working paper' : 'Final download available after conclusion'}>
             <Download size={12} />Final
           </button>
@@ -3078,7 +3102,16 @@ function ConclusionStep({ ctrl, onNavigate }: {
           <FileText size={12} />View Working Paper
         </button>
         {exec.workingPaper.finalDownloadEnabled && (
-          <button className="px-3 py-1.5 rounded-lg bg-primary hover:bg-primary/90 text-white text-[11px] font-semibold cursor-pointer transition-colors flex items-center gap-1.5">
+          <button
+            onClick={() => {
+              const a = document.createElement('a');
+              a.href = '/working-paper-final.pdf';
+              a.download = `Working Paper — ${ctrl.name}.pdf`;
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+            }}
+            className="px-3 py-1.5 rounded-lg bg-primary hover:bg-primary/90 text-white text-[11px] font-semibold cursor-pointer transition-colors flex items-center gap-1.5">
             <Download size={12} />Download Final Working Paper
           </button>
         )}
