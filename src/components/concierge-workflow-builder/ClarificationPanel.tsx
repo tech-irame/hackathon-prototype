@@ -94,7 +94,7 @@ export default function ClarificationPanel({
           <button
             type="button"
             onClick={onBack}
-            className="inline-flex items-center gap-1.5 text-[12px] leading-4 font-semibold text-ink-500 hover:text-brand-600 transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-ink-500 hover:text-brand-600 transition-colors cursor-pointer"
           >
             <ArrowLeft size={14} />
             Back to AI Concierge
@@ -183,7 +183,7 @@ export default function ClarificationPanel({
                       >
                         {i + 1}
                       </span>
-                      <span className="flex-1 text-[14px] leading-4 text-ink-800">{opt}</span>
+                      <span className="flex-1 text-[13.5px] text-ink-800">{opt}</span>
                       {isSelected && (
                         <span className="text-ink-400">
                           <CornerDownLeft size={13} />
@@ -223,7 +223,7 @@ export default function ClarificationPanel({
           </motion.div>
 
           {/* Footer hints */}
-          <div className="flex items-center justify-between mt-3 text-[12px] leading-4 text-ink-400 px-1">
+          <div className="flex items-center justify-between mt-3 text-[11.5px] text-ink-400 px-1">
             <div className="flex items-center gap-2">
               <span>↑↓ to navigate</span>
               <span>·</span>

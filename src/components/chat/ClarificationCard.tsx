@@ -122,7 +122,7 @@ export default function ClarificationCard({
               role="option"
               aria-selected={isSelected}
               onClick={() => handleOptionClick(option)}
-              className={`group w-full flex items-center gap-3 px-5 py-3 text-left text-[14px] leading-4 transition-colors cursor-pointer border-t border-canvas-border/70 first:border-t-0 ${
+              className={`group w-full flex items-center gap-3 px-5 py-3 text-left text-[13.5px] transition-colors cursor-pointer border-t border-canvas-border/70 first:border-t-0 ${
                 isSelected
                   ? 'bg-primary/5 text-ink-800'
                   : 'text-ink-700 hover:bg-paper-50'
@@ -174,7 +174,7 @@ export default function ClarificationCard({
           <>
             <button
               onClick={() => setCustomMode(true)}
-              className="flex-1 flex items-center gap-3 text-left text-[14px] leading-4 text-ink-400 hover:text-ink-700 transition-colors cursor-pointer"
+              className="flex-1 flex items-center gap-3 text-left text-[13.5px] text-ink-400 hover:text-ink-700 transition-colors cursor-pointer"
             >
               <span className="flex items-center justify-center w-7 h-7 rounded-md border border-canvas-border bg-canvas-elevated shrink-0">
                 <Pencil size={12} className="text-ink-400" />
@@ -183,7 +183,7 @@ export default function ClarificationCard({
             </button>
             <button
               onClick={handleSkip}
-              className="h-8 px-4 rounded-md border border-canvas-border bg-canvas-elevated text-[12px] leading-4 font-medium text-ink-700 hover:bg-paper-50 transition-colors cursor-pointer shrink-0"
+              className="h-8 px-4 rounded-md border border-canvas-border bg-canvas-elevated text-[12.5px] font-medium text-ink-700 hover:bg-paper-50 transition-colors cursor-pointer shrink-0"
             >
               Skip
             </button>

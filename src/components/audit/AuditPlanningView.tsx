@@ -484,7 +484,7 @@ function RacmImportDrawer({ onClose, onImport }: { onClose: () => void; onImport
                 className={`pb-3 px-2 text-[11px] font-medium transition-colors cursor-pointer border-b-2 whitespace-nowrap ${
                   i === step ? 'border-brand-600 text-brand-700' : i < step ? 'border-transparent text-brand-500 hover:text-brand-700' : 'border-transparent text-ink-400'
                 }`}>
-                <span className={`inline-flex items-center justify-center w-4 h-4 rounded-full text-[10px] leading-3 font-bold mr-1 ${
+                <span className={`inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-bold mr-1 ${
                   i < step ? 'bg-brand-600 text-white' : i === step ? 'bg-brand-100 text-brand-700' : 'bg-canvas text-ink-400'
                 }`}>{i < step ? '✓' : i + 1}</span>{s}
               </button>
@@ -527,8 +527,8 @@ function RacmImportDrawer({ onClose, onImport }: { onClose: () => void; onImport
                     <div className="overflow-x-auto">
                       <table className="w-full text-[11px]">
                         <thead><tr className="border-b border-border bg-surface-2/50">
-                          <th className="px-2 py-2 text-left text-[10px] leading-3 font-semibold text-text-muted uppercase w-8">Row</th>
-                          {previewHeaders.map(h => <th key={h} className="px-2 py-2 text-left text-[10px] leading-3 font-semibold text-text-muted uppercase">{h}</th>)}
+                          <th className="px-2 py-2 text-left text-[9px] font-semibold text-text-muted uppercase w-8">Row</th>
+                          {previewHeaders.map(h => <th key={h} className="px-2 py-2 text-left text-[9px] font-semibold text-text-muted uppercase">{h}</th>)}
                         </tr></thead>
                         <tbody>{previewRows.map((r, i) => (
                           <tr key={i} className="border-b border-border/40">
@@ -584,18 +584,18 @@ function RacmImportDrawer({ onClose, onImport }: { onClose: () => void; onImport
                       <table className="w-full text-[11px]">
                         <thead><tr className="border-b border-border bg-surface-2/50">
                           {['Row', 'Risk Name', 'Process', 'Control Text', 'Owner', 'Type', 'Status'].map(h =>
-                            <th key={h} className="px-3 py-2.5 text-left text-[10px] leading-3 font-semibold text-text-muted uppercase whitespace-nowrap">{h}</th>
+                            <th key={h} className="px-3 py-2.5 text-left text-[9px] font-semibold text-text-muted uppercase whitespace-nowrap">{h}</th>
                           )}
                         </tr></thead>
                         <tbody>{MOCK_PARSED_ROWS.map((r, i) => (
                           <tr key={i} className="border-b border-border/40 hover:bg-surface-2/30 transition-colors">
                             <td className="px-3 py-2 text-[10px] font-mono text-ink-400">{r.sourceRow}</td>
-                            <td className="px-3 py-2"><div className="text-[11px] font-medium text-text">{r.riskName}</div><div className="text-[10px] leading-3 text-text-muted truncate max-w-[160px]">{r.riskDescription}</div></td>
+                            <td className="px-3 py-2"><div className="text-[11px] font-medium text-text">{r.riskName}</div><div className="text-[9.5px] text-text-muted truncate max-w-[160px]">{r.riskDescription}</div></td>
                             <td className="px-3 py-2 text-[11px] text-text">{r.process}</td>
                             <td className="px-3 py-2 text-[10px] text-text-secondary truncate max-w-[180px]">{r.controlText}</td>
                             <td className="px-3 py-2 text-[10px] text-text-muted">{r.controlOwner}</td>
-                            <td className="px-3 py-2"><span className={`px-1.5 h-4 rounded text-[10px] leading-3 font-bold inline-flex items-center ${r.controlType === 'Key' ? 'bg-mitigated-50 text-mitigated-700' : 'bg-gray-100 text-gray-500'}`}>{r.controlType}</span></td>
-                            <td className="px-3 py-2"><span className="px-1.5 h-4 rounded text-[10px] leading-3 font-bold bg-draft-50 text-draft-700 inline-flex items-center">Not Mapped</span></td>
+                            <td className="px-3 py-2"><span className={`px-1.5 h-4 rounded text-[9px] font-bold inline-flex items-center ${r.controlType === 'Key' ? 'bg-mitigated-50 text-mitigated-700' : 'bg-gray-100 text-gray-500'}`}>{r.controlType}</span></td>
+                            <td className="px-3 py-2"><span className="px-1.5 h-4 rounded text-[9px] font-bold bg-draft-50 text-draft-700 inline-flex items-center">Not Mapped</span></td>
                           </tr>
                         ))}</tbody>
                       </table>
@@ -795,10 +795,10 @@ function RacmDashboard({ engagements, onGoToExecution }: { engagements: { source
                     <td className="px-3 py-3"><span className="text-[12px] text-text tabular-nums">{racm.controls}</span></td>
                     <td className="px-3 py-3"><span className="text-[12px] text-gray-500 tabular-nums">{racm.keyControls}</span></td>
                     <td className="px-3 py-3">
-                      <span className={`px-2 h-5 rounded-full text-[10px] leading-3 font-semibold inline-flex items-center ${MAPPING_STYLES[mapping]}`}>{mapping}</span>
+                      <span className={`px-2 h-5 rounded-full text-[9px] font-semibold inline-flex items-center ${MAPPING_STYLES[mapping]}`}>{mapping}</span>
                     </td>
                     <td className="px-3 py-3">
-                      <span className={`px-2 h-5 rounded-full text-[10px] leading-3 font-semibold inline-flex items-center ${READINESS_STYLES[readiness]}`}>{readiness}</span>
+                      <span className={`px-2 h-5 rounded-full text-[9px] font-semibold inline-flex items-center ${READINESS_STYLES[readiness]}`}>{readiness}</span>
                     </td>
                     <td className="px-3 py-3 text-right">
                       <button onClick={() => { setMappingRacm(racm); setShowMappingWorkspace(true); }}
@@ -834,7 +834,7 @@ function RacmDashboard({ engagements, onGoToExecution }: { engagements: { source
               <table className="w-full text-[11px]">
                 <thead><tr className="border-b border-border bg-surface-2/50">
                   {['Row', 'Risk', 'Process', 'Imported Control Text', 'Owner', 'Type', 'Mapping', 'Action'].map(h =>
-                    <th key={h} className="px-3 py-2.5 text-left text-[10px] leading-3 font-semibold text-text-muted uppercase whitespace-nowrap">{h}</th>
+                    <th key={h} className="px-3 py-2.5 text-left text-[9px] font-semibold text-text-muted uppercase whitespace-nowrap">{h}</th>
                   )}
                 </tr></thead>
                 <tbody>{importedRows.map((r, i) => (
@@ -842,20 +842,20 @@ function RacmDashboard({ engagements, onGoToExecution }: { engagements: { source
                     <td className="px-3 py-2 text-[10px] font-mono text-ink-400">{r.sourceRow}</td>
                     <td className="px-3 py-2">
                       <div className="text-[11px] font-medium text-text">{r.riskName}</div>
-                      <div className="text-[10px] leading-3 text-text-muted truncate max-w-[140px]">{r.riskDescription}</div>
+                      <div className="text-[9.5px] text-text-muted truncate max-w-[140px]">{r.riskDescription}</div>
                     </td>
                     <td className="px-3 py-2 text-[11px] text-text">{r.process}</td>
                     <td className="px-3 py-2 text-[10px] text-text-secondary max-w-[180px]"><span className="line-clamp-2">{r.controlText}</span></td>
                     <td className="px-3 py-2 text-[10px] text-text-muted">{r.controlOwner}</td>
-                    <td className="px-3 py-2"><span className={`px-1.5 h-4 rounded text-[10px] leading-3 font-bold inline-flex items-center ${r.controlType === 'Key' ? 'bg-mitigated-50 text-mitigated-700' : 'bg-gray-100 text-gray-500'}`}>{r.controlType}</span></td>
-                    <td className="px-3 py-2"><span className={`px-1.5 h-4 rounded text-[10px] leading-3 font-bold inline-flex items-center ${MAP_STATUS_CLS[r.mappingStatus]}`}>{r.mappingStatus}</span></td>
+                    <td className="px-3 py-2"><span className={`px-1.5 h-4 rounded text-[9px] font-bold inline-flex items-center ${r.controlType === 'Key' ? 'bg-mitigated-50 text-mitigated-700' : 'bg-gray-100 text-gray-500'}`}>{r.controlType}</span></td>
+                    <td className="px-3 py-2"><span className={`px-1.5 h-4 rounded text-[9px] font-bold inline-flex items-center ${MAP_STATUS_CLS[r.mappingStatus]}`}>{r.mappingStatus}</span></td>
                     <td className="px-3 py-2">
                       {r.mappingStatus === 'Not Mapped' ? (
                         <div className="flex items-center gap-1">
                           <button onClick={() => handleMapRow(i)}
-                            className="px-2 py-0.5 rounded text-[10px] leading-3 font-bold text-primary bg-primary/10 hover:bg-primary/15 cursor-pointer transition-colors">Map Control</button>
+                            className="px-2 py-0.5 rounded text-[9px] font-bold text-primary bg-primary/10 hover:bg-primary/15 cursor-pointer transition-colors">Map Control</button>
                           <button onClick={() => { handleMapRow(i); addToast({ message: 'New control created in Control Library', type: 'success' }); }}
-                            className="px-2 py-0.5 rounded text-[10px] leading-3 font-bold text-brand-700 bg-brand-50 hover:bg-brand-50/80 cursor-pointer transition-colors">Create New</button>
+                            className="px-2 py-0.5 rounded text-[9px] font-bold text-brand-700 bg-brand-50 hover:bg-brand-50/80 cursor-pointer transition-colors">Create New</button>
                         </div>
                       ) : (
                         <span className="text-[10px] text-compliant-700 font-medium flex items-center gap-1"><CheckCircle2 size={10} />Done</span>
@@ -1084,7 +1084,7 @@ function RacmSetupWorkspace({ racm, onBack, onStartMapping, onImport }: {
                   </td>
                   <td className="px-3 py-2.5"><span className="inline-flex items-center gap-1 text-[11px]"><span className="w-1.5 h-1.5 rounded-full" style={{ background: BP_DOT_COLORS[r.process] || '#6B5D82' }} />{r.process}</span></td>
                   <td className="px-3 py-2.5 text-[11px] text-ink-400">{r.sourceRow}</td>
-                  <td className="px-3 py-2.5"><span className="px-1.5 h-4 rounded text-[10px] leading-3 font-bold bg-draft-50 text-draft-700 inline-flex items-center">Unmapped</span></td>
+                  <td className="px-3 py-2.5"><span className="px-1.5 h-4 rounded text-[9px] font-bold bg-draft-50 text-draft-700 inline-flex items-center">Unmapped</span></td>
                 </motion.tr>
               ))}</tbody>
             </table>
@@ -1610,7 +1610,7 @@ function EngagementDrawer({
               ) : (
                 <p className="text-[10px] text-text-muted leading-relaxed">Standard engagement rules will apply.</p>
               )}
-              <p className="text-[10px] leading-3 text-text-muted mt-1 italic">SOX enforcement is driven by framework, not audit type.</p>
+              <p className="text-[9px] text-text-muted mt-1 italic">SOX enforcement is driven by framework, not audit type.</p>
             </div>
 
             {/* Primary Business Process / Domain */}
@@ -1931,9 +1931,9 @@ function ActivationModal({ engagement, activating, activationError, activationLo
             {activationLog.length > 0 && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
                 className="max-w-sm mx-auto p-3 bg-surface-2/50 rounded-lg max-h-32 overflow-y-auto">
-                <p className="text-[10px] leading-3 font-bold text-text-muted uppercase mb-1">Audit Log</p>
+                <p className="text-[9px] font-bold text-text-muted uppercase mb-1">Audit Log</p>
                 {activationLog.map((entry, i) => (
-                  <p key={i} className="text-[10px] leading-3 font-mono text-text-muted leading-relaxed">{entry}</p>
+                  <p key={i} className="text-[9px] font-mono text-text-muted leading-relaxed">{entry}</p>
                 ))}
               </motion.div>
             )}
@@ -2501,7 +2501,7 @@ export default function AuditPlanningView({ onNavigateToExecution, embedded = fa
                                 </div>
                               </td>
                               <td className="px-3 py-2.5">
-                                <span className="px-2 h-5 rounded-full text-[10px] leading-3 font-medium bg-gray-50 text-gray-500 border border-gray-200/50 inline-flex items-center">{eng.auditType}</span>
+                                <span className="px-2 h-5 rounded-full text-[9px] font-medium bg-gray-50 text-gray-500 border border-gray-200/50 inline-flex items-center">{eng.auditType}</span>
                               </td>
                               <td className="px-3 py-2.5">
                                 <span className={`px-2.5 h-5 rounded-full text-[10px] font-bold border inline-flex items-center gap-1 ${PROCESS_BADGE_COLORS[eng.businessProcess]}`}>
@@ -2532,7 +2532,7 @@ export default function AuditPlanningView({ onNavigateToExecution, embedded = fa
                                 {isActive ? <span className="text-[11px] tabular-nums text-text-muted">{eng.controls - eng.controlsTested}</span> : <span className="text-[11px] tabular-nums text-text-muted">{eng.controls}</span>}
                               </td>
                               <td className="px-3 py-2.5">
-                                <span className={`px-2 h-5 rounded-full text-[10px] leading-3 font-semibold inline-flex items-center ${lifecycleTone(eng.status)}`}>{lifecycleLabel(eng.status)}</span>
+                                <span className={`px-2 h-5 rounded-full text-[9px] font-semibold inline-flex items-center ${lifecycleTone(eng.status)}`}>{lifecycleLabel(eng.status)}</span>
                               </td>
                               <td className="px-3 py-2.5">
                                 <span className={`px-2 py-1 rounded-lg text-[10px] font-bold cursor-pointer transition-colors inline-flex items-center gap-1 ${action.cls}`}>
@@ -2607,50 +2607,6 @@ export default function AuditPlanningView({ onNavigateToExecution, embedded = fa
           )}
         </AnimatePresence>
 
-        {/* Sign-off History */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 }} className="mt-6">
-          <h2 className="text-[15px] font-semibold text-text mb-3">Sign-off History</h2>
-          <div className="glass-card rounded-2xl overflow-hidden">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-[12px] text-text-muted font-medium px-5 py-3">Name</th>
-                  <th className="text-[12px] text-text-muted font-medium px-5 py-3">Role</th>
-                  <th className="text-[12px] text-text-muted font-medium px-5 py-3">Action</th>
-                  <th className="text-[12px] text-text-muted font-medium px-5 py-3">Date</th>
-                  <th className="text-[12px] text-text-muted font-medium px-5 py-3">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {SIGNOFF_LOG.map((entry, i) => (
-                  <motion.tr
-                    key={entry.name}
-                    initial={{ opacity: 0, y: 4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.9 + i * 0.05 }}
-                    className="border-b border-border/50 last:border-0 hover:bg-primary-xlight/50 transition-colors"
-                  >
-                    <td className="text-[12px] leading-4 font-medium text-text px-5 py-3">{entry.name}</td>
-                    <td className="text-[12px] leading-4 text-text-secondary px-5 py-3">{entry.role}</td>
-                    <td className="text-[12px] leading-4 text-text-secondary px-5 py-3">{entry.action}</td>
-                    <td className="text-[12px] leading-4 text-text-secondary px-5 py-3">{entry.date}</td>
-                    <td className="px-5 py-3">
-                      <span className={`text-[12px] font-bold px-2 py-1 rounded-full ${
-                        entry.status === 'completed'
-                          ? 'bg-compliant-50 text-compliant-700'
-                          : signedOff && entry.action === 'Final Sign-Off'
-                            ? 'bg-compliant-50 text-compliant-700'
-                            : 'bg-high-50 text-high-700'
-                      }`}>
-                        {entry.status === 'completed' ? 'Completed' : signedOff && entry.action === 'Final Sign-Off' ? 'Completed' : 'Pending'}
-                      </span>
-                    </td>
-                  </motion.tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </motion.div>
       </div>
 
       {/* Engagement Drawer */}

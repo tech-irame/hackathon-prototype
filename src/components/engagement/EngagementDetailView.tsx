@@ -99,9 +99,9 @@ function WorkflowCoverageCell({ control, onOpenDrawer }: { control: ControlDetai
         </div>
         <div className="flex items-center gap-1 mt-0.5">
           {allMapped ? (
-            <span className="inline-flex items-center gap-0.5 text-[10px] leading-3 font-medium text-compliant-700"><CheckCircle2 size={8} />All mapped</span>
+            <span className="inline-flex items-center gap-0.5 text-[9px] font-medium text-compliant-700"><CheckCircle2 size={8} />All mapped</span>
           ) : (
-            <span className="inline-flex items-center gap-0.5 text-[10px] leading-3 font-medium text-risk-700"><AlertTriangle size={8} />{summary.unmappedAttributeCount} unmapped</span>
+            <span className="inline-flex items-center gap-0.5 text-[9px] font-medium text-risk-700"><AlertTriangle size={8} />{summary.unmappedAttributeCount} unmapped</span>
           )}
           <ChevronRight size={8} className="text-ink-300 group-hover/wf:text-brand-500" />
         </div>
@@ -200,12 +200,12 @@ function WorkflowMappingDrawer({ control, onClose }: { control: ControlDetail; o
                         {attr.assertions && attr.assertions.length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-1">
                             {attr.assertions.map(a => (
-                              <span key={a} className="px-1.5 h-[16px] rounded text-[10px] leading-3 font-medium bg-brand-50 text-brand-700 inline-flex items-center">{a}</span>
+                              <span key={a} className="px-1.5 h-[16px] rounded text-[9px] font-medium bg-brand-50 text-brand-700 inline-flex items-center">{a}</span>
                             ))}
                           </div>
                         )}
                       </div>
-                      <span className="inline-flex items-center gap-1 px-2 h-5 rounded text-[10px] leading-3 font-bold bg-compliant-50 text-compliant-700 shrink-0">
+                      <span className="inline-flex items-center gap-1 px-2 h-5 rounded text-[9px] font-bold bg-compliant-50 text-compliant-700 shrink-0">
                         <CheckCircle2 size={8} />Mapped
                       </span>
                     </div>
@@ -231,7 +231,7 @@ function WorkflowMappingDrawer({ control, onClose }: { control: ControlDetail; o
                       {attr.assertions && attr.assertions.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-1">
                           {attr.assertions.map(a => (
-                            <span key={a} className="px-1.5 h-[16px] rounded text-[10px] leading-3 font-medium bg-brand-50 text-brand-700 inline-flex items-center">{a}</span>
+                            <span key={a} className="px-1.5 h-[16px] rounded text-[9px] font-medium bg-brand-50 text-brand-700 inline-flex items-center">{a}</span>
                           ))}
                         </div>
                       )}
@@ -270,7 +270,7 @@ function WorkflowMappingDrawer({ control, onClose }: { control: ControlDetail; o
         <footer className="shrink-0 px-6 py-4 border-t border-canvas-border bg-canvas">
           <div className="rounded-lg border border-canvas-border bg-surface-2/50 px-3 py-2 flex items-start gap-2 mb-3">
             <Shield size={11} className="text-ink-400 mt-0.5 shrink-0" />
-            <span className="text-[10px] leading-3 text-ink-400 leading-relaxed">
+            <span className="text-[9.5px] text-ink-400 leading-relaxed">
               Workflow mapping defines how each attribute will be tested. Execution starts after population and sample setup.
             </span>
           </div>
@@ -406,7 +406,7 @@ export default function EngagementDetailView({ engagementId, freshActivation, on
             { label: 'Activated', value: eng.activatedAt, icon: Zap },
           ].map(m => (
             <div key={m.label} className="glass-card rounded-xl p-2.5">
-              <div className="flex items-center gap-1 mb-0.5"><m.icon size={10} className="text-text-muted" /><span className="text-[10px] leading-3 font-semibold text-text-muted uppercase">{m.label}</span></div>
+              <div className="flex items-center gap-1 mb-0.5"><m.icon size={10} className="text-text-muted" /><span className="text-[9px] font-semibold text-text-muted uppercase">{m.label}</span></div>
               <div className="text-[11px] font-medium text-text truncate" title={m.value}>{m.value}</div>
             </div>
           ))}
@@ -622,18 +622,18 @@ export default function EngagementDetailView({ engagementId, freshActivation, on
                         <div>
                           <div className="flex items-center gap-2 mb-1">
                             <span className="text-[10px] font-mono text-text-muted">{ctrl.controlId}</span>
-                            {ctrl.isKey && <span className="px-1.5 h-4 rounded text-[10px] leading-3 font-bold bg-mitigated-50 text-mitigated-700 inline-flex items-center">KEY</span>}
-                            {ctrl.exceptions > 0 && <span className="px-1.5 h-4 rounded text-[10px] leading-3 font-bold bg-risk-50 text-risk-700 inline-flex items-center">{ctrl.exceptions} EXCEPTIONS</span>}
+                            {ctrl.isKey && <span className="px-1.5 h-4 rounded text-[9px] font-bold bg-mitigated-50 text-mitigated-700 inline-flex items-center">KEY</span>}
+                            {ctrl.exceptions > 0 && <span className="px-1.5 h-4 rounded text-[9px] font-bold bg-risk-50 text-risk-700 inline-flex items-center">{ctrl.exceptions} EXCEPTIONS</span>}
                           </div>
                           <h3 className="text-[13px] font-semibold text-text">{ctrl.controlName}</h3>
                           <span className="text-[11px] text-text-muted">Submitted by {ctrl.assignee}</span>
                         </div>
                       </div>
                       <div className="grid grid-cols-4 gap-2 mb-3">
-                        <div className="text-center p-2 rounded-lg bg-surface-2/50"><div className="text-[14px] font-bold text-text tabular-nums">{ctrl.samplesTested}/{ctrl.sampleCount}</div><div className="text-[12px] leading-4 text-text-muted">Samples</div></div>
-                        <div className="text-center p-2 rounded-lg bg-surface-2/50"><div className="text-[14px] font-bold text-compliant-700 tabular-nums">{passed}</div><div className="text-[12px] leading-4 text-text-muted">Passed</div></div>
-                        <div className="text-center p-2 rounded-lg bg-surface-2/50"><div className={`text-[14px] font-bold tabular-nums ${failed > 0 ? 'text-risk-700' : 'text-text-muted'}`}>{failed}</div><div className="text-[12px] leading-4 text-text-muted">Failed</div></div>
-                        <div className="text-center p-2 rounded-lg bg-surface-2/50"><div className="text-[14px] font-bold text-text tabular-nums">{ctrl.evidenceCount}</div><div className="text-[12px] leading-4 text-text-muted">Evidence</div></div>
+                        <div className="text-center p-2 rounded-lg bg-surface-2/50"><div className="text-[14px] font-bold text-text tabular-nums">{ctrl.samplesTested}/{ctrl.sampleCount}</div><div className="text-[9px] text-text-muted">Samples</div></div>
+                        <div className="text-center p-2 rounded-lg bg-surface-2/50"><div className="text-[14px] font-bold text-compliant-700 tabular-nums">{passed}</div><div className="text-[9px] text-text-muted">Passed</div></div>
+                        <div className="text-center p-2 rounded-lg bg-surface-2/50"><div className={`text-[14px] font-bold tabular-nums ${failed > 0 ? 'text-risk-700' : 'text-text-muted'}`}>{failed}</div><div className="text-[9px] text-text-muted">Failed</div></div>
+                        <div className="text-center p-2 rounded-lg bg-surface-2/50"><div className="text-[14px] font-bold text-text tabular-nums">{ctrl.evidenceCount}</div><div className="text-[9px] text-text-muted">Evidence</div></div>
                       </div>
                       {ctrl.conclusion && <div className="p-3 bg-surface-2/40 rounded-lg mb-3"><span className="text-[10px] font-bold text-text-muted uppercase">Tester Conclusion</span><p className="text-[12px] text-text-secondary mt-0.5">{ctrl.conclusion}</p></div>}
                       <div className="flex items-center gap-3">

@@ -117,7 +117,7 @@ export function DateFilterPicker({ filter, open, onToggle, onClose, onApply, tod
                   <button
                     key={p.id}
                     onClick={() => onApply({ kind: 'preset', id: p.id })}
-                    className={`w-full flex items-center justify-between text-left px-2.5 py-1.5 rounded-md text-[12px] leading-4 cursor-pointer transition-colors ${
+                    className={`w-full flex items-center justify-between text-left px-2.5 py-1.5 rounded-md text-[12.5px] cursor-pointer transition-colors ${
                       isCurrent ? 'text-brand-700 font-semibold bg-brand-50' : 'text-ink-700 hover:bg-paper-50'
                     }`}
                   >
@@ -131,10 +131,10 @@ export function DateFilterPicker({ filter, open, onToggle, onClose, onApply, tod
             {/* Divider + custom range */}
             <div className="border-t border-canvas-border my-1" />
             <div className="px-3 pt-2 pb-1">
-              <div className="text-[10px] leading-3 font-semibold uppercase tracking-wide text-ink-500 mb-2">Custom range</div>
+              <div className="text-[10.5px] font-semibold uppercase tracking-wide text-ink-500 mb-2">Custom range</div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-[10px] leading-3 font-medium text-ink-500 mb-1">From</label>
+                  <label className="block text-[10.5px] font-medium text-ink-500 mb-1">From</label>
                   <input
                     type="date"
                     value={from}
@@ -144,7 +144,7 @@ export function DateFilterPicker({ filter, open, onToggle, onClose, onApply, tod
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] leading-3 font-medium text-ink-500 mb-1">To</label>
+                  <label className="block text-[10.5px] font-medium text-ink-500 mb-1">To</label>
                   <input
                     type="date"
                     value={to}

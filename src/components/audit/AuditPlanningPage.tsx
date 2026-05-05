@@ -249,7 +249,7 @@ export default function AuditPlanningPage({ onNavigateToExecution }: Props) {
                                 {eng.atRisk && <div className="w-2 h-2 rounded-full bg-risk shrink-0 animate-pulse" title="At Risk" />}
                                 <div className="min-w-0 flex-1">
                                   <div className="text-[11px] font-medium text-text truncate">{eng.name}</div>
-                                  <div className="text-[10px] leading-3 text-text-muted">{eng.owner}</div>
+                                  <div className="text-[9px] text-text-muted">{eng.owner}</div>
                                 </div>
                               </div>
                               <div className="flex-1 flex items-center relative py-1.5"
@@ -277,7 +277,7 @@ export default function AuditPlanningPage({ onNavigateToExecution }: Props) {
                                   )}
                                   {/* Content */}
                                   <div className="relative flex items-center gap-1.5 px-2 h-full z-[1]">
-                                    <span className="text-[10px] leading-3 font-bold text-white truncate">{eng.name.split('—')[0].trim()}</span>
+                                    <span className="text-[9px] font-bold text-white truncate">{eng.name.split('—')[0].trim()}</span>
                                     {pct > 0 && <span className="text-[8px] font-bold text-white/70 tabular-nums shrink-0">{pct}%</span>}
                                   </div>
                                 </div>
@@ -294,9 +294,9 @@ export default function AuditPlanningPage({ onNavigateToExecution }: Props) {
               {/* Legend */}
               <div className="flex items-center gap-3 px-4 py-2 border-t border-border bg-surface-2/30">
                 {STATUSES.filter(s => engagements.some(e => e.status === s)).map(s => (
-                  <span key={s} className={`px-2 h-5 rounded-full text-[10px] leading-3 font-semibold inline-flex items-center ${STATUS_CLS[s]}`}>{s}</span>
+                  <span key={s} className={`px-2 h-5 rounded-full text-[9px] font-semibold inline-flex items-center ${STATUS_CLS[s]}`}>{s}</span>
                 ))}
-                <span className="inline-flex items-center gap-1 ml-2"><div className="w-2 h-2 rounded-full bg-risk" /><span className="text-[10px] leading-3 text-text-muted">At Risk</span></span>
+                <span className="inline-flex items-center gap-1 ml-2"><div className="w-2 h-2 rounded-full bg-risk" /><span className="text-[9px] text-text-muted">At Risk</span></span>
                 <span className="ml-auto text-[10px] text-text-muted">FY: April 2025 — March 2026</span>
               </div>
             </div>
@@ -332,12 +332,12 @@ export default function AuditPlanningPage({ onNavigateToExecution }: Props) {
                       <div className="flex items-center justify-between"><span className="text-white/60">Status</span>
                         <span className="flex items-center gap-1">
                           {hoveredEng.atRisk && <span className="w-2 h-2 rounded-full bg-risk" />}
-                          <span className={`px-1.5 h-4 rounded text-[10px] leading-3 font-bold inline-flex items-center ${STATUS_CLS[hoveredEng.status]}`}>{hoveredEng.status}</span>
+                          <span className={`px-1.5 h-4 rounded text-[9px] font-bold inline-flex items-center ${STATUS_CLS[hoveredEng.status]}`}>{hoveredEng.status}</span>
                         </span>
                       </div>
                       {(hoveredEng.progress ?? 0) > 0 && <div className="flex items-center justify-between"><span className="text-white/60">Progress</span><span>{hoveredEng.progress}%</span></div>}
                     </div>
-                    <div className="text-[10px] leading-3 text-white/40 mt-2">Click bar to preview</div>
+                    <div className="text-[9px] text-white/40 mt-2">Click bar to preview</div>
                   </div>
                 </motion.div>
               )}
@@ -406,7 +406,7 @@ export default function AuditPlanningPage({ onNavigateToExecution }: Props) {
                 <div>
                   <span className="text-[10px] text-ink-400 uppercase block mb-2">Timeline Position</span>
                   <div className="rounded-lg bg-surface-2 p-3">
-                    <div className="flex text-[10px] leading-3 text-ink-400 mb-1">
+                    <div className="flex text-[9px] text-ink-400 mb-1">
                       {MONTHS.map(m => <div key={m} className="flex-1 text-center">{m}</div>)}
                     </div>
                     <div className="relative h-6 bg-white rounded-full overflow-hidden">
@@ -555,7 +555,7 @@ function PlanEngagementDrawer({ onClose, onCreate, existingCount }: {
             {isSox
               ? <p className="text-[10px] text-brand-700 leading-relaxed">Reviewer approval, evidence requirements, key-control validation, and period locking will be enforced.</p>
               : <p className="text-[10px] text-text-muted leading-relaxed">Standard engagement rules will apply.</p>}
-            <p className="text-[10px] leading-3 text-text-muted mt-1 italic">SOX enforcement is driven by framework, not audit type.</p>
+            <p className="text-[9px] text-text-muted mt-1 italic">SOX enforcement is driven by framework, not audit type.</p>
           </div>
 
           {/* Business Process */}
@@ -736,7 +736,7 @@ function EngagementPlanTab({ onNavigateToExecution, engagements, onPlanNew, onAc
                     <td className="px-3 py-3"><span className="text-[11px] text-text-secondary tabular-nums">{row.startDate}</span></td>
                     <td className="px-3 py-3"><span className="text-[11px] text-text-secondary tabular-nums">{row.endDate}</span></td>
                     <td className="px-3 py-3"><span className="text-[11px] text-text-secondary">{row.owner.split(' ')[0]}</span></td>
-                    <td className="px-3 py-3"><span className={`px-2 h-5 rounded-full text-[10px] leading-3 font-semibold inline-flex items-center ${PLAN_STATUS_CLS[row.status]}`}>{row.status}</span></td>
+                    <td className="px-3 py-3"><span className={`px-2 h-5 rounded-full text-[9px] font-semibold inline-flex items-center ${PLAN_STATUS_CLS[row.status]}`}>{row.status}</span></td>
                     <td className="px-3 py-3"><span className="text-[11px] text-brand-600 font-medium">{row.racm}</span></td>
                     <td className="px-3 py-3">
                       <span onClick={e => {

@@ -406,7 +406,7 @@ function TemplatePreviewModal({ template, onClose, onEdit, onUse }: { template: 
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-5">
-          <p className="text-[12px] leading-4 text-text-secondary leading-relaxed">{template.desc}</p>
+          <p className="text-[12.5px] text-text-secondary leading-relaxed">{template.desc}</p>
 
           <div>
             <label className="text-[12px] font-semibold text-text mb-3 block">Template Structure</label>
@@ -716,7 +716,7 @@ function TemplateEditor({ template, onClose, isCopy = false, onSaveCopy, existin
                   <div className="flex gap-1 justify-center mb-1.5">
                     {t.colors.map((c, i) => <div key={i} className="w-5 h-5 rounded-full border border-white shadow-sm" style={{ background: c }} />)}
                   </div>
-                  <span className="text-[10px] leading-3 font-medium text-text">{t.name}</span>
+                  <span className="text-[9px] font-medium text-text">{t.name}</span>
                 </button>
               ))}
             </div>
@@ -819,7 +819,7 @@ function TemplateLayout({ templateId, template, report }: { templateId: string; 
         <div className="flex gap-2 flex-wrap">
           {sections.map((s, i) => (
             <div key={s.name} className="flex items-center gap-1.5 px-3 py-1.5 bg-white rounded-lg border border-border-light text-[11px] font-medium text-text-secondary shadow-sm">
-              <span className="text-[10px] leading-3 font-bold text-primary/50">{i + 1}</span> {s.name}
+              <span className="text-[9px] font-bold text-primary/50">{i + 1}</span> {s.name}
             </div>
           ))}
         </div>
@@ -916,7 +916,7 @@ function TemplateLayout({ templateId, template, report }: { templateId: string; 
         <div className="flex gap-2 flex-wrap">
           {sections.map((s, i) => (
             <div key={s.name} className="flex items-center gap-1.5 px-3 py-1.5 bg-white rounded-lg border border-border-light text-[11px] font-medium text-text-secondary shadow-sm">
-              <span className="text-[10px] leading-3 font-bold text-primary/50">{i + 1}</span> {s.name}
+              <span className="text-[9px] font-bold text-primary/50">{i + 1}</span> {s.name}
             </div>
           ))}
         </div>
@@ -925,20 +925,20 @@ function TemplateLayout({ templateId, template, report }: { templateId: string; 
           <h3 className="text-[13px] font-bold text-text mb-4 flex items-center gap-2"><Shield size={14} className="text-primary" /> Risk Matrix</h3>
           <div className="flex gap-6">
             <div className="flex-1">
-              <div className="text-[10px] leading-3 font-semibold text-text-muted uppercase tracking-wider mb-2 text-center">Impact →</div>
+              <div className="text-[9px] font-semibold text-text-muted uppercase tracking-wider mb-2 text-center">Impact →</div>
               <div className="grid grid-cols-5 gap-1">
                 {[5,4,3,2,1].map(likelihood => (
                   [1,2,3,4,5].map(impact => {
                     const risksInCell = risks.filter(r => r.likelihood === likelihood && r.impact === impact);
                     return (
-                      <div key={`${likelihood}-${impact}`} className={`aspect-square rounded-lg flex items-center justify-center text-[10px] leading-3 font-bold text-white ${riskColor(likelihood, impact)} ${risksInCell.length > 0 ? 'ring-2 ring-white shadow-md' : 'opacity-30'}`}>
+                      <div key={`${likelihood}-${impact}`} className={`aspect-square rounded-lg flex items-center justify-center text-[9px] font-bold text-white ${riskColor(likelihood, impact)} ${risksInCell.length > 0 ? 'ring-2 ring-white shadow-md' : 'opacity-30'}`}>
                         {risksInCell.length > 0 ? risksInCell.map(r => r.id.split('-')[1]).join(',') : ''}
                       </div>
                     );
                   })
                 ))}
               </div>
-              <div className="text-[10px] leading-3 font-semibold text-text-muted uppercase tracking-wider mt-1 -rotate-0">↑ Likelihood</div>
+              <div className="text-[9px] font-semibold text-text-muted uppercase tracking-wider mt-1 -rotate-0">↑ Likelihood</div>
             </div>
             <div className="w-48">
               <div className="text-[10px] font-semibold text-text mb-2">Legend</div>
@@ -996,7 +996,7 @@ function TemplateLayout({ templateId, template, report }: { templateId: string; 
         <div className="flex gap-2 flex-wrap">
           {sections.map((s, i) => (
             <div key={s.name} className="flex items-center gap-1.5 px-3 py-1.5 bg-white rounded-lg border border-border-light text-[11px] font-medium text-text-secondary shadow-sm">
-              <span className="text-[10px] leading-3 font-bold text-primary/50">{i + 1}</span> {s.name}
+              <span className="text-[9px] font-bold text-primary/50">{i + 1}</span> {s.name}
             </div>
           ))}
         </div>
@@ -1011,7 +1011,7 @@ function TemplateLayout({ templateId, template, report }: { templateId: string; 
               <div className="h-2 bg-paper-50 rounded-full overflow-hidden mb-2">
                 <motion.div initial={{ width: 0 }} animate={{ width: `${(p.tested / p.total) * 100}%` }} transition={{ delay: 0.3, duration: 0.6 }} className="h-full rounded-full bg-primary" />
               </div>
-              <div className="flex justify-between text-[10px] leading-3 text-text-muted">
+              <div className="flex justify-between text-[9px] text-text-muted">
                 <span>{p.tested}/{p.total} tested</span>
                 <span>{p.deficient} deficient</span>
               </div>
@@ -1055,7 +1055,7 @@ function TemplateLayout({ templateId, template, report }: { templateId: string; 
           <div className="space-y-2">
             {['Automate 5 manual detective controls in P2P — target: 98% effectiveness', 'Accelerate S2C control testing — hire 1 contractor for April-June sprint', 'Deploy AI anomaly detection on R2R reconciliation — reduce deficiency rate by 50%', 'Implement continuous monitoring for all preventive controls by Q2'].map((item, i) => (
               <div key={i} className="flex items-start gap-2.5 px-3 py-2 bg-primary/[0.02] rounded-lg">
-                <span className="text-[10px] leading-3 font-bold text-primary bg-primary/10 w-5 h-5 rounded-md flex items-center justify-center shrink-0">{i + 1}</span>
+                <span className="text-[9px] font-bold text-primary bg-primary/10 w-5 h-5 rounded-md flex items-center justify-center shrink-0">{i + 1}</span>
                 <span className="text-[11px] text-text-secondary leading-relaxed">{item}</span>
               </div>
             ))}
@@ -1078,7 +1078,7 @@ function TemplateLayout({ templateId, template, report }: { templateId: string; 
         <div className="flex gap-2 flex-wrap">
           {sections.map((s, i) => (
             <div key={s.name} className="flex items-center gap-1.5 px-3 py-1.5 bg-white rounded-lg border border-border-light text-[11px] font-medium text-text-secondary shadow-sm">
-              <span className="text-[10px] leading-3 font-bold text-primary/50">{i + 1}</span> {s.name}
+              <span className="text-[9px] font-bold text-primary/50">{i + 1}</span> {s.name}
             </div>
           ))}
         </div>
@@ -1093,11 +1093,11 @@ function TemplateLayout({ templateId, template, report }: { templateId: string; 
               <div className="flex items-end gap-4 mb-3">
                 <div>
                   <div className="text-[20px] font-bold text-text">{w.runs}</div>
-                  <div className="text-[10px] leading-3 text-text-muted uppercase">Runs</div>
+                  <div className="text-[9px] text-text-muted uppercase">Runs</div>
                 </div>
                 <div>
                   <div className="text-[20px] font-bold text-compliant-700">{w.savings}</div>
-                  <div className="text-[10px] leading-3 text-text-muted uppercase">Saved</div>
+                  <div className="text-[9px] text-text-muted uppercase">Saved</div>
                 </div>
                 <div className="flex-1">
                   <svg width="100%" height="28" viewBox="0 0 100 28" preserveAspectRatio="none">
@@ -1153,7 +1153,7 @@ function TemplateLayout({ templateId, template, report }: { templateId: string; 
         <div className="flex gap-2 flex-wrap">
           {sections.map((s, i) => (
             <div key={s.name} className="flex items-center gap-1.5 px-3 py-1.5 bg-white rounded-lg border border-border-light text-[11px] font-medium text-text-secondary shadow-sm">
-              <span className="text-[10px] leading-3 font-bold text-primary/50">{i + 1}</span> {s.name}
+              <span className="text-[9px] font-bold text-primary/50">{i + 1}</span> {s.name}
             </div>
           ))}
         </div>
@@ -1200,7 +1200,7 @@ function TemplateLayout({ templateId, template, report }: { templateId: string; 
           <div className="space-y-2">
             {['Approve additional AI workflow investment for S2C process — projected 3x ROI based on P2P results', 'Remediate DEF-002 (journal entry override) before March 31 — material weakness impacting filing', 'Reallocate Tushar Goel from P2P to S2C support in April — P2P is 72% complete, S2C needs acceleration', 'Expand vendor master monitoring to O2C process — similar risk profile to P2P where it saved 2.4L'].map((rec, i) => (
               <div key={i} className="flex items-start gap-2.5 px-3 py-2.5 bg-primary/[0.02] rounded-lg border border-primary/5">
-                <span className="text-[10px] leading-3 font-bold text-white bg-primary w-5 h-5 rounded-md flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
+                <span className="text-[9px] font-bold text-white bg-primary w-5 h-5 rounded-md flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
                 <span className="text-[11px] text-text leading-relaxed">{rec}</span>
               </div>
             ))}
@@ -1216,7 +1216,7 @@ function TemplateLayout({ templateId, template, report }: { templateId: string; 
       <div className="flex gap-2 flex-wrap">
         {sections.map((s, i) => (
           <div key={s.name} className="flex items-center gap-1.5 px-3 py-1.5 bg-white rounded-lg border border-border-light text-[11px] font-medium text-text-secondary shadow-sm">
-            <span className="text-[10px] leading-3 font-bold text-primary/50">{i + 1}</span> {s.name}
+            <span className="text-[9px] font-bold text-primary/50">{i + 1}</span> {s.name}
           </div>
         ))}
       </div>
@@ -1348,7 +1348,7 @@ function ManageExceptionsLaunchButton({ queryId }: { queryId: string }) {
       {launching && (
         <span
           aria-hidden="true"
-          className="absolute -top-[32px] left-1/2 text-[10px] leading-3 font-semibold text-primary bg-white border border-primary/25 px-2 h-6 rounded-full shadow-md whitespace-nowrap flex items-center gap-1 pointer-events-none"
+          className="absolute -top-[32px] left-1/2 text-[10.5px] font-semibold text-primary bg-white border border-primary/25 px-2 h-6 rounded-full shadow-md whitespace-nowrap flex items-center gap-1 pointer-events-none"
           style={{ animation: 'launch-hint-in 220ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards' }}
         >
           <ArrowRight size={10} className="-rotate-45" />
@@ -1573,7 +1573,7 @@ function QueryCard({ query, index, onManageExceptions, onOpenQuery, onDelete, co
             </span>
           </div>
           <div className="flex items-center gap-3 shrink-0">
-            <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] leading-3 font-semibold uppercase tracking-wider ${statusStyle.pill}`} style={{ borderRadius: '6px' }}>
+            <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-wider ${statusStyle.pill}`} style={{ borderRadius: '6px' }}>
               <span className={`w-1 h-1 rounded-full ${statusStyle.dot}`} />
               {query.status}
             </span>
@@ -1589,7 +1589,7 @@ function QueryCard({ query, index, onManageExceptions, onOpenQuery, onDelete, co
                 >
                   <MessageSquare size={14} className="shrink-0" />
                   {myComments > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 text-[10px] leading-3 font-semibold bg-primary text-white rounded-full tabular-nums border border-white">
+                    <span className="absolute -top-1.5 -right-1.5 inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 text-[9.5px] font-semibold bg-primary text-white rounded-full tabular-nums border border-white">
                       {myComments}
                     </span>
                   )}
@@ -1612,7 +1612,7 @@ function QueryCard({ query, index, onManageExceptions, onOpenQuery, onDelete, co
                       setMenuOpen(false);
                       onOpenQuery?.({ id: query.id, title: query.title });
                     }}
-                    className="flex items-center gap-2 w-full text-left px-3 py-2 text-[12px] leading-4 text-text-secondary hover:bg-primary-xlight hover:text-primary cursor-pointer"
+                    className="flex items-center gap-2 w-full text-left px-3 py-2 text-[12.5px] text-text-secondary hover:bg-primary-xlight hover:text-primary cursor-pointer"
                   >
                     <ExternalLink size={13} />
                     Open Query
@@ -1623,21 +1623,21 @@ function QueryCard({ query, index, onManageExceptions, onOpenQuery, onDelete, co
                       navigator.clipboard?.writeText(query.id);
                       addToast({ type: 'success', message: `Copied ${query.id}` });
                     }}
-                    className="flex items-center gap-2 w-full text-left px-3 py-2 text-[12px] leading-4 text-text-secondary hover:bg-primary-xlight hover:text-primary cursor-pointer"
+                    className="flex items-center gap-2 w-full text-left px-3 py-2 text-[12.5px] text-text-secondary hover:bg-primary-xlight hover:text-primary cursor-pointer"
                   >
                     <Copy size={13} />
                     Copy Card ID
                   </button>
                   <button
                     onClick={() => { setMenuOpen(false); setGraphModalOpen(true); }}
-                    className="flex items-center gap-2 w-full text-left px-3 py-2 text-[12px] leading-4 text-text-secondary hover:bg-primary-xlight hover:text-primary cursor-pointer"
+                    className="flex items-center gap-2 w-full text-left px-3 py-2 text-[12.5px] text-text-secondary hover:bg-primary-xlight hover:text-primary cursor-pointer"
                   >
                     <BarChart3 size={13} />
                     Add Graph
                   </button>
                   <button
                     onClick={() => setMenuOpen(false)}
-                    className="flex items-center gap-2 w-full text-left px-3 py-2 text-[12px] leading-4 text-text-secondary hover:bg-primary-xlight hover:text-primary cursor-pointer"
+                    className="flex items-center gap-2 w-full text-left px-3 py-2 text-[12.5px] text-text-secondary hover:bg-primary-xlight hover:text-primary cursor-pointer"
                   >
                     <Download size={13} />
                     Download
@@ -1645,7 +1645,7 @@ function QueryCard({ query, index, onManageExceptions, onOpenQuery, onDelete, co
                   <div className="my-1 border-t border-border-light" />
                   <button
                     onClick={() => { setMenuOpen(false); setShowDeleteConfirm(true); }}
-                    className="flex items-center gap-2 w-full text-left px-3 py-2 text-[12px] leading-4 text-risk-700 hover:bg-risk-50 cursor-pointer"
+                    className="flex items-center gap-2 w-full text-left px-3 py-2 text-[12.5px] text-risk-700 hover:bg-risk-50 cursor-pointer"
                   >
                     <Trash2 size={13} />
                     Delete
@@ -1700,10 +1700,10 @@ function QueryCard({ query, index, onManageExceptions, onOpenQuery, onDelete, co
                 : <ShieldAlert size={15} className="text-text-muted" />}
             </div>
             <div className="min-w-0">
-              <p className="text-[12px] leading-4 font-semibold text-text">
+              <p className="text-[12.5px] font-semibold text-text">
                 {casesPhase === 'generating' ? 'Generating cases…' : 'Exception metrics not generated yet'}
               </p>
-              <p className="text-[12px] leading-4 text-text-muted leading-snug">
+              <p className="text-[11.5px] text-text-muted leading-snug">
                 {casesPhase === 'generating'
                   ? 'Cases are being created — KPIs will appear here in a moment.'
                   : 'Turn on Generate Cases to populate Total Exceptions, Open, Closed and Check Health.'}
@@ -1766,7 +1766,7 @@ function QueryCard({ query, index, onManageExceptions, onOpenQuery, onDelete, co
             <div key={section.title}>
               <h4 className="text-[11px] font-bold text-text-secondary uppercase tracking-wider mb-3">{section.title}</h4>
               {section.items.length === 0 ? (
-                <p className="text-[12px] leading-4 text-text-muted italic">{section.emptyCopy}</p>
+                <p className="text-[12.5px] text-text-muted italic">{section.emptyCopy}</p>
               ) : (
                 <ul className="space-y-2.5">
                   {section.items.map((item, i) => (
@@ -1882,7 +1882,7 @@ function AddGraphModal({
               <h3 id="add-graph-title" className="text-[16px] font-bold text-text tracking-tight">
                 Add Graph
               </h3>
-              <p className="text-[12px] leading-4 text-text-secondary mt-1">
+              <p className="text-[12.5px] text-text-secondary mt-1">
                 <span className="font-mono text-[11px] text-primary">{queryId}</span>
                 <span className="mx-1.5 text-text-muted">·</span>
                 {queryTitle}
@@ -1929,7 +1929,7 @@ function AddGraphModal({
                         >
                           <Check size={12} />
                         </span>
-                        <span className="text-[12px] leading-4 font-semibold text-text">{g.title}</span>
+                        <span className="text-[12.5px] font-semibold text-text">{g.title}</span>
                       </div>
                       <div className="h-[160px] bg-canvas-elevated rounded-lg p-1.5 pointer-events-none">
                         <ConfigurableChart
@@ -2054,7 +2054,7 @@ function CommentDrawer({
                 >
                   <Icon size={14} className="shrink-0" />
                   {tab.label}
-                  <span className={`inline-flex items-center justify-center min-w-[20px] h-[18px] px-1.5 text-[10px] leading-3 font-semibold rounded-full tabular-nums ${
+                  <span className={`inline-flex items-center justify-center min-w-[20px] h-[18px] px-1.5 text-[10.5px] font-semibold rounded-full tabular-nums ${
                     isActive ? 'bg-primary/10 text-primary' : 'bg-paper-50 text-text-muted'
                   }`}>
                     {tab.count}
@@ -2084,7 +2084,7 @@ function CommentDrawer({
           <h2 className="text-[16px] font-semibold text-text leading-tight">
             {activeTab === 'comments' ? 'Comments' : 'Data Source Files'}
           </h2>
-          <p className="text-[12px] leading-4 text-text-muted mt-0.5 leading-snug">
+          <p className="text-[12.5px] text-text-muted mt-0.5 leading-snug">
             {activeTab === 'comments' ? 'Commenting on ' : 'Files used to build '}
             <span className="font-mono font-semibold text-primary">{query.id}</span> — {query.title}
           </p>
@@ -2139,7 +2139,7 @@ function CommentDrawer({
               </div>
               {attachment && (
                 <div className="mt-2 flex items-center gap-2">
-                  <span className="inline-flex items-center gap-1.5 h-6 px-2 bg-primary/10 text-primary text-[12px] leading-4 font-medium rounded-full">
+                  <span className="inline-flex items-center gap-1.5 h-6 px-2 bg-primary/10 text-primary text-[11.5px] font-medium rounded-full">
                     <Paperclip size={11} />
                     {attachment}
                   </span>
@@ -2164,10 +2164,10 @@ function CommentDrawer({
                     <section key={group.queryId} className="border border-border-light rounded-[10px] overflow-hidden">
                       <header className={`px-3 py-2 bg-paper-50 border-b border-border-light flex items-center justify-between ${group.queryId === query.id ? 'bg-primary/5' : ''}`}>
                         <div className="flex items-center gap-2 min-w-0">
-                          <span className="font-mono text-[12px] leading-4 font-bold text-primary shrink-0">{group.queryId}</span>
-                          <span className="text-[12px] leading-4 text-text-muted truncate">{group.queryTitle}</span>
+                          <span className="font-mono text-[11.5px] font-bold text-primary shrink-0">{group.queryId}</span>
+                          <span className="text-[11.5px] text-text-muted truncate">{group.queryTitle}</span>
                         </div>
-                        <span className="text-[10px] leading-3 text-text-muted tabular-nums shrink-0">
+                        <span className="text-[10.5px] text-text-muted tabular-nums shrink-0">
                           {group.items.length} {group.items.length === 1 ? 'comment' : 'comments'}
                         </span>
                       </header>
@@ -2180,13 +2180,13 @@ function CommentDrawer({
                               </span>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center justify-between gap-2 mb-0.5">
-                                  <span className="text-[12px] leading-4 font-semibold text-text">{c.author}</span>
+                                  <span className="text-[12.5px] font-semibold text-text">{c.author}</span>
                                   <span className="inline-flex items-center gap-1 text-[11px] text-text-muted tabular-nums whitespace-nowrap">
                                     <ClockIcon size={10} />
                                     {c.timestamp}
                                   </span>
                                 </div>
-                                <p className="text-[12px] leading-4 text-text leading-relaxed">{c.text}</p>
+                                <p className="text-[12.5px] text-text leading-relaxed">{c.text}</p>
                                 {c.attachment && (
                                   <span className="mt-1.5 inline-flex items-center gap-1.5 h-6 px-2 bg-primary/10 text-primary text-[11px] font-medium rounded-full">
                                     <Paperclip size={10} />
@@ -2227,10 +2227,10 @@ function CommentDrawer({
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-0.5">
-                            <span className="font-mono text-[12px] leading-4 font-semibold text-text truncate">{f.name}</span>
+                            <span className="font-mono text-[12.5px] font-semibold text-text truncate">{f.name}</span>
                             <span className={`inline-flex items-center h-5 px-1.5 text-[10px] font-semibold uppercase tracking-wider rounded ${pillClass}`}>{f.type}</span>
                           </div>
-                          <div className="text-[12px] leading-4 text-text-muted tabular-nums">
+                          <div className="text-[11.5px] text-text-muted tabular-nums">
                             {f.size} · {f.rows.toLocaleString()} rows · {f.source} · {f.modified}
                           </div>
                         </div>
@@ -2254,7 +2254,7 @@ function CommentDrawer({
                 </ul>
               )}
             </div>
-            <footer className="shrink-0 px-6 py-3 border-t border-border-light text-right text-[12px] leading-4 text-text-muted tabular-nums">
+            <footer className="shrink-0 px-6 py-3 border-t border-border-light text-right text-[11.5px] text-text-muted tabular-nums">
               {sourceFiles.length} files
             </footer>
           </>
@@ -2336,7 +2336,7 @@ function ReportActivityLogDrawer({
             </div>
             <div>
               <h2 className="text-[16px] font-semibold text-text leading-tight">Report Activity Log</h2>
-              <p className="text-[12px] leading-4 text-text-muted mt-0.5 leading-snug">
+              <p className="text-[12.5px] text-text-muted mt-0.5 leading-snug">
                 All actions and comments across every query card on this report.
               </p>
             </div>
@@ -2380,7 +2380,7 @@ function ReportActivityLogDrawer({
             </button>
           </div>
           {attachment && (
-            <div className="mt-2 inline-flex items-center gap-1.5 h-6 px-2 bg-primary/5 text-primary text-[12px] leading-4 font-medium rounded-full">
+            <div className="mt-2 inline-flex items-center gap-1.5 h-6 px-2 bg-primary/5 text-primary text-[11.5px] font-medium rounded-full">
               <Paperclip size={11} />
               {attachment}
               <button onClick={() => setAttachment(null)} className="hover:text-primary/70 cursor-pointer" aria-label="Remove attachment">
@@ -2392,7 +2392,7 @@ function ReportActivityLogDrawer({
             <button
               onClick={handlePost}
               disabled={!text.trim()}
-              className={`inline-flex items-center gap-1.5 h-8 px-3 text-[12px] leading-4 font-semibold rounded-[8px] transition-colors ${
+              className={`inline-flex items-center gap-1.5 h-8 px-3 text-[12.5px] font-semibold rounded-[8px] transition-colors ${
                 text.trim()
                   ? 'bg-primary text-white hover:bg-primary/90 cursor-pointer'
                   : 'bg-primary/40 text-white/80 cursor-not-allowed'
@@ -2407,7 +2407,7 @@ function ReportActivityLogDrawer({
         {/* Activity feed */}
         <div className="flex-1 overflow-y-auto px-6 py-4">
           {sorted.length === 0 ? (
-            <p className="text-center text-[12px] leading-4 text-text-muted py-10">No activity recorded yet.</p>
+            <p className="text-center text-[12.5px] text-text-muted py-10">No activity recorded yet.</p>
           ) : (
             <ol className="space-y-4">
               {sorted.map(c => (
@@ -2417,7 +2417,7 @@ function ReportActivityLogDrawer({
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-baseline justify-between gap-3 mb-0.5">
-                      <span className="text-[12px] leading-4 font-semibold text-text">{c.author}</span>
+                      <span className="text-[12.5px] font-semibold text-text">{c.author}</span>
                       <span className="text-[11px] text-text-muted tabular-nums whitespace-nowrap">{c.timestamp}</span>
                     </div>
                     <div className="text-[11px] text-text-muted mb-1.5">
@@ -2426,9 +2426,9 @@ function ReportActivityLogDrawer({
                       </span>{' '}
                       <span className="ml-1 line-clamp-1">{c.queryTitle}</span>
                     </div>
-                    <p className="text-[12px] leading-4 text-text leading-relaxed">{c.text}</p>
+                    <p className="text-[12.5px] text-text leading-relaxed">{c.text}</p>
                     {c.attachment && (
-                      <button className="mt-1.5 inline-flex items-center gap-1.5 h-6 px-2 bg-primary/5 text-primary text-[12px] leading-4 font-medium rounded-full hover:bg-primary/10 cursor-pointer">
+                      <button className="mt-1.5 inline-flex items-center gap-1.5 h-6 px-2 bg-primary/5 text-primary text-[11.5px] font-medium rounded-full hover:bg-primary/10 cursor-pointer">
                         <Paperclip size={11} />
                         {c.attachment}
                       </button>
@@ -2534,11 +2534,11 @@ function AttachedQueryCard({ query, index, onRemove }: {
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-[10px] leading-3 font-bold tracking-[0.08em] uppercase text-primary/80">{kindLabel}</span>
-            <span className="text-[10px] leading-3 text-text-muted">·</span>
-            <span className="text-[10px] leading-3 text-text-muted">Attached {query.attachedAt} by {query.attachedBy}</span>
+            <span className="text-[10.5px] font-bold tracking-[0.08em] uppercase text-primary/80">{kindLabel}</span>
+            <span className="text-[10.5px] text-text-muted">·</span>
+            <span className="text-[10.5px] text-text-muted">Attached {query.attachedAt} by {query.attachedBy}</span>
           </div>
-          <h3 className="text-[16px] leading-5 font-bold text-text tracking-tight leading-snug">{query.label}</h3>
+          <h3 className="text-[14.5px] font-bold text-text tracking-tight leading-snug">{query.label}</h3>
         </div>
         <button
           onClick={() => onRemove(query.id)}
@@ -2560,8 +2560,8 @@ function AttachedQueryCard({ query, index, onRemove }: {
           >
             <Loader2 size={14} className="text-primary animate-spin shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="text-[12px] leading-4 font-semibold text-primary mb-0.5">Data syncing</p>
-              <p className="text-[12px] leading-4 text-text-muted">Running query against your data — preview will appear in a moment.</p>
+              <p className="text-[12.5px] font-semibold text-primary mb-0.5">Data syncing</p>
+              <p className="text-[11.5px] text-text-muted">Running query against your data — preview will appear in a moment.</p>
             </div>
           </motion.div>
         )}
@@ -2576,8 +2576,8 @@ function AttachedQueryCard({ query, index, onRemove }: {
           >
             {/* Summary */}
             <div>
-              <div className="text-[10px] leading-3 font-bold tracking-[0.08em] uppercase text-text-muted mb-1.5">Summary</div>
-              <p className="text-[12px] leading-4 leading-relaxed text-text">{resolved.summary}</p>
+              <div className="text-[10.5px] font-bold tracking-[0.08em] uppercase text-text-muted mb-1.5">Summary</div>
+              <p className="text-[12.5px] leading-relaxed text-text">{resolved.summary}</p>
             </div>
 
             {/* Findings */}
@@ -2585,9 +2585,9 @@ function AttachedQueryCard({ query, index, onRemove }: {
               <div>
                 <div className="flex items-center gap-1.5 mb-1.5">
                   <Lightbulb size={12} className="text-evidence-700" />
-                  <span className="text-[10px] leading-3 font-bold tracking-[0.08em] uppercase text-text-muted">Findings</span>
-                  <span className="text-[10px] leading-3 text-text-muted">·</span>
-                  <span className="text-[10px] leading-3 text-text-muted">{resolved.findings.length}</span>
+                  <span className="text-[10.5px] font-bold tracking-[0.08em] uppercase text-text-muted">Findings</span>
+                  <span className="text-[10.5px] text-text-muted">·</span>
+                  <span className="text-[10.5px] text-text-muted">{resolved.findings.length}</span>
                 </div>
                 <ul className="space-y-1.5">
                   {resolved.findings.map((f, i) => (
@@ -2605,9 +2605,9 @@ function AttachedQueryCard({ query, index, onRemove }: {
               <div>
                 <div className="flex items-center gap-1.5 mb-1.5">
                   <Eye size={12} className="text-primary" />
-                  <span className="text-[10px] leading-3 font-bold tracking-[0.08em] uppercase text-text-muted">Observations</span>
-                  <span className="text-[10px] leading-3 text-text-muted">·</span>
-                  <span className="text-[10px] leading-3 text-text-muted">{resolved.observations.length}</span>
+                  <span className="text-[10.5px] font-bold tracking-[0.08em] uppercase text-text-muted">Observations</span>
+                  <span className="text-[10.5px] text-text-muted">·</span>
+                  <span className="text-[10.5px] text-text-muted">{resolved.observations.length}</span>
                 </div>
                 <ul className="space-y-1.5">
                   {resolved.observations.map((o, i) => (
@@ -2632,8 +2632,8 @@ function AttachedQueryCard({ query, index, onRemove }: {
           >
             <PackageOpen size={14} className="text-text-muted shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="text-[12px] leading-4 font-semibold text-text mb-0.5">Preview not available</p>
-              <p className="text-[12px] leading-4 text-text-muted">
+              <p className="text-[12.5px] font-semibold text-text mb-0.5">Preview not available</p>
+              <p className="text-[11.5px] text-text-muted">
                 {query.kind === 'upload'
                   ? 'Uploaded files render once the parser finishes — wire your data pipeline to enable preview.'
                   : query.kind === 'source'
@@ -3343,7 +3343,7 @@ function ReportView({ report, onBack, onShare, onManageExceptions, onOpenQuery, 
                   </div>
                   <button
                     onClick={() => setAddQueryOpen(true)}
-                    className="inline-flex items-center gap-1.5 h-9 px-3.5 text-[12px] leading-4 font-semibold text-primary bg-white rounded-[10px] hover:bg-white/90 transition-colors cursor-pointer shadow-[0_2px_8px_rgba(0,0,0,0.15)]"
+                    className="inline-flex items-center gap-1.5 h-9 px-3.5 text-[12.5px] font-semibold text-primary bg-white rounded-[10px] hover:bg-white/90 transition-colors cursor-pointer shadow-[0_2px_8px_rgba(0,0,0,0.15)]"
                   >
                     <Plus size={13} />
                     Add Query
@@ -3379,9 +3379,9 @@ function ReportView({ report, onBack, onShare, onManageExceptions, onOpenQuery, 
                         >
                           <div className="flex items-center gap-2.5 px-1">
                             <Icon size={16} className="text-primary" />
-                            <h3 className="text-[16px] leading-5 font-bold text-text tracking-tight">{section.name}</h3>
-                            <span className="text-[10px] leading-3 text-text-muted">·</span>
-                            <span className="text-[10px] leading-3 text-text-muted">{attached.length}</span>
+                            <h3 className="text-[14.5px] font-bold text-text tracking-tight">{section.name}</h3>
+                            <span className="text-[10.5px] text-text-muted">·</span>
+                            <span className="text-[10.5px] text-text-muted">{attached.length}</span>
                           </div>
                           <AnimatePresence>
                             {attached.map((q, qi) => (
@@ -3407,10 +3407,10 @@ function ReportView({ report, onBack, onShare, onManageExceptions, onOpenQuery, 
                       >
                         <div className="flex items-center gap-2.5 mb-3">
                           <Icon size={16} className="text-primary" />
-                          <h3 className="text-[16px] leading-5 font-bold text-text tracking-tight">{section.name}</h3>
+                          <h3 className="text-[14.5px] font-bold text-text tracking-tight">{section.name}</h3>
                         </div>
                         <div className="border border-dashed border-border-light rounded-[10px] bg-paper-50/40 px-6 py-7 text-center">
-                          <p className="text-[12px] leading-4 text-text-muted/80">
+                          <p className="text-[12.5px] text-text-muted/80">
                             {attached.length > 0
                               ? `${section.name} will be generated from your attached queries.`
                               : `Section content generated from ${report.name} data`}
@@ -3425,9 +3425,9 @@ function ReportView({ report, onBack, onShare, onManageExceptions, onOpenQuery, 
                     <div className="space-y-3">
                       <div className="flex items-center gap-2.5 px-1">
                         <MessageSquare size={16} className="text-primary" />
-                        <h3 className="text-[16px] leading-5 font-bold text-text tracking-tight">Attached Queries</h3>
-                        <span className="text-[10px] leading-3 text-text-muted">·</span>
-                        <span className="text-[10px] leading-3 text-text-muted">{attached.length}</span>
+                        <h3 className="text-[14.5px] font-bold text-text tracking-tight">Attached Queries</h3>
+                        <span className="text-[10.5px] text-text-muted">·</span>
+                        <span className="text-[10.5px] text-text-muted">{attached.length}</span>
                       </div>
                       <AnimatePresence>
                         {attached.map((q, qi) => (
@@ -3492,7 +3492,7 @@ function ReportView({ report, onBack, onShare, onManageExceptions, onOpenQuery, 
                     </button>
                     <button
                       onClick={() => addToast({ type: 'success', message: 'Generating report summary…' })}
-                      className="inline-flex items-center gap-1.5 h-9 px-3.5 text-[12px] leading-4 font-semibold text-primary bg-white rounded-[10px] hover:bg-white/90 transition-colors cursor-pointer shadow-[0_2px_8px_rgba(0,0,0,0.15)]"
+                      className="inline-flex items-center gap-1.5 h-9 px-3.5 text-[12.5px] font-semibold text-primary bg-white rounded-[10px] hover:bg-white/90 transition-colors cursor-pointer shadow-[0_2px_8px_rgba(0,0,0,0.15)]"
                     >
                       <Sparkles size={13} />
                       Generate Summary
@@ -3581,7 +3581,7 @@ function ReportView({ report, onBack, onShare, onManageExceptions, onOpenQuery, 
                                 </button>
                                 <button
                                   onClick={() => addToast({ type: 'success', message: 'Generating report summary…' })}
-                                  className="inline-flex items-center gap-1.5 h-9 px-3.5 text-[12px] leading-4 font-semibold text-primary bg-white rounded-[10px] hover:bg-white/90 transition-colors cursor-pointer shadow-[0_2px_8px_rgba(0,0,0,0.15)]"
+                                  className="inline-flex items-center gap-1.5 h-9 px-3.5 text-[12.5px] font-semibold text-primary bg-white rounded-[10px] hover:bg-white/90 transition-colors cursor-pointer shadow-[0_2px_8px_rgba(0,0,0,0.15)]"
                                 >
                                   <Sparkles size={13} />
                                   Generate Summary
@@ -3947,7 +3947,7 @@ export default function ReportsView({
                       <span className="text-text font-medium hover:text-primary transition-colors">{String(item.name)}</span>
                       {Boolean(item.tag) && (() => { const t = String(item.tag); return <span className="inline-flex items-center px-2 h-5 text-[10px] font-semibold whitespace-nowrap shrink-0" style={{ borderRadius: '8px', background: t === 'Internal Audit' ? '#FFE8F6' : '#FFFAEB', color: t === 'Internal Audit' ? '#BF2E84' : '#A74108' }}>{t}</span>; })()}
                       {reportAppliedTemplates[String(item.id)] && (
-                        <span className="text-[10px] leading-3 font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                        <span className="text-[9px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
                           <Layout size={8} /> {reportAppliedTemplates[String(item.id)].name}
                         </span>
                       )}
@@ -3998,7 +3998,7 @@ export default function ReportsView({
                 {generatedReports.length === 0 && (
                   <button
                     onClick={openNewReportModal}
-                    className="mt-4 inline-flex items-center gap-1.5 h-9 px-4 text-[12px] leading-4 font-semibold text-white bg-primary hover:bg-primary/90 rounded-[8px] cursor-pointer transition-colors"
+                    className="mt-4 inline-flex items-center gap-1.5 h-9 px-4 text-[12.5px] font-semibold text-white bg-primary hover:bg-primary/90 rounded-[8px] cursor-pointer transition-colors"
                   >
                     <Plus size={14} />
                     Create Report
@@ -4124,7 +4124,7 @@ export default function ReportsView({
                   <div className="mt-auto flex items-center justify-between gap-2">
                     <span className="inline-flex items-center px-2 h-5 text-[10px] font-semibold whitespace-nowrap" style={{ borderRadius: '8px', background: 'rgba(106,18,205,0.08)', color: '#6a12cd' }}>{r.sharedWith}</span>
                     <div className="flex items-center gap-1.5">
-                      <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] leading-3 font-bold" style={{ background: 'rgba(106,18,205,0.12)', color: '#6a12cd' }}>
+                      <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold" style={{ background: 'rgba(106,18,205,0.12)', color: '#6a12cd' }}>
                         {r.sharedBy.split(' ').map(n => n[0]).join('')}
                       </div>
                       <span className="text-[11px] text-text-secondary truncate">{r.sharedBy}</span>

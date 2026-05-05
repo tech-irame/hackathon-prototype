@@ -565,7 +565,7 @@ export default function DataSourcePanel({
                 {t.badge && (
                   <span
                     className={[
-                      'inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] leading-3 font-bold tabular-nums',
+                      'inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10.5px] font-bold tabular-nums',
                       active
                         ? 'bg-white/20 text-white'
                         : 'bg-canvas-elevated text-ink-500 border border-canvas-border',
@@ -614,7 +614,7 @@ export default function DataSourcePanel({
                         <div className="text-[13px] font-semibold text-ink-800 leading-tight truncate">
                           {folder.name}
                         </div>
-                        <div className="text-[12px] leading-4 text-ink-400 leading-tight truncate mt-0.5">
+                        <div className="text-[11.5px] text-ink-400 leading-tight truncate mt-0.5">
                           {folder.fileCount} file{folder.fileCount === 1 ? '' : 's'}
                         </div>
                       </div>
@@ -711,7 +711,7 @@ export default function DataSourcePanel({
                         <div className="text-[13px] font-semibold text-ink-800 leading-tight truncate">
                           {input.name}
                         </div>
-                        <div className="text-[12px] leading-4 text-ink-400 leading-tight truncate mt-0.5">
+                        <div className="text-[11.5px] text-ink-400 leading-tight truncate mt-0.5">
                           {input.description || 'Data source'}
                         </div>
                       </div>
@@ -737,7 +737,7 @@ export default function DataSourcePanel({
                               <div className="text-[11px] font-mono font-semibold text-ink-800 truncate">
                                 {col}
                               </div>
-                              <div className="text-[10px] leading-3 text-ink-500 leading-snug mt-0.5">
+                              <div className="text-[10.5px] text-ink-500 leading-snug mt-0.5">
                                 {describeColumn(col)}
                               </div>
                             </li>
@@ -748,7 +748,7 @@ export default function DataSourcePanel({
                           {cols.map((col) => (
                             <span
                               key={col}
-                              className="inline-flex items-center rounded-md bg-canvas border border-canvas-border px-1.5 py-0.5 text-[10px] leading-3 text-ink-600 font-mono"
+                              className="inline-flex items-center rounded-md bg-canvas border border-canvas-border px-1.5 py-0.5 text-[10.5px] text-ink-600 font-mono"
                             >
                               {col}
                             </span>
@@ -801,7 +801,7 @@ export default function DataSourcePanel({
               </span>
             </div>
 
-            <p className="text-[12px] leading-4 text-ink-500 px-1 -mt-1">
+            <p className="text-[11.5px] text-ink-500 px-1 -mt-1">
               Each output column shows the input it's mapped to or the rule that derives it.
             </p>
 
@@ -925,7 +925,7 @@ export default function DataSourcePanel({
                         </span>
                         <span
                           className={[
-                            'text-[12px] leading-4 leading-snug',
+                            'text-[12.5px] leading-snug',
                             accepted ? 'font-semibold text-brand-700' : 'text-ink-700',
                           ].join(' ')}
                         >
@@ -945,7 +945,7 @@ export default function DataSourcePanel({
             {running && !result ? (
               <div className="flex flex-col items-center justify-center text-center py-12 px-4">
                 <Loader2 size={20} className="animate-spin text-brand-600 mb-2" />
-                <div className="text-[12px] leading-4 font-semibold text-ink-800">
+                <div className="text-[12.5px] font-semibold text-ink-800">
                   Running {workflow.name}…
                 </div>
               </div>
@@ -977,11 +977,11 @@ export default function DataSourcePanel({
                         <CheckCircle2 size={10} />
                         RUN SUCCESSFUL
                       </span>
-                      <span className="text-[10px] leading-3 text-ink-400">
+                      <span className="text-[10.5px] text-ink-400">
                         RUN ID: RWF-4407-B
                       </span>
                     </div>
-                    <div className="text-[10px] leading-3 text-ink-400 mt-0.5">
+                    <div className="text-[10.5px] text-ink-400 mt-0.5">
                       {(28_345_840).toLocaleString()} records
                     </div>
                   </div>
@@ -1032,7 +1032,7 @@ export default function DataSourcePanel({
 
                   <div className="rounded-xl border border-canvas-border bg-canvas-elevated overflow-hidden">
                     <div className="flex items-baseline justify-between gap-2 px-3 pt-2.5 pb-1.5">
-                      <div className="text-[12px] leading-4 font-semibold text-ink-800 truncate">
+                      <div className="text-[12.5px] font-semibold text-ink-800 truncate">
                         {result.title}
                       </div>
                       <span className="text-[10px] text-ink-400 font-bold uppercase tracking-wider shrink-0">
@@ -1040,7 +1040,7 @@ export default function DataSourcePanel({
                       </span>
                     </div>
                     <div className="overflow-x-auto">
-                      <table className="w-full text-[12px] leading-4">
+                      <table className="w-full text-[11.5px]">
                         <thead className="bg-canvas text-ink-500 border-y border-canvas-border">
                           <tr>
                             <th className="w-6"></th>
@@ -1118,7 +1118,7 @@ export default function DataSourcePanel({
                 onClick={() => setCodeOpen(false)}
                 aria-pressed={!codeOpen}
                 className={[
-                  'inline-flex items-center gap-1.5 rounded-lg px-3 py-1 text-[12px] leading-4 font-semibold transition-colors cursor-pointer',
+                  'inline-flex items-center gap-1.5 rounded-lg px-3 py-1 text-[12.5px] font-semibold transition-colors cursor-pointer',
                   !codeOpen
                     ? 'border border-canvas-border bg-white text-ink-800 shadow-[0_1px_2px_rgba(0,0,0,0.06)]'
                     : 'border border-transparent text-ink-500 hover:text-ink-800 hover:bg-canvas-elevated',
@@ -1152,10 +1152,10 @@ export default function DataSourcePanel({
                 className="w-full flex items-center gap-2 px-3 py-2.5 hover:bg-canvas/40 transition-colors cursor-pointer"
               >
                 <FileText size={12} className="text-ink-500 shrink-0" />
-                <span className="text-[10px] leading-3 font-bold tracking-[0.14em] text-ink-700 uppercase">
+                <span className="text-[10.5px] font-bold tracking-[0.14em] text-ink-700 uppercase">
                   References
                 </span>
-                <span className="text-[12px] leading-4 text-ink-500 truncate">
+                <span className="text-[11.5px] text-ink-500 truncate">
                   · {workflow.inputs.length} source{workflow.inputs.length === 1 ? '' : 's'} · {totalColumnsInUse} column{totalColumnsInUse === 1 ? '' : 's'} in use
                 </span>
                 <span className="ml-auto text-ink-400 shrink-0">
@@ -1174,7 +1174,7 @@ export default function DataSourcePanel({
                           >
                             <Icon size={10} />
                           </div>
-                          <span className="text-[12px] leading-4 font-semibold text-ink-800 truncate">
+                          <span className="text-[12.5px] font-semibold text-ink-800 truncate">
                             {input.name}
                           </span>
                           <span className="text-[11px] text-ink-400 truncate">
@@ -1186,7 +1186,7 @@ export default function DataSourcePanel({
                             {input.columns!.map((col) => (
                               <span
                                 key={col}
-                                className="inline-flex items-center rounded-md bg-brand-50 border border-brand-100 px-1.5 py-0.5 text-[10px] leading-3 text-brand-700 font-mono"
+                                className="inline-flex items-center rounded-md bg-brand-50 border border-brand-100 px-1.5 py-0.5 text-[10.5px] text-brand-700 font-mono"
                               >
                                 {col}
                               </span>
@@ -1215,14 +1215,14 @@ export default function DataSourcePanel({
                   <div className="flex items-center gap-1.5 shrink-0">
                     <button
                       type="button"
-                      className="inline-flex items-center gap-1 rounded-md border border-canvas-border bg-canvas-elevated hover:border-brand-300 hover:bg-brand-50/40 px-2 py-1 text-[12px] leading-4 font-semibold text-ink-700 transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-1 rounded-md border border-canvas-border bg-canvas-elevated hover:border-brand-300 hover:bg-brand-50/40 px-2 py-1 text-[11.5px] font-semibold text-ink-700 transition-colors cursor-pointer"
                     >
                       <Copy size={11} />
                       Copy
                     </button>
                     <button
                       type="button"
-                      className="inline-flex items-center gap-1 rounded-md border border-canvas-border bg-canvas-elevated hover:border-brand-300 hover:bg-brand-50/40 px-2 py-1 text-[12px] leading-4 font-semibold text-ink-700 transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-1 rounded-md border border-canvas-border bg-canvas-elevated hover:border-brand-300 hover:bg-brand-50/40 px-2 py-1 text-[11.5px] font-semibold text-ink-700 transition-colors cursor-pointer"
                     >
                       <ExternalLink size={11} />
                       Open
@@ -1235,12 +1235,12 @@ export default function DataSourcePanel({
                     <span className="text-[11px] font-mono text-white/70">
                       workflow.py
                     </span>
-                    <span className="inline-flex items-center gap-1.5 text-[10px] leading-3 font-mono text-emerald-400/90">
+                    <span className="inline-flex items-center gap-1.5 text-[10.5px] font-mono text-emerald-400/90">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                       synced
                     </span>
                   </div>
-                  <pre className="text-[12px] leading-4 leading-[1.55] font-mono text-white/90 px-3 py-3 overflow-x-auto">
+                  <pre className="text-[11.5px] leading-[1.55] font-mono text-white/90 px-3 py-3 overflow-x-auto">
                     <code>
                       {SAMPLE_CODE_LINES.map((line, i) => (
                         <div key={i} className="flex">
@@ -1263,7 +1263,7 @@ export default function DataSourcePanel({
                   <span className="text-[13px] font-semibold text-ink-800">Steps</span>
                   <button
                     type="button"
-                    className="text-[12px] leading-4 font-semibold text-brand-700 hover:text-brand-800 cursor-pointer transition-colors"
+                    className="text-[12.5px] font-semibold text-brand-700 hover:text-brand-800 cursor-pointer transition-colors"
                   >
                     Reorder
                   </button>
@@ -1280,12 +1280,12 @@ export default function DataSourcePanel({
                         className="rounded-xl border border-canvas-border bg-canvas-elevated px-3 py-3 hover:border-brand-200 transition-colors"
                       >
                         <div className="flex items-start gap-3">
-                          <span className="w-6 h-6 rounded-full bg-ink-900 text-white flex items-center justify-center text-[12px] leading-4 font-bold shrink-0 mt-0.5 tabular-nums">
+                          <span className="w-6 h-6 rounded-full bg-ink-900 text-white flex items-center justify-center text-[11.5px] font-bold shrink-0 mt-0.5 tabular-nums">
                             {idx + 1}
                           </span>
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <h3 className="text-[14px] leading-4 font-semibold text-ink-800">
+                              <h3 className="text-[13.5px] font-semibold text-ink-800">
                                 {step.name}
                               </h3>
                               <span
@@ -1394,14 +1394,14 @@ function OutputKPICard({
         : 'text-ink-500 bg-canvas';
   return (
     <div className="rounded-xl border border-canvas-border bg-canvas-elevated p-2.5">
-      <div className="text-[10px] leading-3 font-bold text-ink-400 tracking-wider">{label}</div>
+      <div className="text-[9.5px] font-bold text-ink-400 tracking-wider">{label}</div>
       <div className="flex items-baseline gap-1.5 mt-0.5">
         <div className={`text-[18px] font-bold ${valueColor} leading-none tabular-nums`}>
           {value}
         </div>
         {delta && (
           <span
-            className={`text-[10px] leading-3 font-bold rounded-md px-1.5 py-0.5 ${deltaColor}`}
+            className={`text-[9.5px] font-bold rounded-md px-1.5 py-0.5 ${deltaColor}`}
           >
             {delta}
           </span>
@@ -1424,7 +1424,7 @@ function FlagDistributionCard() {
   let offsetAccum = 0;
   return (
     <div className="rounded-xl border border-canvas-border bg-canvas-elevated p-3">
-      <div className="text-[10px] leading-3 font-bold text-ink-400 tracking-wider mb-2">
+      <div className="text-[10.5px] font-bold text-ink-400 tracking-wider mb-2">
         FLAG DISTRIBUTION
       </div>
       <div className="flex items-center gap-3">
@@ -1487,7 +1487,7 @@ function MonthlyInvoiceVolumeCard() {
   const chartHeight = 56;
   return (
     <div className="rounded-xl border border-canvas-border bg-canvas-elevated p-3">
-      <div className="text-[12px] leading-4 font-semibold text-ink-900 mb-3">
+      <div className="text-[12.5px] font-semibold text-ink-900 mb-3">
         Monthly Invoice Volume
       </div>
       <div className="grid grid-cols-6 gap-2 items-end" style={{ height: chartHeight + 32 }}>
@@ -1495,7 +1495,7 @@ function MonthlyInvoiceVolumeCard() {
           const h = Math.max(4, (m.value / max) * chartHeight);
           return (
             <div key={m.month} className="flex flex-col items-center gap-1 min-w-0">
-              <div className="text-[10px] leading-3 font-semibold text-ink-500 tabular-nums">
+              <div className="text-[10.5px] font-semibold text-ink-500 tabular-nums">
                 {m.label}
               </div>
               <div
@@ -1503,7 +1503,7 @@ function MonthlyInvoiceVolumeCard() {
                 style={{ height: `${h}px` }}
                 aria-label={`${m.month}: ${m.label}`}
               />
-              <div className="text-[10px] leading-3 text-ink-400">{m.month}</div>
+              <div className="text-[10.5px] text-ink-400">{m.month}</div>
             </div>
           );
         })}

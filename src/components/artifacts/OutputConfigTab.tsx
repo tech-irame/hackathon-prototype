@@ -62,13 +62,13 @@ export default function OutputConfigTab({ kpis = DEFAULT_KPIS }: Props) {
       <section>
         <header className="mb-4">
           <h3 className="text-[14px] font-semibold text-ink-800 leading-tight">Dashboard KPIs</h3>
-          <p className="font-display italic text-[12px] leading-4 text-ink-500 mt-0.5">
+          <p className="font-display italic text-[12.5px] text-ink-500 mt-0.5">
             From the latest audit run
           </p>
         </header>
 
         {kpis.length === 0 ? (
-          <p className="text-[12px] leading-4 text-ink-500">
+          <p className="text-[12.5px] text-ink-500">
             Run a query once to populate dashboard KPIs from the latest result.
           </p>
         ) : (

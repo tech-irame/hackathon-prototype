@@ -140,7 +140,7 @@ function DrawerShell({
         <div className="flex items-start justify-between gap-4 mb-3">
           <div>
             <h2 className="font-display text-[20px] font-semibold text-ink-900 tracking-tight">{title}</h2>
-            {subtitle && <p className="text-[12px] leading-4 text-ink-500 mt-0.5">{subtitle}</p>}
+            {subtitle && <p className="text-[12.5px] text-ink-500 mt-0.5">{subtitle}</p>}
           </div>
           <button
             onClick={onClose}
@@ -179,7 +179,7 @@ function DrawerShell({
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="text-[10px] leading-3 font-semibold uppercase tracking-wider text-ink-500 mb-2">
+    <div className="text-[10.5px] font-semibold uppercase tracking-wider text-ink-500 mb-2">
       {children}
     </div>
   );
@@ -244,20 +244,20 @@ function ActivityTimeline({ entries }: { entries: GrcActivityEntry[] }) {
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-3 mb-0.5">
-                <div className="text-[12px] leading-4 text-ink-800">
+                <div className="text-[12.5px] text-ink-800">
                   <span className="font-semibold">{entry.author}</span>{' '}
                   <span className="text-ink-500">[{entry.role}]</span>
                 </div>
                 <span className="text-[11px] text-ink-500 tabular-nums whitespace-nowrap">{entry.timestamp}</span>
               </div>
-              <p className="text-[12px] leading-4 text-ink-700 leading-snug">{entry.message}</p>
+              <p className="text-[12.5px] text-ink-700 leading-snug">{entry.message}</p>
               {entry.comment && (
                 <div className="mt-2 px-3 py-2 bg-[#FAFAFB] border border-canvas-border rounded-[8px] text-[12px] text-ink-700 leading-relaxed">
                   {entry.comment}
                 </div>
               )}
               {entry.attachment && (
-                <button className="mt-2 inline-flex items-center gap-1.5 h-6 px-2 bg-brand-50 text-brand-700 text-[12px] leading-4 font-medium rounded-full hover:bg-brand-100 cursor-pointer">
+                <button className="mt-2 inline-flex items-center gap-1.5 h-6 px-2 bg-brand-50 text-brand-700 text-[11.5px] font-medium rounded-full hover:bg-brand-100 cursor-pointer">
                   <Paperclip size={11} />
                   {entry.attachment.name}
                 </button>
@@ -269,7 +269,7 @@ function ActivityTimeline({ entries }: { entries: GrcActivityEntry[] }) {
       {hiddenCount > 0 && !showMore && (
         <button
           onClick={() => setShowMore(true)}
-          className="mt-4 inline-flex items-center gap-1 text-[12px] leading-4 font-medium text-brand-700 hover:text-brand-600 cursor-pointer"
+          className="mt-4 inline-flex items-center gap-1 text-[12.5px] font-medium text-brand-700 hover:text-brand-600 cursor-pointer"
         >
           <ChevronDown size={13} />
           Show {hiddenCount} more
@@ -333,7 +333,7 @@ export function ReviewClassificationDrawer({
               <LinkIcon size={13} />
               Part of Bulk Action
             </div>
-            <div className="flex items-center gap-3 text-[12px] leading-4 text-ink-700">
+            <div className="flex items-center gap-3 text-[12.5px] text-ink-700">
               <span>ID: <span className="font-mono font-semibold text-brand-700">{bulk.id}</span></span>
               <span className="text-ink-300">|</span>
               <span className="tabular-nums">{bulk.caseIds.length} cases grouped</span>
@@ -355,7 +355,7 @@ export function ReviewClassificationDrawer({
         </div>
 
         <div className="mb-5">
-          <label className="block text-[12px] leading-4 font-semibold text-ink-800 mb-2">Comment</label>
+          <label className="block text-[12.5px] font-semibold text-ink-800 mb-2">Comment</label>
           <div className="relative">
             <textarea
               value={comment}
@@ -449,14 +449,14 @@ export function ReviewCaseDrawer({
                   <LinkIcon size={13} />
                   Part of Bulk Action
                 </div>
-                <div className="flex items-center gap-3 text-[12px] leading-4 text-ink-700 mb-2">
+                <div className="flex items-center gap-3 text-[12.5px] text-ink-700 mb-2">
                   <span>ID: <span className="font-mono font-semibold text-brand-700">{bulk.id}</span></span>
                   <span className="text-ink-300">|</span>
                   <span className="tabular-nums">{bulk.caseIds.length} cases grouped</span>
                 </div>
                 <button
                   onClick={() => onViewBulk(bulk.id)}
-                  className="inline-flex items-center gap-1 text-[12px] leading-4 font-medium text-brand-700 hover:text-brand-600 cursor-pointer"
+                  className="inline-flex items-center gap-1 text-[12.5px] font-medium text-brand-700 hover:text-brand-600 cursor-pointer"
                 >
                   View all cases in this bulk action
                   <ExternalLink size={12} />
@@ -488,7 +488,7 @@ export function ReviewCaseDrawer({
                   <Calendar size={11} />
                   {detail.actionDueDate}
                 </div>
-                <p className="text-[12px] leading-4 text-ink-700 leading-relaxed">{detail.actionDescription}</p>
+                <p className="text-[12.5px] text-ink-700 leading-relaxed">{detail.actionDescription}</p>
               </section>
             )}
 
@@ -498,13 +498,13 @@ export function ReviewCaseDrawer({
               {/* Approve / Reject toggle — hidden in Case Reviewed (view) mode */}
               {!isViewMode && (
                 <div className="mb-4">
-                  <label className="block text-[12px] leading-4 font-medium text-ink-800 mb-2">
+                  <label className="block text-[12.5px] font-medium text-ink-800 mb-2">
                     Decision <span className="text-risk">*</span>
                   </label>
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       onClick={() => { setDecision('approve'); }}
-                      className={`h-10 text-[12px] leading-4 font-semibold rounded-[8px] border transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
+                      className={`h-10 text-[12.5px] font-semibold rounded-[8px] border transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
                         decision === 'approve'
                           ? 'bg-compliant text-white border-compliant shadow-[0_2px_8px_rgba(22,163,74,0.25)]'
                           : 'bg-compliant-50 border-compliant text-compliant-700 hover:bg-compliant hover:text-white'
@@ -515,7 +515,7 @@ export function ReviewCaseDrawer({
                     </button>
                     <button
                       onClick={() => { setDecision('reject'); setImplementation(null); }}
-                      className={`h-10 text-[12px] leading-4 font-semibold rounded-[8px] border transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
+                      className={`h-10 text-[12.5px] font-semibold rounded-[8px] border transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
                         decision === 'reject'
                           ? 'bg-risk text-white border-risk shadow-[0_2px_8px_rgba(220,38,38,0.25)]'
                           : 'bg-risk-50 border-risk text-risk-700 hover:bg-risk hover:text-white'
@@ -536,7 +536,7 @@ export function ReviewCaseDrawer({
                   transition={{ duration: 0.15 }}
                   className="mb-4"
                 >
-                  <label className="block text-[12px] leading-4 font-medium text-ink-800 mb-2">
+                  <label className="block text-[12.5px] font-medium text-ink-800 mb-2">
                     Implementation Status <span className="text-risk">*</span>
                   </label>
                   <div className="grid grid-cols-2 gap-2">
@@ -546,7 +546,7 @@ export function ReviewCaseDrawer({
                         <button
                           key={status}
                           onClick={() => setImplementation(status)}
-                          className={`h-10 text-[12px] leading-4 font-medium rounded-[8px] border transition-colors cursor-pointer ${
+                          className={`h-10 text-[12.5px] font-medium rounded-[8px] border transition-colors cursor-pointer ${
                             selected
                               ? 'bg-brand-50 border-brand-600 text-brand-700'
                               : 'bg-canvas-elevated border-canvas-border text-ink-700 hover:border-brand-200'
@@ -568,7 +568,7 @@ export function ReviewCaseDrawer({
                   transition={{ duration: 0.15 }}
                   className="mb-4 p-3 bg-risk-50 border border-risk/40 rounded-[8px]"
                 >
-                  <div className="flex items-center gap-2 text-[12px] leading-4 font-semibold text-risk-700 mb-1">
+                  <div className="flex items-center gap-2 text-[12.5px] font-semibold text-risk-700 mb-1">
                     <Pill className="bg-risk-50 text-risk-700 border border-risk/40">Discrepancy</Pill>
                   </div>
                   <p className="text-[12px] text-risk-700 leading-snug">
@@ -578,7 +578,7 @@ export function ReviewCaseDrawer({
               )}
 
               <div>
-                <label className="block text-[12px] leading-4 font-medium text-ink-800 mb-2">Comment</label>
+                <label className="block text-[12.5px] font-medium text-ink-800 mb-2">Comment</label>
                 <div className="relative">
                   <textarea
                     value={comment}
@@ -703,7 +703,7 @@ export function ClassifyExceptionDrawer({
         }
       >
         <div className="mb-5">
-          <label className="block text-[12px] leading-4 font-semibold text-ink-800 mb-2">Severity</label>
+          <label className="block text-[12.5px] font-semibold text-ink-800 mb-2">Severity</label>
           <div className="grid grid-cols-3 gap-2">
             {(['High', 'Medium', 'Low'] as const).map((s) => {
               const selected = severity === s;
@@ -724,7 +724,7 @@ export function ClassifyExceptionDrawer({
         </div>
 
         <div className="mb-5">
-          <label className="block text-[12px] leading-4 font-semibold text-ink-800 mb-2">
+          <label className="block text-[12.5px] font-semibold text-ink-800 mb-2">
             Classification <span className="text-risk">*</span>
           </label>
           <div className="relative">
@@ -741,7 +741,7 @@ export function ClassifyExceptionDrawer({
             <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-400 pointer-events-none" />
           </div>
           {classification && !requiresActionPlan && (
-            <span className="mt-2 inline-block text-[12px] leading-4 text-ink-500">No action plan required.</span>
+            <span className="mt-2 inline-block text-[11.5px] text-ink-500">No action plan required.</span>
           )}
         </div>
 
@@ -756,7 +756,7 @@ export function ClassifyExceptionDrawer({
             {/* Grouped Action Plan card with shared edit/delete toolbar */}
             <div className="border border-canvas-border rounded-[10px] p-3 space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] leading-3 uppercase tracking-wider font-semibold text-ink-500">
+                <span className="text-[10.5px] uppercase tracking-wider font-semibold text-ink-500">
                   Action Plan
                 </span>
                 <div className="flex items-center gap-1">
@@ -785,7 +785,7 @@ export function ClassifyExceptionDrawer({
               </div>
 
               <div>
-                <label className="block text-[12px] leading-4 font-semibold text-ink-800 mb-2">
+                <label className="block text-[12.5px] font-semibold text-ink-800 mb-2">
                   Action Name <span className="text-risk">*</span>
                 </label>
                 <input
@@ -798,7 +798,7 @@ export function ClassifyExceptionDrawer({
               </div>
 
               <div>
-                <label className="block text-[12px] leading-4 font-semibold text-ink-800 mb-2">
+                <label className="block text-[12.5px] font-semibold text-ink-800 mb-2">
                   Action Details <span className="text-risk">*</span>
                 </label>
                 <div className="relative">
@@ -822,7 +822,7 @@ export function ClassifyExceptionDrawer({
             </div>
 
             <div>
-              <label className="block text-[12px] leading-4 font-semibold text-ink-800 mb-2">
+              <label className="block text-[12.5px] font-semibold text-ink-800 mb-2">
                 Due Date <span className="text-risk">*</span>
               </label>
               <div className="relative w-[220px]">
@@ -839,7 +839,7 @@ export function ClassifyExceptionDrawer({
         )}
 
         <div className="mb-5">
-          <label className="block text-[12px] leading-4 font-semibold text-ink-800 mb-2">
+          <label className="block text-[12.5px] font-semibold text-ink-800 mb-2">
             Comment <span className="text-risk">*</span>
           </label>
           <div className="relative">
@@ -868,13 +868,13 @@ export function ClassifyExceptionDrawer({
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-3 mb-0.5">
-                <div className="text-[12px] leading-4 text-ink-800">
+                <div className="text-[12.5px] text-ink-800">
                   <span className="font-semibold">Ira</span>{' '}
                   <span className="text-ink-500">(AI)</span>
                 </div>
                 <span className="text-[11px] text-ink-500 tabular-nums whitespace-nowrap">18 Apr 2026, 18:00</span>
               </div>
-              <p className="text-[12px] leading-4 text-ink-700 leading-snug">
+              <p className="text-[12.5px] text-ink-700 leading-snug">
                 Exception flagged by Ira (AI) with <span className="font-semibold text-brand-700 tabular-nums">94%</span> confidence
               </p>
             </div>
@@ -916,7 +916,7 @@ export function BulkActionGroupModal({
         <header className="shrink-0 px-6 py-5 flex items-start justify-between gap-4 border-b border-canvas-border">
           <div>
             <h2 className="font-display text-[20px] font-semibold text-ink-900 tracking-tight">Bulk Action Group</h2>
-            <p className="text-[12px] leading-4 text-ink-500 mt-0.5 font-mono tabular-nums">
+            <p className="text-[12.5px] text-ink-500 mt-0.5 font-mono tabular-nums">
               ID: {bulk.id} · {cases.length} cases
             </p>
           </div>
@@ -930,13 +930,13 @@ export function BulkActionGroupModal({
         </header>
         <div className="flex-1 overflow-y-auto px-6 py-5">
           <div className="border border-canvas-border rounded-[12px] overflow-hidden">
-            <table className="w-full text-[12px] leading-4">
+            <table className="w-full text-[12.5px]">
               <thead>
                 <tr className="bg-[#FAFAFB] border-b border-canvas-border text-left text-ink-500 uppercase tracking-wider">
-                  <th className="px-4 py-3 font-medium text-[10px] leading-3">Exception ID</th>
-                  <th className="px-4 py-3 font-medium text-[10px] leading-3">Severity</th>
-                  <th className="px-4 py-3 font-medium text-[10px] leading-3">Classification</th>
-                  <th className="px-4 py-3 font-medium text-[10px] leading-3">Action Review Status</th>
+                  <th className="px-4 py-3 font-medium text-[10.5px]">Exception ID</th>
+                  <th className="px-4 py-3 font-medium text-[10.5px]">Severity</th>
+                  <th className="px-4 py-3 font-medium text-[10.5px]">Classification</th>
+                  <th className="px-4 py-3 font-medium text-[10.5px]">Action Review Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -947,7 +947,7 @@ export function BulkActionGroupModal({
                   return (
                     <tr key={c.id} className="border-b border-canvas-border last:border-b-0">
                       <td className="px-4 py-3 align-middle">
-                        <span className="font-mono font-medium text-brand-700 text-[12px] leading-4">{c.id}</span>
+                        <span className="font-mono font-medium text-brand-700 text-[12.5px]">{c.id}</span>
                       </td>
                       <td className="px-4 py-3 align-middle">
                         <Pill className={SEVERITY_STYLE[c.severity]}>{c.severity}</Pill>

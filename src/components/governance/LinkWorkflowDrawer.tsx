@@ -63,7 +63,7 @@ export default function LinkWorkflowDrawer({ onClose, onLink, alreadyLinkedIds }
                 <Link2 size={18} className="text-brand-600" />
                 <h2 className="font-display text-[20px] font-semibold text-ink-900 tracking-tight">Link Workflow</h2>
               </div>
-              <p className="text-[12px] leading-4 text-ink-500 mt-0.5">Select a workflow from the Workflow Library to link to this control.</p>
+              <p className="text-[12.5px] text-ink-500 mt-0.5">Select a workflow from the Workflow Library to link to this control.</p>
             </div>
             <button
               onClick={onClose}
@@ -110,7 +110,7 @@ export default function LinkWorkflowDrawer({ onClose, onLink, alreadyLinkedIds }
             <div className="text-center py-12">
               <Workflow size={24} className="mx-auto text-ink-400 mb-2" />
               <p className="text-[13px] text-ink-500">No workflows available</p>
-              <p className="text-[12px] leading-4 text-ink-400 mt-0.5">All workflows are already linked or no matches found.</p>
+              <p className="text-[11.5px] text-ink-400 mt-0.5">All workflows are already linked or no matches found.</p>
             </div>
           ) : (
             filtered.map(wf => {

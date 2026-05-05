@@ -165,7 +165,7 @@ export default function ProgramsView({ onSelectBP, onNavigateToExecution, initia
                         <div>
                           <div className="flex items-center gap-2">
                             <span className="text-[14px] font-semibold text-text">{bp.name}</span>
-                            {bp.status === 'Draft' && <span className="px-1.5 h-4 rounded text-[10px] leading-3 font-bold bg-gray-100 text-gray-500">Draft</span>}
+                            {bp.status === 'Draft' && <span className="px-1.5 h-4 rounded text-[9px] font-bold bg-gray-100 text-gray-500">Draft</span>}
                           </div>
                           <div className="text-[11px] text-text-muted">{bp.abbr}</div>
                         </div>
@@ -487,7 +487,7 @@ function ProcessDetailView({ process, onBack, onUpdate }: {
                   <button onClick={handleUploadSOP} className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-[13px] font-semibold transition-colors cursor-pointer"><Upload size={14} />Upload SOP</button>
                 </div>
                 {sops.length === 0 ? (
-                  <div className="glass-card rounded-xl p-10 text-center"><Upload size={32} className="mx-auto text-ink-300 mb-3" /><p className="text-[14px] font-semibold text-ink-600 mb-1">No SOPs uploaded</p><p className="text-[12px] leading-4 text-ink-400 mb-4">Upload an SOP to help generate risks, controls, and RACM.</p><button onClick={handleUploadSOP} className="inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-[13px] font-semibold transition-colors cursor-pointer"><Upload size={14} />Upload SOP</button></div>
+                  <div className="glass-card rounded-xl p-10 text-center"><Upload size={32} className="mx-auto text-ink-300 mb-3" /><p className="text-[14px] font-semibold text-ink-600 mb-1">No SOPs uploaded</p><p className="text-[12.5px] text-ink-400 mb-4">Upload an SOP to help generate risks, controls, and RACM.</p><button onClick={handleUploadSOP} className="inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-[13px] font-semibold transition-colors cursor-pointer"><Upload size={14} />Upload SOP</button></div>
                 ) : (
                   <div className="space-y-3">
                     {sops.map(sop => (
@@ -520,7 +520,7 @@ function ProcessDetailView({ process, onBack, onUpdate }: {
                   <button onClick={handleCreateRACM} className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-[13px] font-semibold transition-colors cursor-pointer"><Plus size={14} />Create RACM</button>
                 </div>
                 {racms.length === 0 ? (
-                  <div className="glass-card rounded-xl p-10 text-center"><FileText size={32} className="mx-auto text-ink-300 mb-3" /><p className="text-[14px] font-semibold text-ink-600 mb-1">No RACMs created</p><p className="text-[12px] leading-4 text-ink-400 mb-4">Create a RACM to map risks and controls for this process.</p><button onClick={handleCreateRACM} className="inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-[13px] font-semibold transition-colors cursor-pointer"><Plus size={14} />Create RACM</button></div>
+                  <div className="glass-card rounded-xl p-10 text-center"><FileText size={32} className="mx-auto text-ink-300 mb-3" /><p className="text-[14px] font-semibold text-ink-600 mb-1">No RACMs created</p><p className="text-[12.5px] text-ink-400 mb-4">Create a RACM to map risks and controls for this process.</p><button onClick={handleCreateRACM} className="inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-[13px] font-semibold transition-colors cursor-pointer"><Plus size={14} />Create RACM</button></div>
                 ) : (
                   <div className="space-y-3">{racms.map(racm => (
                     <div key={racm.id} className="glass-card rounded-xl p-4 flex items-center justify-between">
@@ -543,7 +543,7 @@ function ProcessDetailView({ process, onBack, onUpdate }: {
                   <button onClick={handleAddRisk} className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-[13px] font-semibold transition-colors cursor-pointer"><Plus size={14} />Add Risk</button>
                 </div>
                 {risks.length === 0 ? (
-                  <div className="glass-card rounded-xl p-10 text-center"><AlertTriangle size={32} className="mx-auto text-ink-300 mb-3" /><p className="text-[14px] font-semibold text-ink-600 mb-1">No risks identified</p><p className="text-[12px] leading-4 text-ink-400 mb-4">Risks are typically mapped through the RACM. Add risks to build the risk profile.</p><button onClick={handleAddRisk} className="inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-[13px] font-semibold transition-colors cursor-pointer"><Plus size={14} />Add Risk</button></div>
+                  <div className="glass-card rounded-xl p-10 text-center"><AlertTriangle size={32} className="mx-auto text-ink-300 mb-3" /><p className="text-[14px] font-semibold text-ink-600 mb-1">No risks identified</p><p className="text-[12.5px] text-ink-400 mb-4">Risks are typically mapped through the RACM. Add risks to build the risk profile.</p><button onClick={handleAddRisk} className="inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-[13px] font-semibold transition-colors cursor-pointer"><Plus size={14} />Add Risk</button></div>
                 ) : (
                   <div className="glass-card rounded-xl overflow-hidden">
                     <table className="w-full text-[12px]">
@@ -572,7 +572,7 @@ function ProcessDetailView({ process, onBack, onUpdate }: {
                   <button onClick={handleMapControl} className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-[13px] font-semibold transition-colors cursor-pointer"><Plus size={14} />Map Control</button>
                 </div>
                 {controls.length === 0 ? (
-                  <div className="glass-card rounded-xl p-10 text-center"><Shield size={32} className="mx-auto text-ink-300 mb-3" /><p className="text-[14px] font-semibold text-ink-600 mb-1">No controls mapped</p><p className="text-[12px] leading-4 text-ink-400 mb-4">Map controls from the Control Library to this process.</p><button onClick={handleMapControl} className="inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-[13px] font-semibold transition-colors cursor-pointer"><Plus size={14} />Map Control</button></div>
+                  <div className="glass-card rounded-xl p-10 text-center"><Shield size={32} className="mx-auto text-ink-300 mb-3" /><p className="text-[14px] font-semibold text-ink-600 mb-1">No controls mapped</p><p className="text-[12.5px] text-ink-400 mb-4">Map controls from the Control Library to this process.</p><button onClick={handleMapControl} className="inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-[13px] font-semibold transition-colors cursor-pointer"><Plus size={14} />Map Control</button></div>
                 ) : (
                   <div className="glass-card rounded-xl overflow-hidden">
                     <table className="w-full text-[12px]">
@@ -601,7 +601,7 @@ function ProcessDetailView({ process, onBack, onUpdate }: {
                   <button onClick={handleLinkWorkflow} className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-[13px] font-semibold transition-colors cursor-pointer"><Plus size={14} />Link Workflow</button>
                 </div>
                 {wfs.length === 0 ? (
-                  <div className="glass-card rounded-xl p-10 text-center"><Workflow size={32} className="mx-auto text-ink-300 mb-3" /><p className="text-[14px] font-semibold text-ink-600 mb-1">No workflows linked</p><p className="text-[12px] leading-4 text-ink-400 mb-4">Link workflows to define how controls will be tested. Execution happens in engagements.</p><button onClick={handleLinkWorkflow} className="inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-[13px] font-semibold transition-colors cursor-pointer"><Plus size={14} />Link Workflow</button></div>
+                  <div className="glass-card rounded-xl p-10 text-center"><Workflow size={32} className="mx-auto text-ink-300 mb-3" /><p className="text-[14px] font-semibold text-ink-600 mb-1">No workflows linked</p><p className="text-[12.5px] text-ink-400 mb-4">Link workflows to define how controls will be tested. Execution happens in engagements.</p><button onClick={handleLinkWorkflow} className="inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-[13px] font-semibold transition-colors cursor-pointer"><Plus size={14} />Link Workflow</button></div>
                 ) : (
                   <div className="space-y-3">{wfs.map(w => (
                     <div key={w.id} className="glass-card rounded-xl p-4 flex items-center justify-between">
@@ -621,7 +621,7 @@ function ProcessDetailView({ process, onBack, onUpdate }: {
                   <button onClick={handleCreateEngagement} className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-[13px] font-semibold transition-colors cursor-pointer"><Plus size={14} />Create Engagement</button>
                 </div>
                 {engs.length === 0 ? (
-                  <div className="glass-card rounded-xl p-10 text-center"><Calendar size={32} className="mx-auto text-ink-300 mb-3" /><p className="text-[14px] font-semibold text-ink-600 mb-1">No engagements yet</p><p className="text-[12px] leading-4 text-ink-400 mb-4">Create an engagement when you are ready to execute testing for {bp.name}.</p><button onClick={handleCreateEngagement} className="inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-[13px] font-semibold transition-colors cursor-pointer"><Plus size={14} />Create Engagement for {bp.abbr}</button></div>
+                  <div className="glass-card rounded-xl p-10 text-center"><Calendar size={32} className="mx-auto text-ink-300 mb-3" /><p className="text-[14px] font-semibold text-ink-600 mb-1">No engagements yet</p><p className="text-[12.5px] text-ink-400 mb-4">Create an engagement when you are ready to execute testing for {bp.name}.</p><button onClick={handleCreateEngagement} className="inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-[13px] font-semibold transition-colors cursor-pointer"><Plus size={14} />Create Engagement for {bp.abbr}</button></div>
                 ) : (
                   <div className="space-y-3">{engs.map(e => (
                     <div key={e.id} className="glass-card rounded-xl p-4 flex items-center justify-between">

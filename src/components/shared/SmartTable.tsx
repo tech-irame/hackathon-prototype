@@ -149,7 +149,7 @@ export default function SmartTable<T extends Record<string, unknown>>({
 
       {/* Table */}
       <div className="overflow-x-auto">
-        <table className="w-full text-[12px] leading-4">
+        <table className="w-full text-[12.5px]">
           <thead>
             <tr className="bg-surface-2 border-b border-border-light">
               {expandable && <th className="w-8" />}

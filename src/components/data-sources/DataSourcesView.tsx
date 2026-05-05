@@ -254,7 +254,7 @@ function MenuItem({
       role="menuitem"
       type="button"
       onClick={onClick}
-      className={`w-full flex items-center gap-2.5 px-3 h-8 text-[12px] leading-4 font-medium text-left transition-colors cursor-pointer ${
+      className={`w-full flex items-center gap-2.5 px-3 h-8 text-[12.5px] font-medium text-left transition-colors cursor-pointer ${
         destructive
           ? 'text-risk-700 hover:bg-risk-50'
           : 'text-ink-800 hover:bg-paper-50'
@@ -512,7 +512,7 @@ export default function DataSourcesView() {
             <Plus size={14} />
             Add your first source
           </button>
-          <p className="text-[12px] leading-4 text-ink-400 mt-5">
+          <p className="text-[11.5px] text-ink-400 mt-5">
             Supports PDF · CSV · XLSX · DOC. Connect PostgreSQL · MySQL · Snowflake · Oracle · SQL Server · BigQuery.
           </p>
         </div>
@@ -542,7 +542,7 @@ export default function DataSourcesView() {
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
-                className={`relative flex items-center gap-1.5 px-3 h-8 rounded-md text-[12px] leading-4 font-medium transition-colors cursor-pointer ${
+                className={`relative flex items-center gap-1.5 px-3 h-8 rounded-md text-[12.5px] font-medium transition-colors cursor-pointer ${
                   isActive
                     ? 'bg-canvas-elevated text-brand-700 shadow-sm'
                     : 'text-ink-500 hover:text-ink-700'
@@ -640,7 +640,7 @@ export default function DataSourcesView() {
                   </p>
                   <button
                     onClick={clearAllFilters}
-                    className="inline-flex items-center gap-2 mt-4 px-3 h-9 rounded-md border border-brand-300 bg-brand-50 text-brand-700 text-[12px] leading-4 font-semibold hover:bg-brand-100 transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-2 mt-4 px-3 h-9 rounded-md border border-brand-300 bg-brand-50 text-brand-700 text-[12.5px] font-semibold hover:bg-brand-100 transition-colors cursor-pointer"
                   >
                     <X size={13} />
                     Clear filters

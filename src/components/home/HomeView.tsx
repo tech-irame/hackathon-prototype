@@ -110,7 +110,7 @@ function QuickActionPanel({ setView, onDismiss }: { setView: Props['setView']; o
             <span className="text-[13px] text-ink-800 font-medium">
               Setup {pct}% complete
             </span>
-            <span className="text-[12px] leading-4 text-ink-500 ml-2">
+            <span className="text-[12.5px] text-ink-500 ml-2">
               One step left{remaining ? ` — ${remaining.label.toLowerCase()}` : ''}.
             </span>
           </div>
@@ -292,11 +292,11 @@ function WorkQueueSection({ setView, rangeDays }: { setView: Props['setView']; r
       <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-canvas-border/60 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           <ClipboardCheck size={14} className="text-ink-500 shrink-0" />
-          <h3 className="text-[14px] leading-4 font-semibold text-ink-900 truncate">
+          <h3 className="text-[13.5px] font-semibold text-ink-900 truncate">
             <span className="tabular-nums"><CountUp value={items.length} /></span> items waiting on you
           </h3>
           {overdueCount > 0 && (
-            <span className="hidden sm:inline-flex items-center gap-1 text-[10px] leading-3 font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-risk-50 text-risk-700 border border-risk-200">
+            <span className="hidden sm:inline-flex items-center gap-1 text-[10.5px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-risk-50 text-risk-700 border border-risk-200">
               <AlertTriangle size={9} strokeWidth={2.5} />
               <span className="tabular-nums">{overdueCount}</span> overdue
             </span>
@@ -428,7 +428,7 @@ const STATUS_PILL_TONE: Record<StatusKind, { label: string; bg: string; text: st
 function StatusPill({ kind, label }: { kind: StatusKind; label?: string }) {
   const t = STATUS_PILL_TONE[kind];
   return (
-    <span className={`inline-flex items-center text-[10px] leading-3 font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${t.bg} ${t.text} ${t.border}`}>
+    <span className={`inline-flex items-center text-[9.5px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${t.bg} ${t.text} ${t.border}`}>
       {label ?? t.label}
     </span>
   );
@@ -549,10 +549,10 @@ function HealthTilesPicker({
               className="w-80 max-h-[80vh] overflow-y-auto rounded-xl border border-canvas-border bg-canvas-elevated shadow-[0_16px_48px_rgb(15_8_30_/_0.16),_0_4px_12px_rgb(15_8_30_/_0.06)]"
             >
               <div className="px-4 py-2 border-b border-canvas-border/60 bg-paper-50/40 flex items-center justify-between">
-                <span className="text-[10px] leading-3 font-mono uppercase tracking-wider text-ink-500">
+                <span className="text-[10.5px] font-mono uppercase tracking-wider text-ink-500">
                   Health snapshot tiles
                 </span>
-                <span className="text-[10px] leading-3 font-mono tabular-nums text-ink-500">
+                <span className="text-[10.5px] font-mono tabular-nums text-ink-500">
                   {visible.size}/{HEALTH_TILES.length}
                 </span>
               </div>
@@ -571,7 +571,7 @@ function HealthTilesPicker({
                         {isVisible && <Check size={10} strokeWidth={3} />}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className={`text-[12px] leading-4 font-medium ${isVisible ? 'text-ink-900' : 'text-ink-700'}`}>{tile.label}</div>
+                        <div className={`text-[12.5px] font-medium ${isVisible ? 'text-ink-900' : 'text-ink-700'}`}>{tile.label}</div>
                         <div className="text-[11px] text-ink-500 mt-0.5 leading-snug">{tile.description}</div>
                       </div>
                     </button>
@@ -698,7 +698,7 @@ function HealthDashboardSection({
       <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-canvas-border/60 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           <BarChart3 size={14} className="text-ink-500 shrink-0" />
-          <h3 className="text-[14px] leading-4 font-semibold text-ink-900 truncate">{
+          <h3 className="text-[13.5px] font-semibold text-ink-900 truncate">{
             dateRangeId === 'all'    ? 'FY26' :
             dateRangeId === 'qtd'    ? 'Quarterly' :
             dateRangeId === 'ytd'    ? 'Year-to-date' :
@@ -751,7 +751,7 @@ function HealthDashboardSection({
                 initial={{ y: 6, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 1.2, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                className="inline-flex items-center gap-1 text-[12px] leading-4 font-semibold text-compliant-700 bg-compliant-50 px-2 py-0.5 rounded-full"
+                className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-compliant-700 bg-compliant-50 px-2 py-0.5 rounded-full"
               >
                 <TrendingUp size={11} />
                 +<span className="tabular-nums"><CountUp value={completionPct > 0 ? Math.round(completionPct * 0.13) : 0} /></span>%
@@ -826,7 +826,7 @@ function HealthDashboardSection({
             </div>
             <div className="flex items-end gap-2">
               <div className="text-[32px] font-semibold leading-none tabular-nums text-ink-900"><CountUp value={riskTotal} /> risks</div>
-              <span className="inline-flex items-center gap-0.5 text-[10px] leading-3 font-semibold text-compliant-700 bg-compliant-50 border border-compliant-200 rounded px-1.5 py-0.5 mb-1">
+              <span className="inline-flex items-center gap-0.5 text-[10.5px] font-semibold text-compliant-700 bg-compliant-50 border border-compliant-200 rounded px-1.5 py-0.5 mb-1">
                 <TrendingUp size={9} className="rotate-180" strokeWidth={2.5} />
                 4% vs last quarter
               </span>
@@ -847,7 +847,7 @@ function HealthDashboardSection({
                 { value: riskHealthy,                                                  tone: 'bg-compliant',     label: 'mitigated' },
               ]}
             />
-            <div className="flex items-center gap-3 text-[10px] leading-3 text-ink-500">
+            <div className="flex items-center gap-3 text-[10.5px] text-ink-500">
               <span className="inline-flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-risk" /> Critical/High</span>
               <span className="inline-flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-mitigated" /> Med/Low</span>
               <span className="inline-flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-compliant" /> Mitigated</span>
@@ -887,7 +887,7 @@ function HealthDashboardSection({
                 { value: ctlOverdue,   tone: 'bg-mitigated-500', label: 'overdue'   },
               ]}
             />
-            <div className="flex items-center justify-between text-[10px] leading-3 text-ink-500 tabular-nums">
+            <div className="flex items-center justify-between text-[10.5px] text-ink-500 tabular-nums">
               <span><span className="font-semibold text-ink-700"><CountUp value={ctlPending} /></span> pending</span>
               <span><span className="font-semibold text-mitigated-700"><CountUp value={ctlOverdue} /></span> overdue</span>
             </div>
@@ -913,7 +913,7 @@ function HealthDashboardSection({
             <div className="flex items-end gap-2">
               <div className="text-[32px] font-semibold leading-none tabular-nums text-ink-900"><CountUp value={defTotal} /></div>
               {defTotal > 0 && (
-                <span className="inline-flex items-center gap-0.5 text-[10px] leading-3 font-semibold text-risk-700 bg-risk-50 border border-risk-200 rounded px-1.5 py-0.5 mb-1">
+                <span className="inline-flex items-center gap-0.5 text-[10.5px] font-semibold text-risk-700 bg-risk-50 border border-risk-200 rounded px-1.5 py-0.5 mb-1">
                   <TrendingUp size={9} strokeWidth={2.5} />
                   2 new this period
                 </span>
@@ -921,7 +921,7 @@ function HealthDashboardSection({
             </div>
             {/* Compact open/in-progress inline so it doesn't claim its own row.
                 Frees vertical space below for the expanded MW list. */}
-            <div className="text-[12px] leading-4 text-ink-500 mt-1 tabular-nums">
+            <div className="text-[11.5px] text-ink-500 mt-1 tabular-nums">
               <span className="font-semibold text-ink-700"><CountUp value={defOpen} /></span> open
               <span className="text-ink-300"> · </span>
               <span className="font-semibold text-ink-700"><CountUp value={defInProgress} /></span> in progress
@@ -970,13 +970,13 @@ function HealthDashboardSection({
                         />
                         <AlertTriangle size={9} strokeWidth={2.75} className="relative text-white" />
                       </span>
-                      <span className="inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 text-[10px] leading-3 font-bold tabular-nums rounded-full bg-risk text-white leading-none shrink-0">
+                      <span className="inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 text-[9.5px] font-bold tabular-nums rounded-full bg-risk text-white leading-none shrink-0">
                         <CountUp value={defMW} />
                       </span>
-                      <span className="text-[10px] leading-3 font-bold uppercase tracking-wider text-risk-700">
+                      <span className="text-[10.5px] font-bold uppercase tracking-wider text-risk-700">
                         Material weakness{defMW === 1 ? '' : 'es'}
                       </span>
-                      <span className="ml-auto inline-flex items-center gap-0.5 text-[10px] leading-3 font-bold uppercase tracking-wider text-risk-700 shrink-0 whitespace-nowrap">
+                      <span className="ml-auto inline-flex items-center gap-0.5 text-[10.5px] font-bold uppercase tracking-wider text-risk-700 shrink-0 whitespace-nowrap">
                         Escalate
                         <ArrowRight size={10} strokeWidth={2.5} />
                       </span>
@@ -991,7 +991,7 @@ function HealthDashboardSection({
                         </li>
                       ))}
                       {allMW.length > 3 && (
-                        <li className="text-[10px] leading-3 font-semibold text-risk-700 ml-3.5">
+                        <li className="text-[10.5px] font-semibold text-risk-700 ml-3.5">
                           +{allMW.length - 3} more · click to view all
                         </li>
                       )}
@@ -1047,7 +1047,7 @@ function HealthDashboardSection({
               </div>
               <span className="text-[12px] font-semibold text-brand-700">Compliance Score</span>
             </div>
-            <div className="text-[12px] leading-4 text-ink-500 font-medium">Across SOX · ITGC · IFC</div>
+            <div className="text-[12.5px] text-ink-500 font-medium">Across SOX · ITGC · IFC</div>
             {/* Sparkline — last 8 quarters of compliance score. Bumped to 40px
                 tall so the trend reads at a glance. */}
             <div className="mt-2" aria-hidden>
@@ -1119,7 +1119,7 @@ function HealthDashboardSection({
               const rowStatus: StatusKind = f.pct >= 70 ? 'on-track' : f.pct >= 50 ? 'watch' : 'action';
               return (
                 <div key={f.name}>
-                  <div className="flex items-center justify-between text-[12px] leading-4 mb-1">
+                  <div className="flex items-center justify-between text-[11.5px] mb-1">
                     <div className="flex items-center gap-1.5">
                       <span className="font-semibold text-ink-700">{f.name}</span>
                       <StatusPill kind={rowStatus} />
@@ -1204,7 +1204,7 @@ function HealthDashboardSection({
               <div className="text-[32px] font-semibold leading-none tabular-nums text-compliant-700">
                 <CountUp value={wfSuccessRate} />%
               </div>
-              <div className="text-[12px] leading-4 text-ink-500 font-medium tabular-nums">
+              <div className="text-[11.5px] text-ink-500 font-medium tabular-nums">
                 <span className="font-bold text-ink-800"><CountUp value={totalWorkflowRuns} /></span> runs <span className="text-ink-300">·</span> <span className="font-bold text-ink-800"><CountUp value={activeWorkflows} /></span> active
                 {wfExceptionsDetected > 0 && (
                   <> <span className="text-ink-300">·</span> <span className="text-risk-700 font-bold inline-flex items-center gap-0.5"><AlertTriangle size={9} /><CountUp value={wfExceptionsDetected} /> except.</span></>
@@ -1235,7 +1235,7 @@ function HealthDashboardSection({
             </div>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2">
               {wfTypeBreakdown.map(t => (
-                <span key={t.type} className="inline-flex items-center gap-1 text-[10px] leading-3 text-ink-700">
+                <span key={t.type} className="inline-flex items-center gap-1 text-[10.5px] text-ink-700">
                   <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
                   <span className="font-medium">{t.type}</span>
                   <span className="tabular-nums text-ink-500">{t.runs}</span>
@@ -1261,7 +1261,7 @@ function HealthDashboardSection({
             <button
               type="button"
               onClick={() => setView('workflow-library')}
-              className="text-[10px] leading-3 font-medium text-brand-700 hover:text-brand-800 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 rounded"
+              className="text-[10.5px] font-medium text-brand-700 hover:text-brand-800 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 rounded"
             >
               View library →
             </button>
@@ -1293,8 +1293,8 @@ function HealthDashboardSection({
                     <PulseDot tone="bg-compliant" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="text-[12px] leading-4 font-medium text-ink-900 truncate">{w.name}</span>
-                        <span className="shrink-0 inline-flex items-center text-[10px] leading-3 font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-brand-50 text-brand-700">{w.type}</span>
+                        <span className="text-[12.5px] font-medium text-ink-900 truncate">{w.name}</span>
+                        <span className="shrink-0 inline-flex items-center text-[9.5px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-brand-50 text-brand-700">{w.type}</span>
                       </div>
                     </div>
                     {/* Last-10-runs health strip — green = pass, red = fail.
@@ -1396,14 +1396,14 @@ function PlatformActivitySection({
       <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-canvas-border/60 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           <Bell size={14} className="text-ink-500 shrink-0" />
-          <h3 className="text-[14px] leading-4 font-semibold text-ink-900 truncate">Platform activity</h3>
+          <h3 className="text-[13.5px] font-semibold text-ink-900 truncate">Platform activity</h3>
           {unreadCount > 0 && (
-            <span className="inline-flex items-center text-[10px] leading-3 font-semibold tabular-nums text-brand-700 bg-brand-50 px-1.5 py-0.5 rounded-full shrink-0">
+            <span className="inline-flex items-center text-[10.5px] font-semibold tabular-nums text-brand-700 bg-brand-50 px-1.5 py-0.5 rounded-full shrink-0">
               {unreadCount}
             </span>
           )}
           {actionCount > 0 && (
-            <span className="inline-flex items-center text-[10px] leading-3 font-semibold tabular-nums text-risk-700 bg-risk-50 px-1.5 py-0.5 rounded-full shrink-0">
+            <span className="inline-flex items-center text-[10.5px] font-semibold tabular-nums text-risk-700 bg-risk-50 px-1.5 py-0.5 rounded-full shrink-0">
               {actionCount} action
             </span>
           )}
@@ -1423,7 +1423,7 @@ function PlatformActivitySection({
             <button
               key={f.id}
               onClick={() => setFilter(f.id)}
-              className={`relative shrink-0 inline-flex items-center h-6 px-2.5 rounded-full text-[12px] leading-4 font-medium border transition-colors cursor-pointer ${
+              className={`relative shrink-0 inline-flex items-center h-6 px-2.5 rounded-full text-[11.5px] font-medium border transition-colors cursor-pointer ${
                 active
                   ? 'border-transparent text-brand-700'
                   : 'bg-canvas-elevated text-ink-600 border-canvas-border hover:border-brand-200 hover:text-brand-700'
@@ -1560,7 +1560,7 @@ function RecentSharedSection({ setView, rangeDays }: { setView: Props['setView']
       <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-canvas-border/60 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           <Share2 size={14} className="text-ink-500 shrink-0" />
-          <h3 className="text-[14px] leading-4 font-semibold text-ink-900 truncate">Shared with you</h3>
+          <h3 className="text-[13.5px] font-semibold text-ink-900 truncate">Shared with you</h3>
         </div>
         <button
           onClick={() => setView('dashboards')}
@@ -1588,13 +1588,13 @@ function RecentSharedSection({ setView, rangeDays }: { setView: Props['setView']
                   <Icon size={10} className="shrink-0" />
                   <span className="truncate">{item.kind}</span>
                 </div>
-                <span className="text-[10px] leading-3 text-ink-400 tabular-nums whitespace-nowrap shrink-0">{item.timeAgo}</span>
+                <span className="text-[10.5px] text-ink-400 tabular-nums whitespace-nowrap shrink-0">{item.timeAgo}</span>
               </div>
               <div>
                 <div className="font-display text-[15px] leading-snug text-ink-900 line-clamp-1">{item.name}</div>
                 <div className="text-[12px] text-ink-500 line-clamp-2 mt-1">{item.description}</div>
               </div>
-              <div className="text-[12px] leading-4 text-ink-400 mt-auto">Shared by {item.sharedBy}</div>
+              <div className="text-[11.5px] text-ink-400 mt-auto">Shared by {item.sharedBy}</div>
             </button>
           );
         })}
@@ -1649,7 +1649,7 @@ function RecentAskIraSection({
       <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-canvas-border/60 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           <MessageSquare size={14} className="text-ink-500 shrink-0" />
-          <h3 className="text-[14px] leading-4 font-semibold text-ink-900 truncate">Pick up where you left off</h3>
+          <h3 className="text-[13.5px] font-semibold text-ink-900 truncate">Pick up where you left off</h3>
         </div>
         <button
           onClick={() => setView('recents')}
@@ -1696,7 +1696,7 @@ function ActiveEngagementsSection({ setView, rangeDays, openAuditExecution }: { 
       <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-canvas-border/60 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           <Briefcase size={14} className="text-ink-500 shrink-0" />
-          <h3 className="text-[14px] leading-4 font-semibold text-ink-900 truncate"><span className="tabular-nums"><CountUp value={items.length} /></span> active engagements</h3>
+          <h3 className="text-[13.5px] font-semibold text-ink-900 truncate"><span className="tabular-nums"><CountUp value={items.length} /></span> active engagements</h3>
         </div>
         <button onClick={() => setView('audit-execution')} className="text-[12px] font-medium text-ink-500 hover:text-brand-700 transition-colors cursor-pointer shrink-0">View all →</button>
       </div>
@@ -1766,7 +1766,7 @@ function OpenExceptionsSection({ setView, rangeDays }: { setView: Props['setView
       <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-canvas-border/60 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           <AlertOctagon size={14} className="text-ink-500 shrink-0" />
-          <h3 className="text-[14px] leading-4 font-semibold text-ink-900 truncate"><span className="tabular-nums"><CountUp value={totalOpen} /></span> open exceptions</h3>
+          <h3 className="text-[13.5px] font-semibold text-ink-900 truncate"><span className="tabular-nums"><CountUp value={totalOpen} /></span> open exceptions</h3>
         </div>
         <button onClick={() => setView('manage-exceptions')} className="text-[12px] font-medium text-ink-500 hover:text-brand-700 transition-colors cursor-pointer shrink-0">View all →</button>
       </div>
@@ -1901,8 +1901,8 @@ function TopWorkflowsSection({ setView, rangeDays, setSelectedWorkflow }: { setV
       <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-canvas-border/60 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           <Activity size={14} className="text-ink-500 shrink-0" />
-          <h3 className="text-[14px] leading-4 font-semibold text-ink-900 truncate">Workflow activity</h3>
-          <span className="hidden sm:inline-flex items-center text-[10px] leading-3 font-mono tabular-nums text-ink-500 ml-1">
+          <h3 className="text-[13.5px] font-semibold text-ink-900 truncate">Workflow activity</h3>
+          <span className="hidden sm:inline-flex items-center text-[10.5px] font-mono tabular-nums text-ink-500 ml-1">
             <span className="text-ink-700 font-bold mr-0.5">{totalRuns}</span> runs
             {failedCount > 0 && (
               <>
@@ -1932,7 +1932,7 @@ function TopWorkflowsSection({ setView, rangeDays, setSelectedWorkflow }: { setV
             <button
               key={f.id}
               onClick={() => setFilter(f.id)}
-              className={`relative shrink-0 inline-flex items-center h-6 px-2.5 rounded-full text-[12px] leading-4 font-medium border transition-colors cursor-pointer ${
+              className={`relative shrink-0 inline-flex items-center h-6 px-2.5 rounded-full text-[11.5px] font-medium border transition-colors cursor-pointer ${
                 active ? 'border-transparent text-brand-700' : 'bg-canvas-elevated text-ink-600 border-canvas-border hover:border-brand-200 hover:text-brand-700'
               }`}
             >
@@ -1960,8 +1960,8 @@ function TopWorkflowsSection({ setView, rangeDays, setSelectedWorkflow }: { setV
         ) : grouped.map(group => (
           <section key={group.label}>
             <div className="bg-paper-50/40 px-5 py-1.5 border-b border-canvas-border/60 flex items-center justify-between sticky top-0 backdrop-blur-sm z-10">
-              <span className="text-[10px] leading-3 font-mono uppercase tracking-wider text-ink-500 font-semibold">{group.label}</span>
-              <span className="text-[10px] leading-3 font-mono tabular-nums text-ink-400">
+              <span className="text-[10.5px] font-mono uppercase tracking-wider text-ink-500 font-semibold">{group.label}</span>
+              <span className="text-[10.5px] font-mono tabular-nums text-ink-400">
                 {group.items.length} {group.items.length === 1 ? 'run' : 'runs'}
               </span>
             </div>
@@ -2062,8 +2062,8 @@ function ConnectedSourcesSection({ setView, rangeDays }: { setView: Props['setVi
       <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-canvas-border/60 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           <Database size={14} className="text-ink-500 shrink-0" />
-          <h3 className="text-[14px] leading-4 font-semibold text-ink-900 truncate"><span className="tabular-nums"><CountUp value={connected} /></span> of <CountUp value={DATA_SOURCES.length} /> connected</h3>
-          <span className="hidden sm:inline-flex items-center text-[10px] leading-3 font-mono tabular-nums text-ink-500 ml-1">
+          <h3 className="text-[13.5px] font-semibold text-ink-900 truncate"><span className="tabular-nums"><CountUp value={connected} /></span> of <CountUp value={DATA_SOURCES.length} /> connected</h3>
+          <span className="hidden sm:inline-flex items-center text-[10.5px] font-mono tabular-nums text-ink-500 ml-1">
             <span className="mx-1 text-ink-300">·</span>
             <span className="text-ink-700 font-bold mr-0.5">{syncsInRange}</span>
             synced{rangeDays === null ? ' YTD' : ` · ${rangeDays}d`}
@@ -2084,7 +2084,7 @@ function ConnectedSourcesSection({ setView, rangeDays }: { setView: Props['setVi
                   <span className="text-[13px] font-medium text-ink-900 truncate">{s.name}</span>
                   <span className={`shrink-0 inline-flex items-center text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${SOURCE_TYPE_TONE[s.type] ?? 'bg-canvas-border/40 text-ink-700'}`}>{s.type}</span>
                 </div>
-                <div className="text-[12px] leading-4 text-ink-500 mt-0.5">
+                <div className="text-[11.5px] text-ink-500 mt-0.5">
                   <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 ${ok ? 'bg-compliant' : 'bg-risk'}`} />
                   {ok ? `Synced ${s.lastSync}` : 'Disconnected'} · <span className="tabular-nums">{s.records}</span> records
                 </div>
@@ -2107,7 +2107,7 @@ function BusinessProcessesSection({ setView, rangeDays, setSelectedBP }: { setVi
       <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-canvas-border/60 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           <Layers size={14} className="text-ink-500 shrink-0" />
-          <h3 className="text-[14px] leading-4 font-semibold text-ink-900 truncate">Business processes</h3>
+          <h3 className="text-[13.5px] font-semibold text-ink-900 truncate">Business processes</h3>
         </div>
         <button onClick={() => setView('business-processes')} className="text-[12px] font-medium text-ink-500 hover:text-brand-700 transition-colors cursor-pointer shrink-0">View all →</button>
       </div>
@@ -2126,9 +2126,9 @@ function BusinessProcessesSection({ setView, rangeDays, setSelectedBP }: { setVi
               >
                 {bp.abbr}
               </span>
-              <span className="text-[10px] leading-3 tabular-nums font-semibold" style={{ color: bp.color }}>{bp.coverage}%</span>
+              <span className="text-[10.5px] tabular-nums font-semibold" style={{ color: bp.color }}>{bp.coverage}%</span>
             </div>
-            <div className="text-[12px] leading-4 font-medium text-ink-900 truncate">{bp.name}</div>
+            <div className="text-[12.5px] font-medium text-ink-900 truncate">{bp.name}</div>
             <div className="mt-1.5 h-1 rounded-full bg-canvas-border/40 overflow-hidden">
               <motion.div
                 initial={{ width: 0 }}
@@ -2138,7 +2138,7 @@ function BusinessProcessesSection({ setView, rangeDays, setSelectedBP }: { setVi
                 style={{ backgroundColor: bp.color }}
               />
             </div>
-            <div className="text-[10px] leading-3 text-ink-500 mt-1.5 tabular-nums">
+            <div className="text-[10.5px] text-ink-500 mt-1.5 tabular-nums">
               {Math.round(bp.risks * scale)} risks · {Math.round(bp.controls * scale)} controls
             </div>
           </button>
@@ -2172,7 +2172,7 @@ function RecentReportsSection({
       <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-canvas-border/60 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           <FileText size={14} className="text-ink-500 shrink-0" />
-          <h3 className="text-[14px] leading-4 font-semibold text-ink-900 truncate">
+          <h3 className="text-[13.5px] font-semibold text-ink-900 truncate">
             <span className="tabular-nums"><CountUp value={items.length} /></span> recent reports
           </h3>
         </div>
@@ -2200,7 +2200,7 @@ function RecentReportsSection({
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="text-[13px] text-ink-900 truncate">{r.name}</span>
-                  <span className={`shrink-0 inline-flex items-center text-[10px] leading-3 font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${REPORT_STATUS_TONE[r.status] ?? 'bg-canvas-border/40 text-ink-700'}`}>{r.status}</span>
+                  <span className={`shrink-0 inline-flex items-center text-[9.5px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${REPORT_STATUS_TONE[r.status] ?? 'bg-canvas-border/40 text-ink-700'}`}>{r.status}</span>
                 </div>
                 <div className="text-[11px] text-ink-500 mt-0.5 tabular-nums">
                   {r.generatedBy} · {r.generatedAt} · {r.pages}p
@@ -2234,8 +2234,8 @@ function ConciergeSection({ setView, rangeDays }: { setView: Props['setView']; r
       <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-canvas-border/60 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           <Sparkles size={14} className="text-ink-500 shrink-0" />
-          <h3 className="text-[14px] leading-4 font-semibold text-ink-900 truncate">AI Concierge</h3>
-          <span className="hidden sm:inline-flex items-center text-[10px] leading-3 font-mono tabular-nums text-ink-500 ml-1">
+          <h3 className="text-[13.5px] font-semibold text-ink-900 truncate">AI Concierge</h3>
+          <span className="hidden sm:inline-flex items-center text-[10.5px] font-mono tabular-nums text-ink-500 ml-1">
             <span className="mx-1 text-ink-300">·</span>
             <span className="text-ink-700 font-bold mr-0.5">{usedInRange}</span>
             runs{rangeDays === null ? ' YTD' : ` · ${rangeDays}d`}
@@ -2257,7 +2257,7 @@ function ConciergeSection({ setView, rangeDays }: { setView: Props['setView']; r
               </div>
               <div className="flex-1 min-w-0">
                 <div className="text-[13px] font-medium text-ink-900 truncate">{tool.label}</div>
-                <div className="text-[12px] leading-4 text-ink-500 mt-0.5 line-clamp-1">{tool.description}</div>
+                <div className="text-[11.5px] text-ink-500 mt-0.5 line-clamp-1">{tool.description}</div>
               </div>
               <ArrowRight size={13} className="text-ink-400 group-hover:text-brand-700 shrink-0" />
             </button>
@@ -2396,7 +2396,7 @@ function AuditCalendarSection({ setView, rangeDays, openAuditExecution }: { setV
       <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-canvas-border/60 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           <Calendar size={14} className="text-ink-500 shrink-0" />
-          <h3 className="text-[14px] leading-4 font-semibold text-ink-900 truncate">
+          <h3 className="text-[13.5px] font-semibold text-ink-900 truncate">
             <span className="tabular-nums"><CountUp value={events.length} /></span> upcoming
           </h3>
         </div>
@@ -2412,8 +2412,8 @@ function AuditCalendarSection({ setView, rangeDays, openAuditExecution }: { setV
         ) : grouped.map(group => (
           <section key={group.label}>
             <div className="bg-paper-50/40 px-5 py-1.5 border-b border-canvas-border/60 flex items-center justify-between sticky top-0 backdrop-blur-sm z-10">
-              <span className="text-[10px] leading-3 font-mono uppercase tracking-wider text-ink-500 font-semibold">{group.label}</span>
-              <span className="text-[10px] leading-3 font-mono tabular-nums text-ink-400">
+              <span className="text-[10.5px] font-mono uppercase tracking-wider text-ink-500 font-semibold">{group.label}</span>
+              <span className="text-[10.5px] font-mono tabular-nums text-ink-400">
                 {group.items.length} {group.items.length === 1 ? 'event' : 'events'}
               </span>
             </div>
@@ -2482,7 +2482,7 @@ function PinnedSection({
       <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-canvas-border/60 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           <Star size={14} className="text-mitigated-700 shrink-0" fill="currentColor" />
-          <h3 className="text-[14px] leading-4 font-semibold text-ink-900 truncate">
+          <h3 className="text-[13.5px] font-semibold text-ink-900 truncate">
             Pinned <span className="text-ink-500 font-normal tabular-nums">· {total}</span>
           </h3>
         </div>
@@ -2900,7 +2900,7 @@ function WidgetPreview({ kind }: { kind: WidgetKey }) {
           {rows.map((r, i) => (
             <div key={i} className="relative px-3 py-2 border-b border-canvas-border last:border-0 bg-brand-50/30 flex-1">
               <span className={`absolute left-0 top-2 bottom-2 w-0.5 rounded-r-full ${r.stripe}`} />
-              <div className="text-[10px] leading-3 font-medium text-ink-900 truncate">{r.title}</div>
+              <div className="text-[9px] font-medium text-ink-900 truncate">{r.title}</div>
               <div className="h-1 w-3/4 rounded-full bg-ink-200/60 mt-1" />
             </div>
           ))}
@@ -3515,7 +3515,7 @@ function DateRangeDropdown({
               className="w-64 rounded-xl border border-canvas-border bg-canvas-elevated shadow-[0_16px_48px_rgb(15_8_30_/_0.16),_0_4px_12px_rgb(15_8_30_/_0.06)] overflow-hidden"
             >
               <div className="px-4 py-2 border-b border-canvas-border/60 bg-paper-50/40">
-                <span className="text-[10px] leading-3 font-mono uppercase tracking-wider text-ink-500">Period</span>
+                <span className="text-[10.5px] font-mono uppercase tracking-wider text-ink-500">Period</span>
               </div>
               <div className="py-1">
                 {DATE_RANGE_OPTIONS.map(opt => {
@@ -3669,7 +3669,7 @@ function PersonaDropdown({
             >
               <div className="px-4 py-2 border-b border-canvas-border/60 bg-paper-50/40 flex items-center gap-2">
                 <Shield size={11} className="text-ink-400" />
-                <span className="text-[10px] leading-3 font-mono uppercase tracking-wider text-ink-500">
+                <span className="text-[10.5px] font-mono uppercase tracking-wider text-ink-500">
                   Set by administrator · demo only
                 </span>
               </div>
@@ -3688,7 +3688,7 @@ function PersonaDropdown({
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className={`text-[13px] font-semibold ${active ? 'text-brand-800' : 'text-ink-900'}`}>{p.label}</div>
-                      <div className="text-[12px] leading-4 text-ink-500 mt-0.5 leading-snug">{p.description}</div>
+                      <div className="text-[11.5px] text-ink-500 mt-0.5 leading-snug">{p.description}</div>
                     </div>
                     {active && <Check size={14} className="text-brand-700 shrink-0 mt-1" />}
                   </button>
@@ -3952,7 +3952,7 @@ function CompactLayout({
     return (
       <div className="rounded-2xl border border-dashed border-canvas-border bg-canvas-elevated/50 p-10 text-center">
         <p className="text-[14px] text-ink-700 font-medium">Compact layout unavailable</p>
-        <p className="text-[12px] leading-4 text-ink-500 mt-1">
+        <p className="text-[12.5px] text-ink-500 mt-1">
           react-grid-layout couldn&rsquo;t initialize (likely a v1/v2 API mismatch).
         </p>
       </div>
@@ -3963,7 +3963,7 @@ function CompactLayout({
     <div className={editMode ? 'home-edit-mode' : ''}>
       {editMode && (
         <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-brand-200 bg-brand-50/40 px-4 py-2.5">
-          <div className="flex items-center gap-2 text-[12px] leading-4 text-brand-800">
+          <div className="flex items-center gap-2 text-[12.5px] text-brand-800">
             <GripVertical size={14} className="text-brand-600" />
             <span>Drag any tile to reposition. Drag the bottom-right corner to resize.</span>
           </div>
@@ -4297,7 +4297,7 @@ export default function HomeView({
                       <button
                         type="button"
                         onClick={() => setView('findings')}
-                        className="ml-1 inline-flex items-center gap-1 align-middle text-[12px] leading-4 font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-risk-50 text-risk-700 border border-risk-200 hover:bg-risk-100 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-risk-400"
+                        className="ml-1 inline-flex items-center gap-1 align-middle text-[11.5px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-risk-50 text-risk-700 border border-risk-200 hover:bg-risk-100 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-risk-400"
                       >
                         <AlertOctagon size={11} strokeWidth={2.5} />
                         <span className="tabular-nums">{mwCount}</span>
@@ -4361,7 +4361,7 @@ export default function HomeView({
             {!editMode && visibleWidgets.length > 0 && (
               <button
                 onClick={() => setEditMode(true)}
-                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-canvas-border bg-canvas-elevated hover:border-brand-200 hover:text-brand-700 text-[12px] leading-4 font-medium text-ink-700 transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-canvas-border bg-canvas-elevated hover:border-brand-200 hover:text-brand-700 text-[12.5px] font-medium text-ink-700 transition-colors cursor-pointer"
               >
                 <GripVertical size={13} />
                 Customize layout
@@ -4373,7 +4373,7 @@ export default function HomeView({
         {visibleWidgets.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-canvas-border bg-canvas-elevated/50 p-10 text-center">
             <p className="text-[14px] text-ink-700 font-medium">No widgets enabled</p>
-            <p className="text-[12px] leading-4 text-ink-500 mt-1">Use the &ldquo;Add widget&rdquo; button below to bring widgets back.</p>
+            <p className="text-[12.5px] text-ink-500 mt-1">Use the &ldquo;Add widget&rdquo; button below to bring widgets back.</p>
           </div>
         ) : isTransitioning ? (
           <div className="grid grid-cols-12 gap-5">
@@ -4405,13 +4405,13 @@ export default function HomeView({
             whileTap={{ scale: editorOpen ? 1 : 0.97 }}
             animate={{ opacity: editorOpen ? 0 : 1 }}
             transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-            className={`relative z-30 inline-flex items-center justify-center gap-2.5 h-12 px-7 rounded-full text-[14px] leading-4 font-semibold transition-[background-color,border-color,color,box-shadow] duration-200 bg-canvas-elevated border border-dashed border-brand-200 text-brand-600 hover:bg-brand-50 hover:border-brand-300 shadow-[0_2px_8px_rgb(15_8_30_/_0.04)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 ${
+            className={`relative z-30 inline-flex items-center justify-center gap-2.5 h-12 px-7 rounded-full text-[13.5px] font-semibold transition-[background-color,border-color,color,box-shadow] duration-200 bg-canvas-elevated border border-dashed border-brand-200 text-brand-600 hover:bg-brand-50 hover:border-brand-300 shadow-[0_2px_8px_rgb(15_8_30_/_0.04)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 ${
               editorOpen ? 'pointer-events-none' : 'cursor-pointer'
             }`}
           >
             <Plus size={15} strokeWidth={2.5} />
             <span>Add widget</span>
-            <span className="text-[12px] leading-4 font-medium tabular-nums text-ink-400">
+            <span className="text-[11.5px] font-medium tabular-nums text-ink-400">
               {widgets.filter(w => w.visible).length}/{widgets.length}
             </span>
           </motion.button>

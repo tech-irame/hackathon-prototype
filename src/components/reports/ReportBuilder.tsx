@@ -227,8 +227,8 @@ export default function ReportBuilder({ context, onBack, initialTitle, onSaveAsT
 
               {/* Report Footer */}
               <div className="px-8 py-3 border-t border-border-light flex items-center justify-between" style={{ background: `${templateThemeColor}08` }}>
-                <span className="text-[10px] leading-3 text-text-muted">{templateFooter}</span>
-                <span className="text-[10px] leading-3 text-text-muted">Page 1 of 1</span>
+                <span className="text-[9px] text-text-muted">{templateFooter}</span>
+                <span className="text-[9px] text-text-muted">Page 1 of 1</span>
               </div>
             </div>
           </div>
