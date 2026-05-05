@@ -473,7 +473,7 @@ function StatusPill({ kind, label }: { kind: StatusKind; label?: string }) {
 // per user. State is independent from the page-level widget catalogue.
 
 type HealthTileKey =
-  | 'completion' | 'risk' | 'controls' | 'deficiencies'
+  | 'completion' | 'risk' | 'controls'
   | 'compliance' | 'coverage' | 'calendar' | 'wf-performance' | 'top-workflows';
 
 // Note: the former 'workflow-kpi' tile (runs-this-period sparkline) was merged
@@ -484,7 +484,6 @@ const HEALTH_TILES: { id: HealthTileKey; label: string; description: string }[] 
   { id: 'completion',     label: 'FY26 Completion',      description: 'Hero KPI with trend chart' },
   { id: 'risk',           label: 'Risk overview',         description: 'Severity stacked pill' },
   { id: 'controls',       label: 'Controls',              description: 'Effective / pending / overdue' },
-  { id: 'deficiencies',   label: 'Open deficiencies',     description: 'Material weakness flag' },
   { id: 'compliance',     label: 'Compliance Score',      description: 'Donut ring + 8-point trend sparkline' },
   { id: 'coverage',       label: 'Framework Coverage',    description: 'SOX / ITGC / IFC bars' },
   { id: 'calendar',       label: 'Next audit',            description: 'Days until next audit' },
@@ -735,7 +734,7 @@ function HealthDashboardSection({
 
   return (
     <div className="rounded-xl border border-canvas-border/70 bg-canvas-elevated shadow-[0_1px_2px_rgb(15_15_20_/_0.04),_0_4px_12px_rgb(15_15_20_/_0.03)] overflow-hidden h-full flex flex-col">
-      <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-canvas-border/60 shrink-0">
+      <div className="flex items-center justify-between gap-3 px-5 py-2 border-b border-canvas-border/60 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           <BarChart3 size={14} className="text-ink-500 shrink-0" />
           <h3 className="text-[13.5px] font-semibold text-ink-900 truncate">{
@@ -755,8 +754,8 @@ function HealthDashboardSection({
         variants={HEALTH_GRID_VARIANTS}
         initial="hidden"
         animate="show"
-        className={`flex-1 overflow-auto p-4 grid grid-flow-row-dense gap-3 ${visibleTiles.size === 1 ? 'grid-cols-1 [&>*]:!col-span-1 [&>*]:!row-span-1' : 'grid-cols-12'}`}
-        style={{ gridAutoRows: 'minmax(180px, auto)' }}
+        className={`flex-1 overflow-hidden p-3 grid grid-flow-row-dense gap-3 ${visibleTiles.size === 1 ? 'grid-cols-1 [&>*]:!col-span-1 [&>*]:!row-span-1' : 'grid-cols-12'}`}
+        style={{ gridAutoRows: '220px' }}
       >
         {/* ── FY26 Completion — primary hero tile.
             Layout: FY26 brand pill + caption → giant gradient % + delta chip →
@@ -808,7 +807,7 @@ function HealthDashboardSection({
               onClick={() => setView('audit-planning')}
               aria-label="Open audit planning"
               variants={HEALTH_TILE_VARIANTS}
-              className="text-left col-span-5 row-span-2 order-1 rounded-2xl p-6 flex flex-col gap-5 border border-canvas-border bg-white relative overflow-hidden cursor-pointer transition-[box-shadow,border-color] duration-300 ease-out hover:border-brand-300 hover:shadow-[0_0_0_1px_rgb(136_56_222_/_0.15),_0_8px_24px_rgb(136_56_222_/_0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
+              className="text-left col-span-4 row-span-2 order-1 rounded-2xl p-6 flex flex-col gap-5 border border-canvas-border bg-white relative overflow-hidden cursor-pointer transition-[box-shadow,border-color] duration-300 ease-out hover:border-brand-300 hover:shadow-[0_0_0_1px_rgb(15_8_30_/_0.06),_0_12px_28px_rgb(15_8_30_/_0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
             >
               {/* Aurora — pulled WAY back. The previous 14% alpha was washing
                   everything in pink and killing chart contrast. 5% is just
@@ -833,7 +832,7 @@ function HealthDashboardSection({
                   a side column. */}
               <div className="relative flex items-center justify-center flex-1">
                 {(() => {
-                  const size = 280;
+                  const size = 260;
                   const cx = size / 2, cy = size / 2, r = size / 2 - 8;
                   const pct = Math.max(0, Math.min(100, completionPct));
                   const angle = (pct / 100) * 2 * Math.PI;
@@ -883,7 +882,7 @@ function HealthDashboardSection({
                           <motion.text
                             x={exLx} y={exLy}
                             textAnchor="middle" dominantBaseline="central"
-                            fontSize="44" fontFamily="Inter, sans-serif" fontWeight="700"
+                            fontSize="42" fontFamily="Inter, sans-serif" fontWeight="700"
                             fill="white"
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
@@ -896,7 +895,7 @@ function HealthDashboardSection({
                           <motion.text
                             x={remLx} y={remLy}
                             textAnchor="middle" dominantBaseline="central"
-                            fontSize="26" fontFamily="Inter, sans-serif" fontWeight="700"
+                            fontSize="30" fontFamily="Inter, sans-serif" fontWeight="700"
                             fill="var(--color-brand-700)"
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
@@ -952,7 +951,7 @@ function HealthDashboardSection({
           onClick={() => setView('audit-risk-register')}
           aria-label="Open risk register"
           variants={HEALTH_TILE_VARIANTS}
-          className="relative text-left col-span-5 order-6 rounded-2xl p-5 flex flex-col justify-between border bg-canvas-elevated border-canvas-border/60 cursor-pointer transition-[box-shadow,border-color] duration-300 ease-out hover:shadow-[0_0_0_1px_rgb(15_8_30_/_0.06),_0_12px_28px_rgb(15_8_30_/_0.08)] hover:border-mitigated-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mitigated-400"
+          className="relative text-left col-span-4 order-6 rounded-2xl p-5 flex flex-col justify-between border bg-canvas-elevated border-canvas-border/60 cursor-pointer transition-[box-shadow,border-color] duration-300 ease-out hover:shadow-[0_0_0_1px_rgb(15_8_30_/_0.06),_0_12px_28px_rgb(15_8_30_/_0.08)] hover:border-brand-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
         >
           <div className="absolute top-3 right-3 z-10"><StatusPill kind={riskStatus} /></div>
           <div>
@@ -1046,97 +1045,6 @@ function HealthDashboardSection({
           </div>
         </motion.button>}
 
-        {/* ── Deficiencies — stacked pill + conditional glow when MW > 0 ── */}
-        {showTile('deficiencies') && (() => {
-          const sdCount = Math.round(DEFICIENCIES.filter(d => d.severity === 'SD' && d.status !== 'resolved').length * scale);
-          const dCount  = Math.round(DEFICIENCIES.filter(d => d.severity === 'D'  && d.status !== 'resolved').length * scale);
-          const allMW   = DEFICIENCIES.filter(d => d.severity === 'MW' && d.status !== 'resolved');
-          const sevRows = [
-            { code: 'MW', label: 'Material weakness',     count: defMW,   tone: 'bg-risk/85'     },
-            { code: 'SD', label: 'Significant deficiency', count: sdCount, tone: 'bg-risk/50'     },
-            { code: 'D',  label: 'Deficiency',             count: dCount,  tone: 'bg-mitigated/75' },
-          ];
-          const sevMax = Math.max(1, ...sevRows.map(r => r.count));
-          return (
-            <motion.button
-              type="button"
-              onClick={() => setView('findings')}
-              aria-label="Open findings and deficiencies"
-              variants={HEALTH_TILE_VARIANTS}
-              className="relative text-left col-span-7 order-8 rounded-2xl p-5 flex flex-col gap-4 border bg-canvas-elevated border-canvas-border/60 cursor-pointer transition-[box-shadow,border-color] duration-300 ease-out hover:shadow-[0_0_0_1px_rgb(15_8_30_/_0.06),_0_12px_28px_rgb(15_8_30_/_0.08)] hover:border-risk-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-risk-400"
-            >
-              {/* Header — caption + total count badge */}
-              <div className="flex items-center gap-2">
-                <ShieldAlert size={14} className="text-ink-400 shrink-0" strokeWidth={1.75} />
-                <span className="text-xs font-semibold text-ink-500 uppercase tracking-wider">Open deficiencies</span>
-                <span className="ml-auto text-xs text-ink-500 tabular-nums">
-                  <span className="font-semibold text-ink-900"><CountUp value={defTotal} /></span> total
-                  <span className="text-ink-300"> · </span>
-                  <span className="font-semibold text-ink-900"><CountUp value={defOpen} /></span> open
-                  <span className="text-ink-300"> · </span>
-                  <span className="font-semibold text-ink-900"><CountUp value={defInProgress} /></span> in progress
-                </span>
-              </div>
-
-              {/* Severity cards — three columns, stretch to fill available
-                  vertical space so the tile looks balanced whether or not the
-                  MW finding row renders. Card content is anchored top so the
-                  count stays at the top regardless of card height. */}
-              <div className="grid grid-cols-3 gap-3 flex-1">
-                {/* MW card */}
-                <div className={`relative rounded-xl p-3.5 border border-canvas-border/60 flex flex-col ${defMW > 0 ? 'bg-risk-50' : 'bg-canvas'}`}>
-                  <div className="flex items-center gap-1.5 mb-1.5">
-                    <AlertTriangle size={12} className={defMW > 0 ? 'text-risk-700' : 'text-ink-400'} strokeWidth={2.25} />
-                    <span className={`text-[10px] font-bold uppercase tracking-wider ${defMW > 0 ? 'text-risk-700' : 'text-ink-500'}`}>Material weakness</span>
-                  </div>
-                  <div className={`text-[40px] font-semibold leading-none tabular-nums ${defMW > 0 ? 'text-risk-700' : 'text-ink-300'}`}>
-                    <CountUp value={defMW} />
-                  </div>
-                </div>
-
-                {/* SD card */}
-                <div className={`relative rounded-xl p-3.5 border border-canvas-border/60 flex flex-col ${sdCount > 0 ? 'bg-mitigated-50' : 'bg-canvas'}`}>
-                  <div className="flex items-center gap-1.5 mb-1.5">
-                    <ShieldAlert size={12} className={sdCount > 0 ? 'text-mitigated-700' : 'text-ink-400'} strokeWidth={2.25} />
-                    <span className={`text-[10px] font-bold uppercase tracking-wider ${sdCount > 0 ? 'text-mitigated-700' : 'text-ink-500'}`}>Significant</span>
-                  </div>
-                  <div className={`text-[40px] font-semibold leading-none tabular-nums ${sdCount > 0 ? 'text-mitigated-700' : 'text-ink-300'}`}>
-                    <CountUp value={sdCount} />
-                  </div>
-                </div>
-
-                {/* D card */}
-                <div className="relative rounded-xl p-3.5 border border-canvas-border/60 flex flex-col bg-canvas">
-                  <div className="flex items-center gap-1.5 mb-1.5">
-                    <Shield size={12} className={dCount > 0 ? 'text-ink-700' : 'text-ink-400'} strokeWidth={2.25} />
-                    <span className={`text-[10px] font-bold uppercase tracking-wider ${dCount > 0 ? 'text-ink-700' : 'text-ink-500'}`}>Deficiency</span>
-                  </div>
-                  <div className={`text-[40px] font-semibold leading-none tabular-nums ${dCount > 0 ? 'text-ink-900' : 'text-ink-300'}`}>
-                    <CountUp value={dCount} />
-                  </div>
-                </div>
-              </div>
-
-              {/* MW finding — quiet inline row, no box, no tint. The MW card
-                  above already signals severity; this row just surfaces the
-                  actual finding text + an escalate hint. Data drives whether
-                  it renders, no empty state needed. */}
-              {defMW > 0 && (
-                <div className="flex items-center gap-2 pt-3 mt-auto border-t border-canvas-border/70">
-                  <AlertTriangle size={12} className="text-risk-700 shrink-0" strokeWidth={2.25} />
-                  <span className="text-xs text-ink-700 truncate flex-1 min-w-0">
-                    <span className="font-semibold text-ink-900">{allMW[0]?.finding}</span>
-                    {allMW.length > 1 && <span className="text-ink-500 ml-1">· +{allMW.length - 1} more</span>}
-                  </span>
-                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-brand-700 hover:text-brand-800 shrink-0 whitespace-nowrap">
-                    Escalate <ArrowRight size={11} strokeWidth={2.5} />
-                  </span>
-                </div>
-              )}
-            </motion.button>
-          );
-        })()}
-
         {/* ── Row 3 — Compliance Score
             Layout: header → side-by-side (donut + delta context) → 8-quarter
             bar chart → weakest-framework callout. The donut visualizes the
@@ -1155,7 +1063,7 @@ function HealthDashboardSection({
               onClick={() => setView('dashboards')}
               aria-label="Open compliance posture"
               variants={HEALTH_TILE_VARIANTS}
-              className="text-left col-span-4 order-2 rounded-2xl p-5 flex flex-col gap-3 border bg-canvas-elevated border-canvas-border/60 relative overflow-hidden cursor-pointer transition-[box-shadow,border-color] duration-300 ease-out hover:shadow-[0_0_0_1px_rgb(15_8_30_/_0.06),_0_12px_28px_rgb(15_8_30_/_0.08)] hover:border-brand-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+              className="text-left col-span-5 order-2 rounded-2xl p-5 flex flex-col gap-3 border bg-canvas-elevated border-canvas-border/60 relative overflow-hidden cursor-pointer transition-[box-shadow,border-color] duration-300 ease-out hover:shadow-[0_0_0_1px_rgb(15_8_30_/_0.06),_0_12px_28px_rgb(15_8_30_/_0.08)] hover:border-brand-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
             >
               <div className="absolute top-3 right-3 z-10"><StatusPill kind={complianceStatus} /></div>
 
@@ -1258,7 +1166,7 @@ function HealthDashboardSection({
           onClick={() => setView('governance-controls')}
           aria-label="Open framework coverage"
           variants={HEALTH_TILE_VARIANTS}
-          className="relative text-left col-span-4 order-4 rounded-2xl p-5 flex flex-col gap-4 border bg-canvas-elevated border-canvas-border/60 cursor-pointer transition-[box-shadow,border-color] duration-300 ease-out hover:border-brand-300 hover:shadow-[0_0_0_1px_rgb(136_56_222_/_0.15),_0_8px_24px_rgb(136_56_222_/_0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
+          className="relative text-left col-span-5 order-4 rounded-2xl p-5 flex flex-col gap-4 border bg-canvas-elevated border-canvas-border/60 cursor-pointer transition-[box-shadow,border-color] duration-300 ease-out hover:border-brand-300 hover:shadow-[0_0_0_1px_rgb(15_8_30_/_0.06),_0_12px_28px_rgb(15_8_30_/_0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
         >
           <div className="flex items-center gap-2">
             <Layers size={14} className="text-ink-400 shrink-0" strokeWidth={1.75} />
@@ -1344,7 +1252,7 @@ function HealthDashboardSection({
               onClick={() => setView('audit-planning')}
               aria-label="Open audit calendar"
               variants={HEALTH_TILE_VARIANTS}
-              className="relative text-left col-span-3 order-3 rounded-2xl p-5 flex flex-col gap-4 border bg-canvas-elevated border-canvas-border/60 cursor-pointer transition-[box-shadow,border-color] duration-300 ease-out hover:shadow-[0_0_0_1px_rgb(15_8_30_/_0.06),_0_12px_28px_rgb(15_8_30_/_0.08)] hover:border-evidence-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-evidence-400"
+              className="relative text-left col-span-3 order-3 rounded-2xl p-5 flex flex-col gap-4 border bg-canvas-elevated border-canvas-border/60 cursor-pointer transition-[box-shadow,border-color] duration-300 ease-out hover:shadow-[0_0_0_1px_rgb(15_8_30_/_0.06),_0_12px_28px_rgb(15_8_30_/_0.08)] hover:border-brand-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
             >
               <div className="absolute top-3 right-3 z-10"><StatusPill kind={auditStatus} /></div>
 
@@ -1421,7 +1329,7 @@ function HealthDashboardSection({
               onClick={() => setView('workflow-library')}
               aria-label="Open workflow performance"
               variants={HEALTH_TILE_VARIANTS}
-              className="relative text-left col-span-5 order-9 rounded-2xl p-5 flex flex-col gap-4 border bg-canvas-elevated border-canvas-border/60 cursor-pointer transition-[box-shadow,border-color] duration-300 ease-out hover:shadow-[0_0_0_1px_rgb(15_8_30_/_0.06),_0_12px_28px_rgb(15_8_30_/_0.08)] hover:border-compliant-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-compliant-400"
+              className="relative text-left col-span-4 order-9 rounded-2xl p-5 flex flex-col gap-4 border bg-canvas-elevated border-canvas-border/60 cursor-pointer transition-[box-shadow,border-color] duration-300 ease-out hover:shadow-[0_0_0_1px_rgb(15_8_30_/_0.06),_0_12px_28px_rgb(15_8_30_/_0.08)] hover:border-brand-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
             >
               {/* Header */}
               <div className="flex items-center gap-2">
@@ -1479,7 +1387,7 @@ function HealthDashboardSection({
         {/* ── Row 4 — Top Workflows mini-list ── */}
         {showTile('top-workflows') && <motion.div
           variants={HEALTH_TILE_VARIANTS}
-          className="text-left col-span-7 order-10 rounded-2xl p-5 flex flex-col border border-canvas-border/60 bg-canvas-elevated relative overflow-hidden transition-[box-shadow,border-color] duration-150 ease-out hover:shadow-[0_0_0_1px_rgb(15_8_30_/_0.06),_0_12px_28px_rgb(15_8_30_/_0.08)] hover:border-brand-200"
+          className="text-left col-span-4 order-10 rounded-2xl p-5 flex flex-col border border-canvas-border/60 bg-canvas-elevated relative overflow-hidden transition-[box-shadow,border-color] duration-150 ease-out hover:shadow-[0_0_0_1px_rgb(15_8_30_/_0.06),_0_12px_28px_rgb(15_8_30_/_0.08)] hover:border-brand-300"
         >
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
@@ -3951,7 +3859,7 @@ const WIDGET_SIZES: Record<WidgetKey, Record<WidgetSize, SizeSpec>> = {
   recents:        { small: { w: 4, h:  6 }, medium: { w:  4, h:  9 }, large: { w:  6, h: 11 }, xxl: { w:  8, h: 14 } },
   sources:        { small: { w: 4, h:  6 }, medium: { w:  4, h:  9 }, large: { w:  6, h: 11 }, xxl: { w:  8, h: 12 } },
   shared:         { small: { w: 4, h:  7 }, medium: { w:  4, h:  9 }, large: { w:  6, h: 11 }, xxl: { w:  8, h: 14 } },
-  health:         { small: { w: 8, h: 10 }, medium: { w: 12, h: 14 }, large: { w: 12, h: 18 }, xxl: { w: 12, h: 22 } },
+  health:         { small: { w: 8, h: 10 }, medium: { w: 12, h: 12 }, large: { w: 12, h: 13 }, xxl: { w: 12, h: 13 } },
   'reports-list': { small: { w: 3, h:  4 }, medium: { w: 12, h:  6 }, large: { w: 12, h:  8 }, xxl: { w: 12, h: 10 } },
   calendar:       { small: { w: 4, h:  6 }, medium: { w:  6, h:  9 }, large: { w:  8, h: 11 }, xxl: { w: 12, h: 14 } },
   pinned:         { small: { w: 4, h:  6 }, medium: { w:  6, h:  9 }, large: { w:  8, h: 11 }, xxl: { w: 12, h: 12 } },
@@ -3985,7 +3893,7 @@ const COMPACT_DEFAULTS: Record<WidgetKey, { w: number; h: number; minW: number; 
   engagements:    { w: 8,  h:  8, minW: 4, minH: 4, maxH: 14 },
   exceptions:     { w: 8,  h: 10, minW: 5, minH: 4, maxH: 18 },
   // KPI bento — 5-card internal bento requires the full 8-col width to render readably
-  health:         { w: 12, h: 18, minW: 8, minH: 16, maxH: 22 },
+  health:         { w: 12, h: 13, minW: 8, minH: 10, maxH: 13 },
   // 2×2 card grid — needs 2 cards across (minW=4) and 1 row min
   processes:      { w: 8,  h:  8, minW: 4, minH: 5, maxH: 14 },
   // 2×2 grid of 4 shared cards — 2 cards-wide min × 2 rows min
@@ -4307,12 +4215,13 @@ export default function HomeView({
     const cutoff = Date.now() - rangeDays * 24 * 60 * 60 * 1000;
     return notifications.filter(n => !n.read && new Date(n.createdAt).getTime() >= cutoff).length;
   }, [notifications, rangeDays]);
-  // Material Weakness count drives the inline alert pill in the hero subhead.
-  // MW is the highest-severity SOX deficiency — when present it should
-  // override the "everything's fine" narrative and surface immediately.
-  const mwCount = useMemo(() => {
-    const open = DEFICIENCIES.filter(d => d.severity === 'MW' && d.status !== 'resolved');
-    return Math.round(open.length * scaleForRange(rangeDays));
+  // Control Breaks count — all unresolved deficiencies, surfaced as an
+  // inline alert pill in the hero subhead. Replaces the prior "Material
+  // Weakness" chip so the signal generalises across deficiency severities,
+  // not just MW.
+  const breakCount = useMemo(() => {
+    const unresolved = DEFICIENCIES.filter(d => d.status !== 'resolved');
+    return Math.round(unresolved.length * scaleForRange(rangeDays));
   }, [rangeDays]);
 
   // Always reads the button's *current* rect — so the open animation expands
@@ -4513,15 +4422,21 @@ export default function HomeView({
                     <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border border-canvas-border bg-canvas-elevated text-xs">
                       <span className="font-semibold text-ink-800">{PERSONAS.find(p => p.id === persona)?.label ?? 'Internal Auditor'}</span>
                     </span>
-                    {mwCount > 0 && (
+                    {breakCount > 0 && (
                       <button
                         type="button"
-                        onClick={() => setView('findings')}
+                        onClick={() => {
+                          // Deep-link into Control Library at a specific
+                          // control detail page. ControlLibraryView consumes
+                          // this flag on mount.
+                          sessionStorage.setItem('control-library.open-control-id', 'C-001');
+                          setView('governance-controls');
+                        }}
                         className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-risk-50 text-risk-700 border border-risk-200 hover:bg-risk-100 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-risk-400"
                       >
                         <AlertOctagon size={11} strokeWidth={2.5} />
-                        <span className="tabular-nums">{mwCount}</span>
-                        Material Weakness{mwCount === 1 ? '' : 'es'}
+                        <span className="tabular-nums">{breakCount}</span>
+                        Control Break{breakCount === 1 ? '' : 's'}
                       </button>
                     )}
                   </div>

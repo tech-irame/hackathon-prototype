@@ -54,8 +54,19 @@ export default function ControlLibraryView({ processFilter }: ControlLibraryProp
   // Stateful controls list
   const [controls, setControls] = useState<ControlRow[]>(SEED_CONTROLS);
 
-  // Detail view state
-  const [selectedControlId, setSelectedControlId] = useState<string | null>(null);
+  // Detail view state. On mount, honour a sessionStorage hand-off so
+  // deep-links from elsewhere (e.g. the homepage Control Breaks chip) can
+  // land directly on a specific control's detail page. The flag is consumed
+  // once so subsequent visits start at the library list.
+  const [selectedControlId, setSelectedControlId] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const pending = window.sessionStorage.getItem('control-library.open-control-id');
+    if (pending) {
+      window.sessionStorage.removeItem('control-library.open-control-id');
+      return pending;
+    }
+    return null;
+  });
 
   // Drawer state
   const [showCreateDrawer, setShowCreateDrawer] = useState(false);
