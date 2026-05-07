@@ -882,6 +882,9 @@ function RacmGridView({ risks, onSelectRisk, onUpdateRisks, onLinkControl, onCre
     addToast({ message: `"${ctrl.name}" mapped`, type: 'success' });
   };
 
+  // Confirm-remove state: { riskId, controlId } when user clicks X on a control
+  const [confirmRemoveCtrl, setConfirmRemoveCtrl] = useState<{ riskId: string; ctrl: MappedControl } | null>(null);
+
   // Inline control picker — available controls not yet linked to this risk
   const pickerRisk = controlPickerRiskId ? risks.find(r => r.id === controlPickerRiskId) : null;
   const pickerLinkedIds = new Set(pickerRisk?.controls.map(c => c.id) || []);
@@ -1224,11 +1227,26 @@ function RacmGridView({ risks, onSelectRisk, onUpdateRisks, onLinkControl, onCre
                                               <button onClick={e => { e.stopPropagation(); setWfDrawerRiskId(risk.id); }}
                                                 className="text-[9px] font-semibold text-brand-600 hover:underline cursor-pointer shrink-0">Manage</button>
                                             )}
-                                            <button onClick={e => { e.stopPropagation(); removeControlInGrid(risk.id, ctrl.id); }}
+                                            <button onClick={e => { e.stopPropagation(); setConfirmRemoveCtrl({ riskId: risk.id, ctrl }); }}
                                               className="p-1 rounded text-ink-300 hover:text-red-500 hover:bg-red-50 cursor-pointer transition-colors shrink-0" title="Remove control">
                                               <X size={11} />
                                             </button>
                                           </div>
+                                          {/* Confirm remove control */}
+                                          {confirmRemoveCtrl && confirmRemoveCtrl.riskId === risk.id && confirmRemoveCtrl.ctrl.id === ctrl.id && (
+                                            <div className="border-t border-red-100 bg-red-50/40 px-3 py-2">
+                                              <p className="text-[10px] font-semibold text-red-700 mb-0.5">Remove "{ctrl.name}" from this risk?</p>
+                                              <p className="text-[9px] text-red-600/70 mb-2">
+                                                This will unlink {wfs.length} workflow{wfs.length !== 1 ? 's' : ''} and {totalAttrs} attribute{totalAttrs !== 1 ? 's' : ''} from this risk mapping. The control remains in the Control Library.
+                                              </p>
+                                              <div className="flex items-center gap-2">
+                                                <button onClick={e => { e.stopPropagation(); removeControlInGrid(risk.id, ctrl.id); setConfirmRemoveCtrl(null); }}
+                                                  className="px-2.5 py-1 rounded text-[9px] font-semibold bg-red-600 text-white hover:bg-red-700 cursor-pointer transition-colors">Remove</button>
+                                                <button onClick={e => { e.stopPropagation(); setConfirmRemoveCtrl(null); }}
+                                                  className="px-2.5 py-1 rounded text-[9px] font-medium text-ink-600 hover:bg-white cursor-pointer transition-colors">Cancel</button>
+                                              </div>
+                                            </div>
+                                          )}
                                           {/* Workflows & attributes detail */}
                                           {wfs.length > 0 && (
                                             <div className="border-t border-border/30 bg-surface-2/20 px-3 py-2 space-y-1.5">
@@ -1252,7 +1270,7 @@ function RacmGridView({ risks, onSelectRisk, onUpdateRisks, onLinkControl, onCre
                                                           addToast({ message: `Workflow "${wf.name}" removed`, type: 'info' });
                                                         }}
                                                         className="opacity-0 group-hover/wfrow:opacity-100 p-0.5 rounded text-ink-300 hover:text-red-500 hover:bg-red-50 cursor-pointer transition-all shrink-0" title="Remove workflow">
-                                                        <X size={9} />
+                                                        <Trash2 size={9} />
                                                       </button>
                                                     </div>
                                                     {wf.attributes.length > 0 && (
