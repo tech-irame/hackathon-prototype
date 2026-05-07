@@ -1193,32 +1193,67 @@ function RacmGridView({ risks, onSelectRisk, onUpdateRisks, onLinkControl, onCre
                                 {risk.controls.length === 0 ? (
                                   <p className="text-[11px] text-ink-400">No controls mapped. Use the actions above to start.</p>
                                 ) : (
-                                  <div className="space-y-1.5">
+                                  <div className="space-y-2">
                                     {risk.controls.map(ctrl => {
                                       const rd = getControlReadiness(ctrl);
                                       const wfs = ctrl.workflows || [];
+                                      const totalAttrs = wfs.reduce((s, w) => s + w.attributes.length, 0);
                                       return (
-                                        <div key={ctrl.id} className="flex items-center gap-3 px-3 py-2 rounded-lg border border-border/50 bg-white">
-                                          <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-1.5">
-                                              <span className="text-[11px] font-medium text-text">{ctrl.name}</span>
-                                              {ctrl.isKey && <Star size={8} className="fill-amber-400 text-amber-400 shrink-0" />}
-                                              <span className={`px-1.5 h-3.5 rounded text-[8px] font-bold inline-flex items-center ${AUTO_CLS[ctrl.automation]}`}>{ctrl.automation}</span>
+                                        <div key={ctrl.id} className="rounded-lg border border-border/50 bg-white overflow-hidden">
+                                          {/* Control header row */}
+                                          <div className="flex items-center gap-3 px-3 py-2">
+                                            <div className="flex-1 min-w-0">
+                                              <div className="flex items-center gap-1.5">
+                                                <span className="text-[11px] font-medium text-text">{ctrl.name}</span>
+                                                {ctrl.isKey && <Star size={8} className="fill-amber-400 text-amber-400 shrink-0" />}
+                                                <span className={`px-1.5 h-3.5 rounded text-[8px] font-bold inline-flex items-center ${AUTO_CLS[ctrl.automation]}`}>{ctrl.automation}</span>
+                                                <span className={`px-1.5 h-3.5 rounded text-[8px] font-bold inline-flex items-center ${NATURE_CLS[ctrl.nature]}`}>{ctrl.nature}</span>
+                                              </div>
+                                              <div className="flex items-center gap-3 mt-0.5 text-[9px] text-ink-400">
+                                                <span>{wfs.length} workflow{wfs.length !== 1 ? 's' : ''}</span>
+                                                <span>{totalAttrs} attribute{totalAttrs !== 1 ? 's' : ''}</span>
+                                                {ctrl.owner && <span>{ctrl.owner}</span>}
+                                              </div>
                                             </div>
-                                            <div className="flex items-center gap-3 mt-0.5 text-[9px] text-ink-400">
-                                              <span>{wfs.length} workflow{wfs.length !== 1 ? 's' : ''}</span>
-                                              <span>{wfs.reduce((s, w) => s + w.attributes.length, 0)} attrs</span>
-                                              {ctrl.owner && <span>{ctrl.owner}</span>}
-                                            </div>
+                                            <span className={`px-1.5 h-4 rounded text-[8px] font-bold inline-flex items-center shrink-0 ${READINESS_CLS[rd]}`}>{rd}</span>
+                                            {wfs.length === 0 && onLinkWorkflow && (
+                                              <button onClick={e => { e.stopPropagation(); onLinkWorkflow(ctrl.id); }}
+                                                className="text-[9px] font-semibold text-brand-600 hover:underline cursor-pointer shrink-0">Link Workflow</button>
+                                            )}
+                                            {wfs.length > 0 && (
+                                              <button onClick={e => { e.stopPropagation(); setWfDrawerRiskId(risk.id); }}
+                                                className="text-[9px] font-semibold text-brand-600 hover:underline cursor-pointer shrink-0">Manage</button>
+                                            )}
                                           </div>
-                                          <span className={`px-1.5 h-4 rounded text-[8px] font-bold inline-flex items-center shrink-0 ${READINESS_CLS[rd]}`}>{rd}</span>
-                                          {wfs.length === 0 && onLinkWorkflow && (
-                                            <button onClick={e => { e.stopPropagation(); onLinkWorkflow(ctrl.id); }}
-                                              className="text-[9px] font-semibold text-brand-600 hover:underline cursor-pointer shrink-0">Link Workflow</button>
-                                          )}
+                                          {/* Workflows & attributes detail */}
                                           {wfs.length > 0 && (
-                                            <button onClick={e => { e.stopPropagation(); setWfDrawerRiskId(risk.id); }}
-                                              className="text-[9px] font-semibold text-brand-600 hover:underline cursor-pointer shrink-0">Manage</button>
+                                            <div className="border-t border-border/30 bg-surface-2/20 px-3 py-2 space-y-1.5">
+                                              {wfs.map(wf => (
+                                                <div key={wf.id} className="flex items-start gap-2">
+                                                  <Workflow size={10} className="text-brand-600 mt-[3px] shrink-0" />
+                                                  <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-1.5">
+                                                      <span className="text-[10px] font-medium text-text">{wf.name}</span>
+                                                      <span className="text-[8px] font-mono text-ink-400">{wf.version}</span>
+                                                      <span className={`px-1 h-3.5 rounded text-[7px] font-bold inline-flex items-center ${WF_STATUS_CLS[wf.status]}`}>{wf.status}</span>
+                                                    </div>
+                                                    {wf.attributes.length > 0 && (
+                                                      <div className="flex flex-wrap gap-1 mt-1">
+                                                        {wf.attributes.map(a => (
+                                                          <span key={a.id} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white border border-border/40 text-[8px] text-ink-500">
+                                                            <CheckCircle2 size={7} className="text-emerald-500 shrink-0" />
+                                                            {a.name}
+                                                          </span>
+                                                        ))}
+                                                      </div>
+                                                    )}
+                                                    {wf.attributes.length === 0 && (
+                                                      <span className="text-[8px] text-amber-600 mt-0.5 inline-block">No attributes configured</span>
+                                                    )}
+                                                  </div>
+                                                </div>
+                                              ))}
+                                            </div>
                                           )}
                                         </div>
                                       );
