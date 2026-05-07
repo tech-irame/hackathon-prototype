@@ -247,9 +247,9 @@ export default function RacmMappingWorkspace({ onBack, onGoToExecution, racmId, 
 
   const selectedRisk = risks.find(r => r.id === selectedRiskId) || risks[0];
 
-  // Resolve the control being linked/created for a workflow
+  // Resolve the control being linked/created for a workflow (search all risks, not just selected)
   const linkWorkflowControl = linkWorkflowControlId
-    ? selectedRisk.controls.find(c => c.id === linkWorkflowControlId) || null
+    ? risks.flatMap(r => r.controls).find(c => c.id === linkWorkflowControlId) || null
     : null;
   const createWorkflowControl = createWorkflowControlId
     ? risks.flatMap(r => r.controls).find(c => c.id === createWorkflowControlId) || null
