@@ -1224,18 +1224,36 @@ function RacmGridView({ risks, onSelectRisk, onUpdateRisks, onLinkControl, onCre
                                               <button onClick={e => { e.stopPropagation(); setWfDrawerRiskId(risk.id); }}
                                                 className="text-[9px] font-semibold text-brand-600 hover:underline cursor-pointer shrink-0">Manage</button>
                                             )}
+                                            <button onClick={e => { e.stopPropagation(); removeControlInGrid(risk.id, ctrl.id); }}
+                                              className="p-1 rounded text-ink-300 hover:text-red-500 hover:bg-red-50 cursor-pointer transition-colors shrink-0" title="Remove control">
+                                              <X size={11} />
+                                            </button>
                                           </div>
                                           {/* Workflows & attributes detail */}
                                           {wfs.length > 0 && (
                                             <div className="border-t border-border/30 bg-surface-2/20 px-3 py-2 space-y-1.5">
                                               {wfs.map(wf => (
-                                                <div key={wf.id} className="flex items-start gap-2">
+                                                <div key={wf.id} className="group/wfrow flex items-start gap-2">
                                                   <Workflow size={10} className="text-brand-600 mt-[3px] shrink-0" />
                                                   <div className="flex-1 min-w-0">
                                                     <div className="flex items-center gap-1.5">
                                                       <span className="text-[10px] font-medium text-text">{wf.name}</span>
                                                       <span className="text-[8px] font-mono text-ink-400">{wf.version}</span>
                                                       <span className={`px-1 h-3.5 rounded text-[7px] font-bold inline-flex items-center ${WF_STATUS_CLS[wf.status]}`}>{wf.status}</span>
+                                                      <button onClick={e => {
+                                                          e.stopPropagation();
+                                                          onUpdateRisks(prev => prev.map(r => r.id !== risk.id ? r : {
+                                                            ...r, controls: r.controls.map(c => {
+                                                              if (c.id !== ctrl.id) return c;
+                                                              const updated = (c.workflows || []).filter(w => w.id !== wf.id);
+                                                              return { ...c, workflows: updated, workflowLinked: updated.length > 0, workflowName: updated.length > 0 ? updated[0].name + ' ' + updated[0].version : '', attributeCount: updated.reduce((s, w) => s + w.attributes.length, 0) };
+                                                            }),
+                                                          }));
+                                                          addToast({ message: `Workflow "${wf.name}" removed`, type: 'info' });
+                                                        }}
+                                                        className="opacity-0 group-hover/wfrow:opacity-100 p-0.5 rounded text-ink-300 hover:text-red-500 hover:bg-red-50 cursor-pointer transition-all shrink-0" title="Remove workflow">
+                                                        <X size={9} />
+                                                      </button>
                                                     </div>
                                                     {wf.attributes.length > 0 && (
                                                       <div className="flex flex-wrap gap-1 mt-1">
