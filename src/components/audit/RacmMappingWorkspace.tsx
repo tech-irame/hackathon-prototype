@@ -1368,6 +1368,28 @@ function WorkflowReadinessDrawer({ risk, onClose, onLinkWorkflow, onCreateWorkfl
                                 <span className="text-[11px] font-medium text-text">{wf.name}</span>
                                 <span className="text-[9px] font-mono text-ink-400">{wf.version}</span>
                                 <span className={`px-1.5 h-4 rounded text-[8px] font-bold inline-flex items-center ${WF_STATUS_CLS[wf.status]}`}>{wf.status}</span>
+                                <button
+                                  onClick={() => {
+                                    onUpdateRisks(prev => prev.map(r => r.id !== risk.id ? r : {
+                                      ...r, controls: r.controls.map(c => {
+                                        if (c.id !== ctrl.id) return c;
+                                        const updated = (c.workflows || []).filter(w => w.id !== wf.id);
+                                        return {
+                                          ...c,
+                                          workflows: updated,
+                                          workflowLinked: updated.length > 0,
+                                          workflowName: updated.length > 0 ? updated[0].name + ' ' + updated[0].version : '',
+                                          attributeCount: updated.reduce((s, w) => s + w.attributes.length, 0),
+                                        };
+                                      }),
+                                    }));
+                                    addToast({ message: `Workflow "${wf.name}" removed from ${ctrl.name}`, type: 'success' });
+                                  }}
+                                  className="ml-auto p-1 rounded text-ink-400 hover:text-risk-600 hover:bg-risk-50 cursor-pointer transition-colors shrink-0"
+                                  title="Remove workflow"
+                                >
+                                  <Trash2 size={10} />
+                                </button>
                               </div>
                               <div className="text-[9px] text-ink-400 mb-1.5">{wf.attributes.length} attribute{wf.attributes.length !== 1 ? 's' : ''}</div>
                               {/* Existing attributes list */}
