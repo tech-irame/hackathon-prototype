@@ -8,7 +8,7 @@ import {
   TrendingUp, Users, Percent, CalendarDays, Pencil, AlertCircle,
 } from 'lucide-react';
 import PlanPanel, { type ExecutorParameters } from '../concierge-workflow-builder/PlanPanel';
-import StepMapData from '../concierge-workflow-builder/StepMapData';
+import ExecutorColumnMapping from './ExecutorColumnMapping';
 import { seedAlignments } from '../concierge-workflow-builder/mockApi';
 import type {
   WorkflowDraft,
@@ -187,7 +187,7 @@ export default function WorkflowExecutor({ workflowId, onBack, onRunComplete }: 
 
   // Column-mapping pause (runs right after clarification is resolved)
   const [columnMapPending, setColumnMapPending] = useState(false);
-  const [alignments] = useState<JourneyAlignments>(() => seedAlignments(workflow));
+  const [alignments, setAlignments] = useState<JourneyAlignments>(() => seedAlignments(workflow));
 
   const [files, setFiles] = useState<JourneyFiles>({});
   const [requiredOpen, setRequiredOpen] = useState(false);
@@ -1038,11 +1038,12 @@ export default function WorkflowExecutor({ workflowId, onBack, onRunComplete }: 
                     <span className="text-[12px] text-ink-400 shrink-0">1 of 1</span>
                   </div>
 
-                  <StepMapData
+                  <ExecutorColumnMapping
                     workflow={workflow}
                     files={files}
                     setFiles={setFiles}
                     alignments={alignments}
+                    setAlignments={setAlignments}
                   />
 
                   <div className="flex items-center justify-between mt-5">
