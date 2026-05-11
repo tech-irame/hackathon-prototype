@@ -2446,6 +2446,7 @@ function WorkingPaperStep({ ctrl, controlType, onNavigate }: {
   const isReviewed = exec.review.status === ReviewStatus.APPROVED;
   const isRejected = exec.review.status === ReviewStatus.REJECTED;
   const [expandedSampleId, setExpandedSampleId] = useState<string | null>(null);
+  const [expandedEvidenceSampleId, setExpandedEvidenceSampleId] = useState<string | null>(null);
 
   // Before testing has started
   if (!hasItems) {
@@ -2640,46 +2641,108 @@ function WorkingPaperStep({ ctrl, controlType, onNavigate }: {
           </div>
         </Section>
 
-        {/* 6. Evidence Log — Sample and Attribute Level */}
-        <Section num={6} title="Evidence Log — Sample and Attribute Level">
+        {/* 6. Evidence Coverage Matrix */}
+        <Section num={6} title="Evidence Coverage Matrix">
           {items.some(ti => ti.evidence.length > 0) ? (
             <div className="rounded-lg border border-border-light overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-[10px]">
                   <thead><tr className="border-b border-border-light bg-surface-2/30">
+                    <th className="px-2 py-1.5 text-left text-[8px] font-semibold text-gray-400 uppercase w-5"></th>
                     <th className="px-2 py-1.5 text-left text-[8px] font-semibold text-gray-400 uppercase">Sample</th>
-                    <th className="px-2 py-1.5 text-left text-[8px] font-semibold text-gray-400 uppercase w-8">Attr</th>
-                    <th className="px-2 py-1.5 text-left text-[8px] font-semibold text-gray-400 uppercase">Attribute Name</th>
-                    <th className="px-2 py-1.5 text-left text-[8px] font-semibold text-gray-400 uppercase">Evidence Type</th>
-                    <th className="px-2 py-1.5 text-left text-[8px] font-semibold text-gray-400 uppercase">File / Source</th>
-                    <th className="px-2 py-1.5 text-left text-[8px] font-semibold text-gray-400 uppercase w-16">Source</th>
+                    <th className="px-2 py-1.5 text-left text-[8px] font-semibold text-gray-400 uppercase">Reference</th>
+                    {attrLegend.map(l => (
+                      <th key={l.attr.id} className="px-2 py-1.5 text-center text-[8px] font-semibold text-gray-400 uppercase" title={l.attr.name}>
+                        <span className="text-primary font-bold text-[9px]">{l.code}</span>
+                      </th>
+                    ))}
+                    <th className="px-2 py-1.5 text-center text-[8px] font-semibold text-gray-400 uppercase">System</th>
+                    <th className="px-2 py-1.5 text-center text-[8px] font-semibold text-gray-400 uppercase">Status</th>
                   </tr></thead>
                   <tbody>
-                    {items.flatMap(ti =>
-                      ti.evidence.flatMap(ev =>
-                        (ev.mappedAttributeIds.length > 0 ? ev.mappedAttributeIds : ['unmapped']).map(aId => {
-                          const attrCode = aId !== 'unmapped' ? attrCodeMap.get(aId) || '?' : '—';
-                          const attrName = aId !== 'unmapped' ? ctrl.attributes.find(a => a.id === aId)?.name || '—' : '—';
-                          return (
-                            <tr key={`${ti.id}-${ev.id}-${aId}`} className="border-b border-border-light/50">
-                              <td className="px-2 py-1 font-mono text-gray-500">{ti.referenceId}</td>
-                              <td className="px-2 py-1 font-bold text-primary">{attrCode}</td>
-                              <td className="px-2 py-1 text-text">{attrName}</td>
-                              <td className="px-2 py-1 text-gray-500">{ev.evidenceType}</td>
-                              <td className="px-2 py-1 text-text truncate max-w-[200px]" title={ev.fileName}>{ev.fileName}</td>
-                              <td className="px-2 py-1">
-                                <span className={`px-1 py-0.5 rounded text-[7px] font-bold ${ev.uploadedBy === 'System' ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-600'}`}>
-                                  {ev.uploadedBy === 'System' ? 'System' : 'User'}
-                                </span>
-                              </td>
-                            </tr>
-                          );
-                        })
-                      )
-                    )}
+                    {items.slice(0, 20).map(ti => {
+                      const isEvExpanded = expandedEvidenceSampleId === ti.id;
+                      // Count evidence per attribute code
+                      const evByAttr = new Map<string, number>();
+                      let systemEvCount = 0;
+                      ti.evidence.forEach(ev => {
+                        if (ev.uploadedBy === 'System') systemEvCount++;
+                        ev.mappedAttributeIds.forEach(aId => {
+                          const code = attrCodeMap.get(aId);
+                          if (code) evByAttr.set(code, (evByAttr.get(code) || 0) + 1);
+                        });
+                      });
+                      const coveredAttrs = attrLegend.filter(l => (evByAttr.get(l.code) || 0) > 0).length;
+                      const evStatus = ti.evidence.length === 0 ? 'Missing' : coveredAttrs === attrLegend.length ? 'Complete' : 'Partial';
+                      const evStatusCls = evStatus === 'Complete' ? 'bg-emerald-50 text-emerald-700' : evStatus === 'Partial' ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-600';
+                      return (
+                        <React.Fragment key={ti.id}>
+                          <tr className={`border-b border-border-light/50 cursor-pointer hover:bg-surface-2/20 transition-colors ${isEvExpanded ? 'bg-surface-2/20' : ''}`}
+                            onClick={() => setExpandedEvidenceSampleId(isEvExpanded ? null : ti.id)}>
+                            <td className="px-2 py-1.5 text-gray-400">
+                              {isEvExpanded ? <ChevronDown size={9} /> : <ChevronRight size={9} />}
+                            </td>
+                            <td className="px-2 py-1.5 font-mono text-gray-500">{ti.referenceId}</td>
+                            <td className="px-2 py-1.5 text-text text-[9px] truncate max-w-[120px]" title={ti.description}>{ti.description || '—'}</td>
+                            {attrLegend.map(l => {
+                              const count = evByAttr.get(l.code) || 0;
+                              return (
+                                <td key={l.attr.id} className="px-2 py-1.5 text-center">
+                                  <span className={`text-[8px] font-medium ${count > 0 ? 'text-text' : 'text-gray-300'}`}>
+                                    {count > 0 ? `${count}` : '0'}
+                                  </span>
+                                </td>
+                              );
+                            })}
+                            <td className="px-2 py-1.5 text-center">
+                              {systemEvCount > 0 ? (
+                                <span className="text-[8px] font-medium text-blue-600">{systemEvCount}</span>
+                              ) : (
+                                <span className="text-[8px] text-gray-300">0</span>
+                              )}
+                            </td>
+                            <td className="px-2 py-1.5 text-center">
+                              <span className={`px-1.5 py-0.5 rounded text-[7px] font-bold ${evStatusCls}`}>{evStatus}</span>
+                            </td>
+                          </tr>
+                          {isEvExpanded && ti.evidence.length > 0 && (
+                            <tr><td colSpan={attrLegend.length + 5} className="p-0">
+                              <div className="bg-surface-2/15 px-4 py-2 border-b border-border-light">
+                                <table className="w-full text-[9px]">
+                                  <thead><tr className="text-[7px] font-semibold text-gray-400 uppercase">
+                                    <th className="text-left py-1 pr-2">Attr</th>
+                                    <th className="text-left py-1 pr-2">Evidence Type</th>
+                                    <th className="text-left py-1 pr-2">File / Source</th>
+                                    <th className="text-left py-1 w-12">By</th>
+                                  </tr></thead>
+                                  <tbody>
+                                    {ti.evidence.map(ev => {
+                                      const mappedCodes = ev.mappedAttributeIds.map(aId => attrCodeMap.get(aId) || '?').join(', ') || '—';
+                                      return (
+                                        <tr key={ev.id} className="border-t border-border-light/20">
+                                          <td className="py-1 pr-2 font-bold text-primary">{mappedCodes}</td>
+                                          <td className="py-1 pr-2 text-gray-500">{ev.evidenceType}</td>
+                                          <td className="py-1 pr-2 text-text truncate max-w-[200px]" title={ev.fileName}>{ev.fileName}</td>
+                                          <td className="py-1">
+                                            <span className={`px-1 py-0.5 rounded text-[7px] font-bold ${ev.uploadedBy === 'System' ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-600'}`}>
+                                              {ev.uploadedBy === 'System' ? 'Sys' : 'User'}
+                                            </span>
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </td></tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
+              {items.length > 20 && <div className="px-2 py-1 text-[9px] text-gray-400 bg-surface-2/20">Showing 20 of {items.length} items</div>}
             </div>
           ) : (
             <div className="text-[11px] text-gray-400 italic">No evidence uploaded.</div>
@@ -2737,19 +2800,36 @@ function WorkingPaperStep({ ctrl, controlType, onNavigate }: {
 
         {/* 8. Sample-Level Testing Details */}
         <Section num={8} title="Sample-Level Testing Details">
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             {items.slice(0, 20).map(ti => {
               const isExpanded = expandedSampleId === ti.id;
+              // Compact inline summary: A:P B:F C:—
+              const attrSummary = attrLegend.map(l => {
+                const ar = ti.attributeResults.find(r => r.attributeId === l.attr.id);
+                return { code: l.code, result: ar?.result || 'NOT_TESTED' };
+              });
+              const evCoveredCount = attrLegend.filter(l => {
+                const ar = ti.attributeResults.find(r => r.attributeId === l.attr.id);
+                return (ar?.evidenceIds?.length || 0) > 0;
+              }).length;
+              const evLabel = evCoveredCount === attrLegend.length ? 'Complete' : evCoveredCount > 0 ? 'Partial' : 'Missing';
+              const evLabelCls = evLabel === 'Complete' ? 'text-emerald-600' : evLabel === 'Partial' ? 'text-amber-600' : 'text-gray-400';
               return (
                 <div key={ti.id} className="rounded-lg border border-border-light overflow-hidden">
                   <button onClick={() => setExpandedSampleId(isExpanded ? null : ti.id)}
-                    className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-surface-2/20 cursor-pointer transition-colors">
-                    {isExpanded ? <ChevronDown size={10} className="text-gray-400 shrink-0" /> : <ChevronRight size={10} className="text-gray-400 shrink-0" />}
-                    <span className="text-[10px] font-mono text-gray-500 shrink-0">{ti.referenceId}</span>
-                    <span className="text-[10px] text-text truncate flex-1">{ti.description || '—'}</span>
-                    <span className="text-[9px] text-gray-400 shrink-0">{ti.evidence.length} evidence</span>
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-surface-2/20 cursor-pointer transition-colors">
+                    {isExpanded ? <ChevronDown size={9} className="text-gray-400 shrink-0" /> : <ChevronRight size={9} className="text-gray-400 shrink-0" />}
+                    <span className="text-[10px] font-mono text-gray-500 shrink-0 w-[70px]">{ti.referenceId}</span>
                     <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold shrink-0 ${sampleResultStyle(ti.sampleResult)}`}>
                       {sampleResultLabel(ti.sampleResult)}
+                    </span>
+                    <span className={`text-[8px] font-medium shrink-0 ${evLabelCls}`}>Ev: {evLabel}</span>
+                    <span className="flex items-center gap-1 ml-auto shrink-0">
+                      {attrSummary.map(a => (
+                        <span key={a.code} className={`px-1 py-0.5 rounded text-[7px] font-bold ${attrResultStyle(a.result)}`}>
+                          {a.code}:{attrResultLabel(a.result)}
+                        </span>
+                      ))}
                     </span>
                   </button>
                   {isExpanded && (

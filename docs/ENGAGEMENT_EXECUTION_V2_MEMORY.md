@@ -276,6 +276,7 @@ All helpers must be **pure functions** — no side effects, no state mutations. 
 | 2026-05-05 | Engagement View v2 cleanup: Removed separate Scope column (redundant with engagement name). Merged process chip + audit period + alert tags into Engagement column. Renamed Health → Attention. Final 6 columns: Engagement, Type/Framework, Owner, Status, Attention, Next Action. Made summary cards more compact (horizontal layout). Improved spacing, row padding, hover states, and secondary text opacity for cleaner visual hierarchy. |
 | 2026-05-11 | RACM mapped controls redesign: Each mapped control card now shows linked workflows inline (name, version, status badge) with attribute chips per workflow. Nature badge (Preventive/Detective) added to control headers. Remove control with inline confirmation showing impact (workflow/attribute count). Remove workflow via trash icon on hover. Risk-level summary shows readiness counts (N ready · N missing workflows · N needs setup). |
 | 2026-05-11 | Working Paper redesign: Added summary chips at top (samples, attributes, checks, evidence, result, conclusion). Added Test Attribute Legend (A/B/C codes mapped to attributes/assertions/workflows). Replaced flat evidence log with structured sample×attribute evidence table. Improved Attribute Testing Matrix with code columns + reference + sample result column. Added Sample-Level Testing Details with expandable per-sample cards showing attribute/assertion/result/evidence/notes. Improved Sample Results with pass/fail/pending counts + failed warning. Improved Review section with rejection banner. Conclusion remains locked until approval. |
+| 2026-05-11 | Working Paper optimization: Replaced long evidence table with compact Evidence Coverage Matrix (one row per sample, A/B/C columns show evidence counts, expandable for file details). Sample-Level Testing Details collapsed by default with inline A:P B:F C:— summary chips. Full traceability preserved through expansion. |
 
 ---
 
@@ -310,9 +311,9 @@ All helpers must be **pure functions** — no side effects, no state mutations. 
 
 - **Working Paper must show both sample-level and attribute-level testing.** Not just one view.
 - **Attribute legend maps display codes (A/B/C) to actual test attributes.** Shows assertion, workflow, type, and required status per attribute.
-- **Evidence log must show sample × attribute mapping,** not only sample-level grouped filenames. Each evidence row maps to a specific attribute on a specific sample.
+- **Evidence log default view is a compact Evidence Coverage Matrix** — one row per sample, attribute codes as columns showing evidence counts, expandable for full file details. Avoids long repeated rows.
 - **Attribute Testing Matrix must show samples as rows and attributes as columns,** with code headers (A/B/C), reference column, and sample result column. Cell values: P/F/—/N/A.
-- **Sample-Level Testing Details must show each sample with all attribute outcomes and evidence references.** Expandable per-sample cards.
+- **Sample-Level Testing Details** are collapsed by default with compact inline summary (A:P B:F C:—). Expandable for full attribute/evidence/notes detail.
 - **Sample Results section** shows pass/fail/pending counts and per-sample chips. Failed samples trigger a warning about conclusion impact.
 - **Conclusion remains locked until reviewer approval.** Never set before approval.
 - **Rejected working paper still shows all testing details.** Rejection banner displayed clearly.
