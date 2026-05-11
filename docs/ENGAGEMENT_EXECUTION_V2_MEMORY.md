@@ -277,6 +277,7 @@ All helpers must be **pure functions** — no side effects, no state mutations. 
 | 2026-05-11 | RACM mapped controls redesign: Each mapped control card now shows linked workflows inline (name, version, status badge) with attribute chips per workflow. Nature badge (Preventive/Detective) added to control headers. Remove control with inline confirmation showing impact (workflow/attribute count). Remove workflow via trash icon on hover. Risk-level summary shows readiness counts (N ready · N missing workflows · N needs setup). |
 | 2026-05-11 | Working Paper redesign: Added summary chips at top (samples, attributes, checks, evidence, result, conclusion). Added Test Attribute Legend (A/B/C codes mapped to attributes/assertions/workflows). Replaced flat evidence log with structured sample×attribute evidence table. Improved Attribute Testing Matrix with code columns + reference + sample result column. Added Sample-Level Testing Details with expandable per-sample cards showing attribute/assertion/result/evidence/notes. Improved Sample Results with pass/fail/pending counts + failed warning. Improved Review section with rejection banner. Conclusion remains locked until approval. |
 | 2026-05-11 | Working Paper optimization: Replaced long evidence table with compact Evidence Coverage Matrix (one row per sample, A/B/C columns show evidence counts, expandable for file details). Sample-Level Testing Details collapsed by default with inline A:P B:F C:— summary chips. Full traceability preserved through expansion. |
+| 2026-05-11 | Working Paper evidence count fix: A/B/C columns now show user-uploaded files only, System column shows workflow-generated logs only. Expanded detail separates User Evidence and System Evidence into labeled groups. Attribute Legend shows evidence requirement type (System + User / User Evidence). Sample-Level Testing Details splits evidence into User Ev and Sys Ev columns. |
 
 ---
 
@@ -319,3 +320,6 @@ All helpers must be **pure functions** — no side effects, no state mutations. 
 - **Rejected working paper still shows all testing details.** Rejection banner displayed clearly.
 - **Summary chips at top** give reviewer instant context: samples, attributes, checks, evidence count, review status, conclusion.
 - **Working Paper is audit documentation, not an action dashboard.** No execution CTAs inside.
+- **Evidence counts must separate user-uploaded from system-generated.** A/B/C columns show user files only. System Evidence column shows workflow logs only. No double-counting.
+- **Expanded sample evidence details** group files under "User Evidence" and "System Evidence" labels.
+- **Attribute Legend** shows evidence requirement type per attribute (System + User, User Evidence).

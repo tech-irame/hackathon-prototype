@@ -2610,23 +2610,26 @@ function WorkingPaperStep({ ctrl, controlType, onNavigate }: {
                 <th className="px-2 py-1.5 text-left text-[8px] font-semibold text-gray-400 uppercase">Attribute</th>
                 <th className="px-2 py-1.5 text-left text-[8px] font-semibold text-gray-400 uppercase">Workflow</th>
                 <th className="px-2 py-1.5 text-left text-[8px] font-semibold text-gray-400 uppercase w-16">Type</th>
-                <th className="px-2 py-1.5 text-left text-[8px] font-semibold text-gray-400 uppercase w-16">Required</th>
+                <th className="px-2 py-1.5 text-left text-[8px] font-semibold text-gray-400 uppercase">Evidence Req</th>
               </tr></thead>
               <tbody>
-                {attrLegend.map(l => (
-                  <tr key={l.attr.id} className="border-b border-border-light/50">
-                    <td className="px-2 py-1.5 font-bold text-primary">{l.code}</td>
-                    <td className="px-2 py-1.5"><span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[8px] font-bold">{l.attr.assertionName}</span></td>
-                    <td className="px-2 py-1.5 text-text">{l.attr.name}</td>
-                    <td className="px-2 py-1.5 text-gray-500">{l.workflowName} {l.workflowVersion}</td>
-                    <td className="px-2 py-1.5">
-                      <span className={`px-1 py-0.5 rounded text-[7px] font-bold ${l.attr.type === 'AUTOMATED' ? 'bg-evidence-50 text-evidence-700' : 'bg-gray-100 text-gray-600'}`}>
-                        {l.attr.type === 'AUTOMATED' ? 'Auto' : 'Manual'}
-                      </span>
-                    </td>
-                    <td className="px-2 py-1.5 text-gray-500">{l.attr.required ? 'Required' : 'Optional'}</td>
-                  </tr>
-                ))}
+                {attrLegend.map(l => {
+                  const evReq = l.attr.type === 'AUTOMATED' ? 'System + User' : 'User Evidence';
+                  return (
+                    <tr key={l.attr.id} className="border-b border-border-light/50">
+                      <td className="px-2 py-1.5 font-bold text-primary">{l.code}</td>
+                      <td className="px-2 py-1.5"><span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[8px] font-bold">{l.attr.assertionName}</span></td>
+                      <td className="px-2 py-1.5 text-text">{l.attr.name}</td>
+                      <td className="px-2 py-1.5 text-gray-500">{l.workflowName} {l.workflowVersion}</td>
+                      <td className="px-2 py-1.5">
+                        <span className={`px-1 py-0.5 rounded text-[7px] font-bold ${l.attr.type === 'AUTOMATED' ? 'bg-evidence-50 text-evidence-700' : 'bg-gray-100 text-gray-600'}`}>
+                          {l.attr.type === 'AUTOMATED' ? 'Auto' : 'Manual'}
+                        </span>
+                      </td>
+                      <td className="px-2 py-1.5 text-gray-500 text-[9px]">{evReq}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -2643,6 +2646,7 @@ function WorkingPaperStep({ ctrl, controlType, onNavigate }: {
 
         {/* 6. Evidence Coverage Matrix */}
         <Section num={6} title="Evidence Coverage Matrix">
+          <p className="text-[9px] text-gray-400 mb-2">Attribute columns (A/B/C) show user-uploaded files. System Evidence shows workflow-generated logs and reports.</p>
           {items.some(ti => ti.evidence.length > 0) ? (
             <div className="rounded-lg border border-border-light overflow-hidden">
               <div className="overflow-x-auto">
@@ -2653,27 +2657,45 @@ function WorkingPaperStep({ ctrl, controlType, onNavigate }: {
                     <th className="px-2 py-1.5 text-left text-[8px] font-semibold text-gray-400 uppercase">Reference</th>
                     {attrLegend.map(l => (
                       <th key={l.attr.id} className="px-2 py-1.5 text-center text-[8px] font-semibold text-gray-400 uppercase" title={l.attr.name}>
-                        <span className="text-primary font-bold text-[9px]">{l.code}</span>
+                        <div className="flex flex-col items-center">
+                          <span className="text-primary font-bold text-[9px]">{l.code}</span>
+                          <span className="text-[6px] text-gray-400 font-normal">files</span>
+                        </div>
                       </th>
                     ))}
-                    <th className="px-2 py-1.5 text-center text-[8px] font-semibold text-gray-400 uppercase">System</th>
+                    <th className="px-2 py-1.5 text-center text-[8px] font-semibold text-gray-400 uppercase">
+                      <div className="flex flex-col items-center">
+                        <span>System</span>
+                        <span className="text-[6px] text-gray-400 font-normal">logs</span>
+                      </div>
+                    </th>
                     <th className="px-2 py-1.5 text-center text-[8px] font-semibold text-gray-400 uppercase">Status</th>
                   </tr></thead>
                   <tbody>
                     {items.slice(0, 20).map(ti => {
                       const isEvExpanded = expandedEvidenceSampleId === ti.id;
-                      // Count evidence per attribute code
-                      const evByAttr = new Map<string, number>();
+                      // Count user-uploaded evidence per attribute code (exclude system)
+                      const userEvByAttr = new Map<string, number>();
                       let systemEvCount = 0;
                       ti.evidence.forEach(ev => {
-                        if (ev.uploadedBy === 'System') systemEvCount++;
-                        ev.mappedAttributeIds.forEach(aId => {
-                          const code = attrCodeMap.get(aId);
-                          if (code) evByAttr.set(code, (evByAttr.get(code) || 0) + 1);
-                        });
+                        const isSystem = ev.uploadedBy === 'System';
+                        if (isSystem) {
+                          systemEvCount++;
+                        } else {
+                          ev.mappedAttributeIds.forEach(aId => {
+                            const code = attrCodeMap.get(aId);
+                            if (code) userEvByAttr.set(code, (userEvByAttr.get(code) || 0) + 1);
+                          });
+                        }
                       });
-                      const coveredAttrs = attrLegend.filter(l => (evByAttr.get(l.code) || 0) > 0).length;
-                      const evStatus = ti.evidence.length === 0 ? 'Missing' : coveredAttrs === attrLegend.length ? 'Complete' : 'Partial';
+                      // Status: check that each attribute has at least some evidence (user or system)
+                      const attrWithAnyEv = attrLegend.filter(l => {
+                        const userCount = userEvByAttr.get(l.code) || 0;
+                        // System evidence mapped to this attr
+                        const sysCount = ti.evidence.filter(ev => ev.uploadedBy === 'System' && ev.mappedAttributeIds.some(aId => attrCodeMap.get(aId) === l.code)).length;
+                        return userCount > 0 || sysCount > 0;
+                      }).length;
+                      const evStatus = ti.evidence.length === 0 ? 'Missing' : attrWithAnyEv === attrLegend.length ? 'Complete' : 'Partial';
                       const evStatusCls = evStatus === 'Complete' ? 'bg-emerald-50 text-emerald-700' : evStatus === 'Partial' ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-600';
                       return (
                         <React.Fragment key={ti.id}>
@@ -2685,21 +2707,19 @@ function WorkingPaperStep({ ctrl, controlType, onNavigate }: {
                             <td className="px-2 py-1.5 font-mono text-gray-500">{ti.referenceId}</td>
                             <td className="px-2 py-1.5 text-text text-[9px] truncate max-w-[120px]" title={ti.description}>{ti.description || '—'}</td>
                             {attrLegend.map(l => {
-                              const count = evByAttr.get(l.code) || 0;
+                              const count = userEvByAttr.get(l.code) || 0;
                               return (
                                 <td key={l.attr.id} className="px-2 py-1.5 text-center">
                                   <span className={`text-[8px] font-medium ${count > 0 ? 'text-text' : 'text-gray-300'}`}>
-                                    {count > 0 ? `${count}` : '0'}
+                                    {count}
                                   </span>
                                 </td>
                               );
                             })}
                             <td className="px-2 py-1.5 text-center">
-                              {systemEvCount > 0 ? (
-                                <span className="text-[8px] font-medium text-blue-600">{systemEvCount}</span>
-                              ) : (
-                                <span className="text-[8px] text-gray-300">0</span>
-                              )}
+                              <span className={`text-[8px] font-medium ${systemEvCount > 0 ? 'text-blue-600' : 'text-gray-300'}`}>
+                                {systemEvCount}
+                              </span>
                             </td>
                             <td className="px-2 py-1.5 text-center">
                               <span className={`px-1.5 py-0.5 rounded text-[7px] font-bold ${evStatusCls}`}>{evStatus}</span>
@@ -2707,32 +2727,47 @@ function WorkingPaperStep({ ctrl, controlType, onNavigate }: {
                           </tr>
                           {isEvExpanded && ti.evidence.length > 0 && (
                             <tr><td colSpan={attrLegend.length + 5} className="p-0">
-                              <div className="bg-surface-2/15 px-4 py-2 border-b border-border-light">
-                                <table className="w-full text-[9px]">
-                                  <thead><tr className="text-[7px] font-semibold text-gray-400 uppercase">
-                                    <th className="text-left py-1 pr-2">Attr</th>
-                                    <th className="text-left py-1 pr-2">Evidence Type</th>
-                                    <th className="text-left py-1 pr-2">File / Source</th>
-                                    <th className="text-left py-1 w-12">By</th>
-                                  </tr></thead>
-                                  <tbody>
-                                    {ti.evidence.map(ev => {
-                                      const mappedCodes = ev.mappedAttributeIds.map(aId => attrCodeMap.get(aId) || '?').join(', ') || '—';
-                                      return (
-                                        <tr key={ev.id} className="border-t border-border-light/20">
-                                          <td className="py-1 pr-2 font-bold text-primary">{mappedCodes}</td>
-                                          <td className="py-1 pr-2 text-gray-500">{ev.evidenceType}</td>
-                                          <td className="py-1 pr-2 text-text truncate max-w-[200px]" title={ev.fileName}>{ev.fileName}</td>
-                                          <td className="py-1">
-                                            <span className={`px-1 py-0.5 rounded text-[7px] font-bold ${ev.uploadedBy === 'System' ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-600'}`}>
-                                              {ev.uploadedBy === 'System' ? 'Sys' : 'User'}
-                                            </span>
-                                          </td>
-                                        </tr>
-                                      );
-                                    })}
-                                  </tbody>
-                                </table>
+                              <div className="bg-surface-2/15 px-4 py-2 border-b border-border-light space-y-2">
+                                {/* User-uploaded evidence */}
+                                {ti.evidence.filter(ev => ev.uploadedBy !== 'System').length > 0 && (
+                                  <div>
+                                    <div className="text-[7px] font-semibold text-gray-400 uppercase mb-1">User Evidence</div>
+                                    <table className="w-full text-[9px]">
+                                      <tbody>
+                                        {ti.evidence.filter(ev => ev.uploadedBy !== 'System').map(ev => {
+                                          const mappedCodes = ev.mappedAttributeIds.map(aId => attrCodeMap.get(aId) || '?').join(', ') || '—';
+                                          return (
+                                            <tr key={ev.id} className="border-t border-border-light/20">
+                                              <td className="py-1 pr-2 font-bold text-primary w-10">{mappedCodes}</td>
+                                              <td className="py-1 pr-2 text-gray-500 w-28">{ev.evidenceType}</td>
+                                              <td className="py-1 text-text truncate max-w-[200px]" title={ev.fileName}>{ev.fileName}</td>
+                                            </tr>
+                                          );
+                                        })}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                )}
+                                {/* System-generated evidence */}
+                                {ti.evidence.filter(ev => ev.uploadedBy === 'System').length > 0 && (
+                                  <div>
+                                    <div className="text-[7px] font-semibold text-blue-500 uppercase mb-1">System Evidence</div>
+                                    <table className="w-full text-[9px]">
+                                      <tbody>
+                                        {ti.evidence.filter(ev => ev.uploadedBy === 'System').map(ev => {
+                                          const mappedCodes = ev.mappedAttributeIds.map(aId => attrCodeMap.get(aId) || '?').join(', ') || '—';
+                                          return (
+                                            <tr key={ev.id} className="border-t border-border-light/20">
+                                              <td className="py-1 pr-2 font-bold text-primary w-10">{mappedCodes}</td>
+                                              <td className="py-1 pr-2 text-blue-500 w-28">{ev.evidenceType}</td>
+                                              <td className="py-1 text-blue-600 truncate max-w-[200px]" title={ev.fileName}>{ev.fileName}</td>
+                                            </tr>
+                                          );
+                                        })}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                )}
                               </div>
                             </td></tr>
                           )}
@@ -2840,21 +2875,31 @@ function WorkingPaperStep({ ctrl, controlType, onNavigate }: {
                           <th className="text-left py-1 pr-2">Attribute</th>
                           <th className="text-left py-1 pr-2">Assertion</th>
                           <th className="text-center py-1 pr-2">Result</th>
-                          <th className="text-center py-1 pr-2">Evidence</th>
+                          <th className="text-center py-1 pr-2">User Ev</th>
+                          <th className="text-center py-1 pr-2">Sys Ev</th>
                           <th className="text-left py-1">Notes</th>
                         </tr></thead>
                         <tbody>
                           {attrLegend.map(l => {
                             const ar = ti.attributeResults.find(r => r.attributeId === l.attr.id);
                             const r = ar?.result || 'NOT_TESTED';
-                            const evCount = ar?.evidenceIds?.length || 0;
+                            const evIds = ar?.evidenceIds || [];
+                            const userEvCount = evIds.filter(eid => {
+                              const ev = ti.evidence.find(e => e.id === eid);
+                              return ev && ev.uploadedBy !== 'System';
+                            }).length;
+                            const sysEvCount = evIds.filter(eid => {
+                              const ev = ti.evidence.find(e => e.id === eid);
+                              return ev && ev.uploadedBy === 'System';
+                            }).length;
                             return (
                               <tr key={l.attr.id} className="border-t border-border-light/30">
                                 <td className="py-1 pr-2 font-bold text-primary">{l.code}</td>
                                 <td className="py-1 pr-2 text-text">{l.attr.name}</td>
                                 <td className="py-1 pr-2"><span className="px-1 py-0.5 rounded bg-primary/10 text-primary text-[7px] font-bold">{l.attr.assertionName}</span></td>
                                 <td className="py-1 pr-2 text-center"><span className={`px-1.5 py-0.5 rounded text-[8px] font-bold ${attrResultStyle(r)}`}>{attrResultLabel(r)}</span></td>
-                                <td className="py-1 pr-2 text-center text-gray-500">{evCount > 0 ? `${evCount} file${evCount !== 1 ? 's' : ''}` : '—'}</td>
+                                <td className="py-1 pr-2 text-center text-gray-500">{userEvCount > 0 ? `${userEvCount} file${userEvCount !== 1 ? 's' : ''}` : '—'}</td>
+                                <td className="py-1 pr-2 text-center text-blue-500">{sysEvCount > 0 ? `${sysEvCount} log${sysEvCount !== 1 ? 's' : ''}` : '—'}</td>
                                 <td className="py-1 text-gray-500 truncate max-w-[150px]" title={ar?.notes || ''}>{ar?.notes || '—'}</td>
                               </tr>
                             );
