@@ -274,6 +274,7 @@ All helpers must be **pure functions** — no side effects, no state mutations. 
 | 2026-05-04 | Bulk upload v2: True folder upload via webkitdirectory + multi-file fallback. Matching uses file path + name: bulkInferSampleMatch (referenceId + description keywords, tolerates hyphens/underscores), bulkInferEvidenceType (ordered keyword matching for 11 types), bulkInferAttrMapping (evidence type → attribute keywords). Review table now has editable attribute multi-select chips per row + relative path display. deriveBulkStatus recalculates on edits. Apply only processes Matched rows, keeps unmatched in review with warning. Unrelated files shown as Unmatched with manual mapping option. |
 | 2026-05-05 | Engagement View redesign: Simplified Process Hub → Engagement View table. Removed Progress bar, Effective, Failed, Pending, Remaining columns from default list. Added summary cards, search, row expansion, empty states. |
 | 2026-05-05 | Engagement View v2 cleanup: Removed separate Scope column (redundant with engagement name). Merged process chip + audit period + alert tags into Engagement column. Renamed Health → Attention. Final 6 columns: Engagement, Type/Framework, Owner, Status, Attention, Next Action. Made summary cards more compact (horizontal layout). Improved spacing, row padding, hover states, and secondary text opacity for cleaner visual hierarchy. |
+| 2026-05-11 | RACM mapped controls redesign: Each mapped control card now shows linked workflows inline (name, version, status badge) with attribute chips per workflow. Nature badge (Preventive/Detective) added to control headers. Remove control with inline confirmation showing impact (workflow/attribute count). Remove workflow via trash icon on hover. Risk-level summary shows readiness counts (N ready · N missing workflows · N needs setup). |
 
 ---
 
@@ -288,3 +289,16 @@ All helpers must be **pure functions** — no side effects, no state mutations. 
 - **Row expansion** provides optional detail (control counts, tested, effective, failed, pending review, last activity) without cluttering the default view.
 - **Summary cards** above the table show only 5 compact counts: Total, Active/In Execution, Pending Review, At Risk/Failed, Planned.
 - **Clicking a row or action** routes to Engagement Execution V2 (for active engagements) or the setup panel (for draft/planned).
+
+---
+
+## 14. RACM Mapping Page Design Rules
+
+- **RACM page shows setup readiness only, not execution/testing state.** No Run, Execute, or testing CTAs on this page.
+- **Mapped controls inside RACM must show workflow coverage and attribute mapping.** Each control card displays linked workflows inline with their attributes.
+- **Control readiness requires at least one workflow and all required attributes mapped.** Readiness states: Ready, Workflow Missing, Configuration Pending.
+- **RACM readiness is blocked when risks are unmapped or mapped controls are missing workflow/attribute coverage.** Validate button remains disabled until all checks pass.
+- **Execution CTAs must not appear on RACM mapping page.** RACM is the governance/mapping layer; execution happens in Engagement Execution V2.
+- **Risk-level summary** shows readiness counts next to "Mapped Controls (N)": e.g., "2 ready · 1 missing workflows".
+- **Remove control** requires inline confirmation with impact message (workflow/attribute count). Control remains in Control Library.
+- **Remove workflow** uses trash icon (appears on hover), removes workflow from the control mapping.

@@ -1185,7 +1185,23 @@ function RacmGridView({ risks, onSelectRisk, onUpdateRisks, onLinkControl, onCre
                               {/* Controls detail */}
                               <div>
                                 <div className="flex items-center justify-between mb-2">
-                                  <h4 className="text-[10px] font-bold text-ink-500 uppercase tracking-wider">Mapped Controls ({risk.controls.length})</h4>
+                                  <div className="flex items-center gap-3">
+                                    <h4 className="text-[10px] font-bold text-ink-500 uppercase tracking-wider">Mapped Controls ({risk.controls.length})</h4>
+                                    {risk.controls.length > 0 && (() => {
+                                      const readyCt = risk.controls.filter(c => getControlReadiness(c) === 'Ready').length;
+                                      const missingWf = risk.controls.filter(c => getControlReadiness(c) === 'Workflow Missing').length;
+                                      const configPending = risk.controls.filter(c => getControlReadiness(c) === 'Configuration Pending').length;
+                                      return (
+                                        <span className="text-[9px] text-ink-400">
+                                          {readyCt > 0 && <span className="text-emerald-600">{readyCt} ready</span>}
+                                          {readyCt > 0 && (missingWf > 0 || configPending > 0) && ' · '}
+                                          {missingWf > 0 && <span className="text-red-500">{missingWf} missing workflows</span>}
+                                          {missingWf > 0 && configPending > 0 && ' · '}
+                                          {configPending > 0 && <span className="text-amber-600">{configPending} needs setup</span>}
+                                        </span>
+                                      );
+                                    })()}
+                                  </div>
                                   <div className="flex items-center gap-2">
                                     <button onClick={e => { e.stopPropagation(); onLinkControl(risk.id); }}
                                       className="text-[10px] font-semibold text-primary hover:underline cursor-pointer flex items-center gap-1"><Link2 size={9} />Link Control</button>
