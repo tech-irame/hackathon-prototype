@@ -6,7 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import {
-  X, ChevronRight, Lock, Shield, FileText, AlertTriangle,
+  X, ChevronRight, ChevronDown, Lock, Shield, FileText, AlertTriangle,
   CheckCircle2, Upload, FlaskConical, ClipboardCheck, Eye,
   Play, Layers, Settings, Workflow, Plus, Trash2, Database, Shuffle, Paperclip, Download,
   Send, RotateCcw, Link2, Loader2, ArrowLeft,
@@ -2440,11 +2440,12 @@ function WorkingPaperStep({ ctrl, controlType, onNavigate }: {
 }) {
   const exec = ctrl.execution;
   const progress = deriveTestingProgress(ctrl);
-  const pop = exec.population;
   const items = exec.testItems;
   const hasItems = items.length > 0;
   const isConcluded = exec.status === ControlExecStatus.CONCLUDED;
   const isReviewed = exec.review.status === ReviewStatus.APPROVED;
+  const isRejected = exec.review.status === ReviewStatus.REJECTED;
+  const [expandedSampleId, setExpandedSampleId] = useState<string | null>(null);
 
   // Before testing has started
   if (!hasItems) {
@@ -2456,6 +2457,21 @@ function WorkingPaperStep({ ctrl, controlType, onNavigate }: {
       </div>
     );
   }
+
+  // Build attribute legend: A, B, C...
+  const attrLegend = ctrl.attributes.map((a, i) => {
+    const code = String.fromCharCode(65 + i); // A, B, C...
+    const wm = ctrl.workflowMappings.find(w => w.mappedAttributeIds.includes(a.id));
+    return { code, attr: a, workflowName: wm?.workflowName || '—', workflowVersion: wm?.version || '' };
+  });
+  const attrCodeMap = new Map(attrLegend.map(l => [l.attr.id, l.code]));
+
+  // Counts
+  const totalChecks = items.length * ctrl.attributes.length;
+  const totalEvidence = items.reduce((s, ti) => s + ti.evidence.length, 0);
+  const passedSamples = items.filter(i => i.sampleResult === 'PASS').length;
+  const failedSamples = items.filter(i => i.sampleResult === 'FAIL').length;
+  const pendingSamples = items.filter(i => i.sampleResult === 'PENDING').length;
 
   // Section component
   const Section = ({ num, title, children }: { num: number; title: string; children: React.ReactNode }) => (
@@ -2469,13 +2485,18 @@ function WorkingPaperStep({ ctrl, controlType, onNavigate }: {
   );
 
   const attrResultStyle = (r: string) =>
-    r === 'PASS' ? 'text-emerald-700 bg-emerald-50' : r === 'FAIL' ? 'text-red-700 bg-red-50' : 'text-gray-500 bg-gray-50';
+    r === 'PASS' ? 'text-emerald-700 bg-emerald-50' : r === 'FAIL' ? 'text-red-700 bg-red-50' : r === 'NOT_APPLICABLE' ? 'text-blue-600 bg-blue-50' : 'text-gray-500 bg-gray-50';
+  const attrResultLabel = (r: string) =>
+    r === 'PASS' ? 'P' : r === 'FAIL' ? 'F' : r === 'NOT_APPLICABLE' ? 'N/A' : '—';
 
   const sampleResultStyle = (r: string) =>
     r === 'PASS' ? 'bg-emerald-50 text-emerald-700' : r === 'FAIL' ? 'bg-red-50 text-red-700' : 'bg-gray-100 text-gray-500';
+  const sampleResultLabel = (r: string) =>
+    r === 'PASS' ? 'Pass' : r === 'FAIL' ? 'Fail' : 'Pending';
 
   const reviewLabel = exec.review.status === 'APPROVED' ? 'Approved' : exec.review.status === 'REJECTED' ? 'Rejected' : exec.review.status === 'PENDING' ? 'Pending' : 'Not Submitted';
   const reviewStyle = exec.review.status === 'APPROVED' ? 'text-emerald-700' : exec.review.status === 'REJECTED' ? 'text-red-700' : 'text-gray-500';
+  const conclusionLabel = exec.conclusion.value === 'EFFECTIVE' ? 'Effective' : exec.conclusion.value === 'INEFFECTIVE' ? 'Ineffective' : 'Pending';
 
   return (
     <div className="space-y-5">
@@ -2486,8 +2507,8 @@ function WorkingPaperStep({ ctrl, controlType, onNavigate }: {
         <div>
           <div className="flex items-center gap-2 mb-0.5">
             <h4 className="text-[14px] font-bold text-text">Working Paper</h4>
-            <span className={`px-2 h-5 rounded-full text-[9px] font-semibold inline-flex items-center ${isReviewed ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
-              {isReviewed ? 'Reviewed' : 'Not Reviewed'}
+            <span className={`px-2 h-5 rounded-full text-[9px] font-semibold inline-flex items-center ${isReviewed ? 'bg-emerald-50 text-emerald-700' : isRejected ? 'bg-red-50 text-red-700' : 'bg-gray-100 text-gray-500'}`}>
+              {isReviewed ? 'Reviewed' : isRejected ? 'Rejected' : 'Not Reviewed'}
             </span>
           </div>
           <p className="text-[11px] text-text-muted">System-generated audit documentation for this control test instance.</p>
@@ -2522,6 +2543,20 @@ function WorkingPaperStep({ ctrl, controlType, onNavigate }: {
         </div>
       </div>
 
+      {/* Summary chips */}
+      <div className="flex flex-wrap gap-2">
+        <span className="px-2.5 py-1 rounded-lg bg-gray-50 border border-border-light text-[10px] text-text font-medium">Samples: <span className="font-bold tabular-nums">{items.length}</span></span>
+        <span className="px-2.5 py-1 rounded-lg bg-gray-50 border border-border-light text-[10px] text-text font-medium">Attributes: <span className="font-bold tabular-nums">{ctrl.attributes.length}</span></span>
+        <span className="px-2.5 py-1 rounded-lg bg-gray-50 border border-border-light text-[10px] text-text font-medium">Checks: <span className="font-bold tabular-nums">{totalChecks}</span></span>
+        <span className="px-2.5 py-1 rounded-lg bg-gray-50 border border-border-light text-[10px] text-text font-medium">Evidence: <span className="font-bold tabular-nums">{totalEvidence} files</span></span>
+        <span className={`px-2.5 py-1 rounded-lg border text-[10px] font-medium ${isReviewed ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : isRejected ? 'bg-red-50 border-red-200 text-red-700' : 'bg-gray-50 border-border-light text-gray-500'}`}>
+          Result: <span className="font-bold">{reviewLabel}</span>
+        </span>
+        <span className={`px-2.5 py-1 rounded-lg border text-[10px] font-medium ${exec.conclusion.value === 'EFFECTIVE' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : exec.conclusion.value === 'INEFFECTIVE' ? 'bg-red-50 border-red-200 text-red-700' : 'bg-gray-50 border-border-light text-gray-500'}`}>
+          Conclusion: <span className="font-bold">{conclusionLabel}</span>
+        </span>
+      </div>
+
       {/* Paper content */}
       <div className="rounded-xl border border-border-light bg-white p-5 space-y-4">
 
@@ -2554,83 +2589,142 @@ function WorkingPaperStep({ ctrl, controlType, onNavigate }: {
               </div>
             </div>
             <div>
-              <span className="text-gray-400 text-[10px]">Attributes ({ctrl.attributes.length}):</span>
-              <div className="mt-1 space-y-1">
-                {ctrl.attributes.map(a => (
-                  <div key={a.id} className="flex items-center gap-2 text-[10px]">
-                    <span className={`px-1 py-0.5 rounded text-[7px] font-bold ${a.type === 'AUTOMATED' ? 'bg-evidence-50 text-evidence-700' : 'bg-gray-100 text-gray-600'}`}>
-                      {a.type === 'AUTOMATED' ? 'AUTO' : 'MANUAL'}
-                    </span>
-                    <span className="text-text">{a.name}</span>
-                    <span className="text-gray-400">({a.assertionName})</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div>
               <span className="text-gray-400 text-[10px]">Workflows ({ctrl.workflowMappings.length}):</span>
               <div className="mt-1 space-y-0.5">
                 {ctrl.workflowMappings.map(wm => (
-                  <div key={wm.workflowId} className="text-[10px] text-text">{wm.workflowName} {wm.version} — {wm.mappedAttributeIds.length} attributes</div>
+                  <div key={wm.workflowId} className="text-[10px] text-text">{wm.workflowName} {wm.version} — {wm.mappedAttributeIds.length} attribute{wm.mappedAttributeIds.length !== 1 ? 's' : ''}</div>
                 ))}
               </div>
             </div>
           </div>
         </Section>
 
-        {/* 4. Sample Data Summary */}
-        <Section num={4} title="Sample Data Summary">
-          <div className="text-[11px] space-y-1">
-            <div><span className="text-gray-400">Sample Count:</span> <span className="text-text tabular-nums">{items.length}</span></div>
-            <div><span className="text-gray-400">Source:</span> <span className="text-text">Uploaded sample data</span></div>
+        {/* 4. Test Attribute Legend */}
+        <Section num={4} title="Test Attribute Legend">
+          <div className="rounded-lg border border-border-light overflow-hidden">
+            <table className="w-full text-[10px]">
+              <thead><tr className="border-b border-border-light bg-surface-2/30">
+                <th className="px-2 py-1.5 text-left text-[8px] font-semibold text-gray-400 uppercase w-8">Code</th>
+                <th className="px-2 py-1.5 text-left text-[8px] font-semibold text-gray-400 uppercase">Assertion</th>
+                <th className="px-2 py-1.5 text-left text-[8px] font-semibold text-gray-400 uppercase">Attribute</th>
+                <th className="px-2 py-1.5 text-left text-[8px] font-semibold text-gray-400 uppercase">Workflow</th>
+                <th className="px-2 py-1.5 text-left text-[8px] font-semibold text-gray-400 uppercase w-16">Type</th>
+                <th className="px-2 py-1.5 text-left text-[8px] font-semibold text-gray-400 uppercase w-16">Required</th>
+              </tr></thead>
+              <tbody>
+                {attrLegend.map(l => (
+                  <tr key={l.attr.id} className="border-b border-border-light/50">
+                    <td className="px-2 py-1.5 font-bold text-primary">{l.code}</td>
+                    <td className="px-2 py-1.5"><span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[8px] font-bold">{l.attr.assertionName}</span></td>
+                    <td className="px-2 py-1.5 text-text">{l.attr.name}</td>
+                    <td className="px-2 py-1.5 text-gray-500">{l.workflowName} {l.workflowVersion}</td>
+                    <td className="px-2 py-1.5">
+                      <span className={`px-1 py-0.5 rounded text-[7px] font-bold ${l.attr.type === 'AUTOMATED' ? 'bg-evidence-50 text-evidence-700' : 'bg-gray-100 text-gray-600'}`}>
+                        {l.attr.type === 'AUTOMATED' ? 'Auto' : 'Manual'}
+                      </span>
+                    </td>
+                    <td className="px-2 py-1.5 text-gray-500">{l.attr.required ? 'Required' : 'Optional'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </Section>
 
-        {/* 5. Evidence Log */}
-        <Section num={5} title="Evidence Log">
+        {/* 5. Sample Data Summary */}
+        <Section num={5} title="Sample Data Summary">
+          <div className="grid grid-cols-3 gap-3 text-[11px]">
+            <div><span className="text-gray-400 block text-[10px]">Sample Count</span><span className="text-text font-medium tabular-nums">{items.length}</span></div>
+            <div><span className="text-gray-400 block text-[10px]">Source</span><span className="text-text font-medium">Uploaded sample data</span></div>
+            <div><span className="text-gray-400 block text-[10px]">Attributes per Sample</span><span className="text-text font-medium tabular-nums">{ctrl.attributes.length}</span></div>
+          </div>
+        </Section>
+
+        {/* 6. Evidence Log — Sample and Attribute Level */}
+        <Section num={6} title="Evidence Log — Sample and Attribute Level">
           {items.some(ti => ti.evidence.length > 0) ? (
-            <div className="space-y-2">
-              {items.filter(ti => ti.evidence.length > 0).map(ti => (
-                <div key={ti.id} className="text-[10px]">
-                  <span className="font-mono text-gray-500">{ti.referenceId}</span>
-                  <span className="text-gray-400 ml-1">({ti.evidence.length} file{ti.evidence.length !== 1 ? 's' : ''}):</span>
-                  <span className="text-text ml-1">{ti.evidence.map(e => e.fileName).join(', ')}</span>
-                </div>
-              ))}
+            <div className="rounded-lg border border-border-light overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-[10px]">
+                  <thead><tr className="border-b border-border-light bg-surface-2/30">
+                    <th className="px-2 py-1.5 text-left text-[8px] font-semibold text-gray-400 uppercase">Sample</th>
+                    <th className="px-2 py-1.5 text-left text-[8px] font-semibold text-gray-400 uppercase w-8">Attr</th>
+                    <th className="px-2 py-1.5 text-left text-[8px] font-semibold text-gray-400 uppercase">Attribute Name</th>
+                    <th className="px-2 py-1.5 text-left text-[8px] font-semibold text-gray-400 uppercase">Evidence Type</th>
+                    <th className="px-2 py-1.5 text-left text-[8px] font-semibold text-gray-400 uppercase">File / Source</th>
+                    <th className="px-2 py-1.5 text-left text-[8px] font-semibold text-gray-400 uppercase w-16">Source</th>
+                  </tr></thead>
+                  <tbody>
+                    {items.flatMap(ti =>
+                      ti.evidence.flatMap(ev =>
+                        (ev.mappedAttributeIds.length > 0 ? ev.mappedAttributeIds : ['unmapped']).map(aId => {
+                          const attrCode = aId !== 'unmapped' ? attrCodeMap.get(aId) || '?' : '—';
+                          const attrName = aId !== 'unmapped' ? ctrl.attributes.find(a => a.id === aId)?.name || '—' : '—';
+                          return (
+                            <tr key={`${ti.id}-${ev.id}-${aId}`} className="border-b border-border-light/50">
+                              <td className="px-2 py-1 font-mono text-gray-500">{ti.referenceId}</td>
+                              <td className="px-2 py-1 font-bold text-primary">{attrCode}</td>
+                              <td className="px-2 py-1 text-text">{attrName}</td>
+                              <td className="px-2 py-1 text-gray-500">{ev.evidenceType}</td>
+                              <td className="px-2 py-1 text-text truncate max-w-[200px]" title={ev.fileName}>{ev.fileName}</td>
+                              <td className="px-2 py-1">
+                                <span className={`px-1 py-0.5 rounded text-[7px] font-bold ${ev.uploadedBy === 'System' ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-600'}`}>
+                                  {ev.uploadedBy === 'System' ? 'System' : 'User'}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           ) : (
             <div className="text-[11px] text-gray-400 italic">No evidence uploaded.</div>
           )}
         </Section>
 
-        {/* 6. Attribute Testing Matrix */}
-        <Section num={6} title="Attribute Testing Matrix">
+        {/* 7. Attribute Testing Matrix */}
+        <Section num={7} title="Attribute Testing Matrix">
           <div className="rounded-lg border border-border-light overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-[10px]">
                 <thead><tr className="border-b border-border-light bg-surface-2/30">
                   <th className="px-2 py-1.5 text-left text-[8px] font-semibold text-gray-400 uppercase">Sample</th>
-                  {ctrl.attributes.map(a => (
-                    <th key={a.id} className="px-2 py-1.5 text-center text-[8px] font-semibold text-gray-400 uppercase whitespace-nowrap" title={a.name}>
-                      {a.name.length > 15 ? a.name.slice(0, 14) + '…' : a.name}
+                  <th className="px-2 py-1.5 text-left text-[8px] font-semibold text-gray-400 uppercase">Reference</th>
+                  {attrLegend.map(l => (
+                    <th key={l.attr.id} className="px-2 py-1.5 text-center text-[8px] font-semibold text-gray-400 uppercase" title={l.attr.name}>
+                      <div className="flex flex-col items-center">
+                        <span className="text-primary font-bold text-[9px]">{l.code}</span>
+                        <span className="text-[7px] text-gray-400 leading-tight max-w-[60px] truncate">{l.attr.name}</span>
+                      </div>
                     </th>
                   ))}
+                  <th className="px-2 py-1.5 text-center text-[8px] font-semibold text-gray-400 uppercase">Result</th>
                 </tr></thead>
                 <tbody>
                   {items.slice(0, 20).map(ti => (
                     <tr key={ti.id} className="border-b border-border-light/50">
                       <td className="px-2 py-1 font-mono text-gray-500">{ti.referenceId}</td>
-                      {ctrl.attributes.map(a => {
-                        const ar = ti.attributeResults.find(r => r.attributeId === a.id);
+                      <td className="px-2 py-1 text-text text-[9px] truncate max-w-[120px]" title={ti.description}>{ti.description || '—'}</td>
+                      {attrLegend.map(l => {
+                        const ar = ti.attributeResults.find(r => r.attributeId === l.attr.id);
                         const r = ar?.result || 'NOT_TESTED';
                         return (
-                          <td key={a.id} className="px-2 py-1 text-center">
-                            <span className={`px-1 py-0.5 rounded text-[7px] font-bold ${attrResultStyle(r)}`}>
-                              {r === 'PASS' ? 'P' : r === 'FAIL' ? 'F' : '—'}
+                          <td key={l.attr.id} className="px-2 py-1 text-center">
+                            <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold ${attrResultStyle(r)}`}>
+                              {attrResultLabel(r)}
                             </span>
                           </td>
                         );
                       })}
+                      <td className="px-2 py-1 text-center">
+                        <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold ${sampleResultStyle(ti.sampleResult)}`}>
+                          {sampleResultLabel(ti.sampleResult)}
+                        </span>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -2638,37 +2732,106 @@ function WorkingPaperStep({ ctrl, controlType, onNavigate }: {
             </div>
             {items.length > 20 && <div className="px-2 py-1 text-[9px] text-gray-400 bg-surface-2/20">Showing 20 of {items.length} items</div>}
           </div>
-          <div className="mt-1 text-[9px] text-gray-400">P = Pass · F = Fail · — = Not Tested</div>
+          <div className="mt-1.5 text-[9px] text-gray-400">P = Attribute satisfied · F = Attribute not satisfied · — = Not tested · N/A = Not applicable</div>
         </Section>
 
-        {/* 7. Sample Results */}
-        <Section num={7} title="Sample Results">
+        {/* 8. Sample-Level Testing Details */}
+        <Section num={8} title="Sample-Level Testing Details">
+          <div className="space-y-1.5">
+            {items.slice(0, 20).map(ti => {
+              const isExpanded = expandedSampleId === ti.id;
+              return (
+                <div key={ti.id} className="rounded-lg border border-border-light overflow-hidden">
+                  <button onClick={() => setExpandedSampleId(isExpanded ? null : ti.id)}
+                    className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-surface-2/20 cursor-pointer transition-colors">
+                    {isExpanded ? <ChevronDown size={10} className="text-gray-400 shrink-0" /> : <ChevronRight size={10} className="text-gray-400 shrink-0" />}
+                    <span className="text-[10px] font-mono text-gray-500 shrink-0">{ti.referenceId}</span>
+                    <span className="text-[10px] text-text truncate flex-1">{ti.description || '—'}</span>
+                    <span className="text-[9px] text-gray-400 shrink-0">{ti.evidence.length} evidence</span>
+                    <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold shrink-0 ${sampleResultStyle(ti.sampleResult)}`}>
+                      {sampleResultLabel(ti.sampleResult)}
+                    </span>
+                  </button>
+                  {isExpanded && (
+                    <div className="border-t border-border-light bg-surface-2/15 px-3 py-2">
+                      <table className="w-full text-[10px]">
+                        <thead><tr className="text-[8px] font-semibold text-gray-400 uppercase">
+                          <th className="text-left py-1 pr-2">Code</th>
+                          <th className="text-left py-1 pr-2">Attribute</th>
+                          <th className="text-left py-1 pr-2">Assertion</th>
+                          <th className="text-center py-1 pr-2">Result</th>
+                          <th className="text-center py-1 pr-2">Evidence</th>
+                          <th className="text-left py-1">Notes</th>
+                        </tr></thead>
+                        <tbody>
+                          {attrLegend.map(l => {
+                            const ar = ti.attributeResults.find(r => r.attributeId === l.attr.id);
+                            const r = ar?.result || 'NOT_TESTED';
+                            const evCount = ar?.evidenceIds?.length || 0;
+                            return (
+                              <tr key={l.attr.id} className="border-t border-border-light/30">
+                                <td className="py-1 pr-2 font-bold text-primary">{l.code}</td>
+                                <td className="py-1 pr-2 text-text">{l.attr.name}</td>
+                                <td className="py-1 pr-2"><span className="px-1 py-0.5 rounded bg-primary/10 text-primary text-[7px] font-bold">{l.attr.assertionName}</span></td>
+                                <td className="py-1 pr-2 text-center"><span className={`px-1.5 py-0.5 rounded text-[8px] font-bold ${attrResultStyle(r)}`}>{attrResultLabel(r)}</span></td>
+                                <td className="py-1 pr-2 text-center text-gray-500">{evCount > 0 ? `${evCount} file${evCount !== 1 ? 's' : ''}` : '—'}</td>
+                                <td className="py-1 text-gray-500 truncate max-w-[150px]" title={ar?.notes || ''}>{ar?.notes || '—'}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {items.length > 20 && <div className="text-[9px] text-gray-400">Showing 20 of {items.length} samples</div>}
+          </div>
+        </Section>
+
+        {/* 9. Sample Results */}
+        <Section num={9} title="Sample Results">
+          <div className="flex items-center gap-4 mb-2 text-[11px]">
+            <span className="text-emerald-600 font-semibold">{passedSamples} passed</span>
+            <span className="text-red-600 font-semibold">{failedSamples} failed</span>
+            <span className="text-gray-500 font-semibold">{pendingSamples} pending</span>
+          </div>
           <div className="flex flex-wrap gap-1.5">
             {items.map(ti => (
               <div key={ti.id} className={`px-2 py-1 rounded text-[9px] font-bold ${sampleResultStyle(ti.sampleResult)}`}>
-                {ti.referenceId}: {ti.sampleResult === 'PASS' ? 'Pass' : ti.sampleResult === 'FAIL' ? 'Fail' : 'Pending'}
+                {ti.referenceId}: {sampleResultLabel(ti.sampleResult)}
               </div>
             ))}
           </div>
-          <div className="mt-2 text-[10px] text-gray-500">
-            {items.filter(i => i.sampleResult === 'PASS').length} passed · {items.filter(i => i.sampleResult === 'FAIL').length} failed · {items.filter(i => i.sampleResult === 'PENDING').length} pending
+          {failedSamples > 0 && (
+            <div className="mt-2 px-2.5 py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-[10px] text-amber-700">
+              Control cannot be concluded effective unless reviewer accepts documented exception/override.
+            </div>
+          )}
+        </Section>
+
+        {/* 10. Review & Approval */}
+        <Section num={10} title="Review & Approval">
+          <div className="text-[11px] space-y-1">
+            <div className="flex items-center gap-4">
+              <span><span className="text-gray-400">Status:</span> <span className={`font-semibold ${reviewStyle}`}>{reviewLabel}</span></span>
+              {exec.review.reviewer && <span><span className="text-gray-400">Reviewer:</span> <span className="text-text">{exec.review.reviewer}</span></span>}
+              {exec.review.reviewedAt && <span><span className="text-gray-400">Date:</span> <span className="text-text">{exec.review.reviewedAt}</span></span>}
+            </div>
+            {exec.review.comments && <p className="text-text italic">"{exec.review.comments}"</p>}
+            {isRejected && (
+              <div className="mt-1 px-2.5 py-1.5 rounded-lg bg-red-50 border border-red-200 text-[10px] text-red-700">
+                Reviewer rejected this working paper. Tester must fix issues and resubmit.
+              </div>
+            )}
           </div>
         </Section>
 
-        {/* 8. Review & Approval */}
-        <Section num={8} title="Review & Approval">
-          <div className="text-[11px]">
-            <span className="text-gray-400">Status:</span> <span className={`font-semibold ${reviewStyle}`}>{reviewLabel}</span>
-            {exec.review.reviewer && <span className="text-gray-400 ml-3">Reviewer: <span className="text-text">{exec.review.reviewer}</span></span>}
-            {exec.review.reviewedAt && <span className="text-gray-400 ml-3">Date: <span className="text-text">{exec.review.reviewedAt}</span></span>}
-            {exec.review.comments && <p className="text-text mt-1 italic">"{exec.review.comments}"</p>}
-          </div>
-        </Section>
-
-        {/* 9. Final Conclusion */}
+        {/* 11. Final Conclusion */}
         <div>
           <h5 className="text-[11px] font-bold text-text-muted uppercase tracking-wider mb-2 flex items-center gap-2">
-            <span className="w-5 h-5 rounded-full bg-primary/10 text-primary text-[9px] font-bold inline-flex items-center justify-center">9</span>
+            <span className="w-5 h-5 rounded-full bg-primary/10 text-primary text-[9px] font-bold inline-flex items-center justify-center">11</span>
             Final Conclusion
           </h5>
           {exec.conclusion.value ? (
