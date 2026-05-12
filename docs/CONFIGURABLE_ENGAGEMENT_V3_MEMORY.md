@@ -538,6 +538,7 @@ Initial open questions:
 | 2026-05-12 | Created Configurable Engagement V3 memory. Locked three engagement patterns: Compliance Control Testing, Internal Audit Assignment, Workflow Automation Project. Confirmed pattern-driven approach with one internal Engagement object and pattern-specific config/workspace/output. |
 | 2026-05-12 | Created isolated module skeleton under src/components/engagement-configurable/. Added type definitions (configurableEngagementTypes.ts) for common engagement, pattern configs, all enums. Added pattern metadata definitions (engagementPatterns.ts) with workspace tabs and required outputs. Added mock placeholder data (3 engagements). Added lightweight state/validation helpers (configurableEngagementState.ts). No UI or routing implemented yet. |
 | 2026-05-12 | Created ConfigurableEngagementWizard shell (4 steps): PatternSelectionStep (3 pattern cards with workspace tab previews), CommonDetailsStep (name/owner/reviewer/dates form), PatternConfigStep (Compliance: framework/scope/testing method, IA: scope/IDR/announcement, Automation: input/mode/outputs/schedule), ReviewCreateStep (summary + validation + local draft creation). Wizard is isolated and not wired to app routing yet. |
+| 2026-05-12 | Wired wizard to dev-only preview route: view key `dev-configurable-engagement-v3`. Added to View type in useAppState.ts and App.tsx switch. Not in sidebar. Existing app flow unchanged. Access via console: call setView('dev-configurable-engagement-v3'). |
 
 ---
 

@@ -57,7 +57,9 @@ export type View =
   // Case Management
   | 'manage-exceptions'
   // Chat trash
-  | 'chat-trash';
+  | 'chat-trash'
+  // Dev-only preview routes
+  | 'dev-configurable-engagement-v3';
 
 export type ChatMode = 'chat' | 'workflow';
 export type ExceptionRole = 'risk-owner' | 'auditor';
