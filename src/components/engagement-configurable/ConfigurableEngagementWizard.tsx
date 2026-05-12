@@ -4,8 +4,9 @@
 // See docs/CONFIGURABLE_ENGAGEMENT_V3_MEMORY.md for product rules.
 
 import React, { useState, useMemo } from 'react';
-import { ChevronRight, ChevronLeft, CheckCircle2 } from 'lucide-react';
+import { ChevronRight, ChevronLeft, CheckCircle2, Info } from 'lucide-react';
 import type { EngagementPatternType, EngagementConfig, ConfigurableEngagement, ValidationResult } from './configurableEngagementTypes';
+import ConfigurableEngagementWorkspace from './ConfigurableEngagementWorkspace';
 import {
   EngagementPatternType as EPT, EngagementStatus, PATTERN_DISPLAY_LABELS,
   ComplianceFramework, ControlScopeSource, TestingInputMethod,
@@ -85,6 +86,7 @@ export default function ConfigurableEngagementWizard() {
   const [details, setDetails] = useState<CommonDetails>(DEFAULT_DETAILS);
   const [config, setConfig] = useState<EngagementConfig>(getDefaultConfig(EPT.COMPLIANCE_CONTROL_TESTING));
   const [isCreated, setIsCreated] = useState(false);
+  const [createdEngagement, setCreatedEngagement] = useState<ConfigurableEngagement | null>(null);
 
   // When pattern changes, reset config to defaults
   const handlePatternSelect = (pt: EngagementPatternType) => {
@@ -134,9 +136,47 @@ export default function ConfigurableEngagementWizard() {
   };
 
   const handleCreate = () => {
-    if (!validation.isValid) return;
+    if (!validation.isValid || !draftEngagement) return;
+    const now = new Date().toISOString();
+    const eng: ConfigurableEngagement = {
+      ...draftEngagement,
+      id: `ceng-${Date.now()}`,
+      status: EngagementStatus.DRAFT,
+      stage: 'Draft',
+      createdAt: now,
+      updatedAt: now,
+      outputs: getEngagementPatternDefinition(draftEngagement.patternType).requiredOutputs.map((o, i) => ({
+        id: `out-${Date.now()}-${i}`,
+        type: o,
+        label: o,
+        status: 'PENDING' as const,
+      })),
+    };
+    setCreatedEngagement(eng);
     setIsCreated(true);
   };
+
+  const handleBackToWizard = () => {
+    setCreatedEngagement(null);
+    setIsCreated(false);
+    setCurrentStep(3); // go back to review step
+  };
+
+  // ── Workspace view after creation ──
+  if (createdEngagement) {
+    return (
+      <div>
+        <div className="flex items-start gap-2 px-4 py-2.5 mb-4 rounded-lg bg-blue-50 border border-blue-200 text-[11px] text-blue-700">
+          <Info size={13} className="shrink-0 mt-0.5" />
+          <span>Draft created locally. This workspace is dev-only and not persisted. Changes will be lost on page refresh.</span>
+        </div>
+        <ConfigurableEngagementWorkspace
+          engagement={createdEngagement}
+          onBack={handleBackToWizard}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-2xl mx-auto py-8 px-4">
