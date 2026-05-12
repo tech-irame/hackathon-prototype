@@ -3142,84 +3142,61 @@ function ReviewStep({ ctrl, onUpdateControl, onNavigate }: {
           <span className="text-[11px] text-gray-400">Submitted {exec.review.submittedAt}</span>
         </div>
 
-        {/* Control summary */}
-        <div className="rounded-lg border border-border-light p-4 space-y-3">
-          <h5 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Control Summary</h5>
-          <div className="grid grid-cols-3 gap-3 text-[11px]">
-            <div><span className="text-gray-400 block text-[10px]">Control</span><span className="text-text font-medium">{ctrl.name}</span></div>
-            <div><span className="text-gray-400 block text-[10px]">Completion</span><span className="text-text font-medium tabular-nums">{progress.completionPercent}%</span></div>
-            <div><span className="text-gray-400 block text-[10px]">Test Items</span><span className="text-text font-medium tabular-nums">{items.length}</span></div>
-          </div>
-        </div>
+        {/* Embedded Working Paper for reviewer */}
+        <WorkingPaperStep ctrl={ctrl} controlType={deriveControlType(ctrl)} onNavigate={onNavigate} />
 
-        {/* Sample results */}
-        <div className="rounded-lg border border-border-light p-4">
-          <h5 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Sample Results</h5>
-          <div className="flex items-center gap-4 text-[11px]">
-            <span className="text-emerald-700 font-medium">{passedSamples} Passed</span>
-            <span className={`font-medium ${failedSamples > 0 ? 'text-red-700' : 'text-gray-400'}`}>{failedSamples} Failed</span>
-            <span className={`font-medium ${pendingSamples > 0 ? 'text-amber-600' : 'text-gray-400'}`}>{pendingSamples} Pending</span>
-          </div>
-        </div>
+        {/* Reviewer decision section */}
+        <div className="rounded-xl border-2 border-purple-200/40 bg-purple-50/10 p-5 space-y-4">
+          <h5 className="text-[12px] font-bold text-text flex items-center gap-2">
+            <ClipboardCheck size={14} className="text-purple-600" />
+            Reviewer Decision
+          </h5>
 
-        {/* Failed attributes detail */}
-        {failedAttrs.length > 0 && (
-          <div className="rounded-lg border border-red-200/50 bg-red-50/10 p-4">
-            <h5 className="text-[10px] font-bold text-red-700 uppercase tracking-wider mb-2">Failed Attributes ({failedAttrs.length})</h5>
-            <div className="space-y-1.5">
-              {failedAttrs.map((fa, i) => {
-                const attr = ctrl.attributes.find(a => a.id === fa.attributeId);
-                const item = items.find(ti => ti.attributeResults.some(ar => ar === fa));
-                return (
-                  <div key={i} className="flex items-start gap-2 text-[10px]">
-                    <X size={10} className="text-red-500 mt-0.5 shrink-0" />
-                    <div>
-                      <span className="text-text font-medium">{attr?.name || fa.attributeId}</span>
-                      {item && <span className="text-gray-400 ml-1">({item.referenceId})</span>}
-                      {fa.notes && <span className="text-gray-500 ml-1">— {fa.notes}</span>}
+          {/* Failed attributes warning */}
+          {failedAttrs.length > 0 && (
+            <div className="rounded-lg border border-red-200/50 bg-red-50/10 p-3">
+              <h6 className="text-[10px] font-bold text-red-700 uppercase tracking-wider mb-1.5">Failed Attributes ({failedAttrs.length})</h6>
+              <div className="space-y-1">
+                {failedAttrs.map((fa, i) => {
+                  const attr = ctrl.attributes.find(a => a.id === fa.attributeId);
+                  const item = items.find(ti => ti.attributeResults.some(ar => ar === fa));
+                  return (
+                    <div key={i} className="flex items-start gap-2 text-[10px]">
+                      <X size={10} className="text-red-500 mt-0.5 shrink-0" />
+                      <div>
+                        <span className="text-text font-medium">{attr?.name || fa.attributeId}</span>
+                        {item && <span className="text-gray-400 ml-1">({item.referenceId})</span>}
+                        {fa.notes && <span className="text-gray-500 ml-1">— {fa.notes}</span>}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Evidence access */}
-        <div className="rounded-lg border border-border-light p-4">
-          <h5 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Evidence by Sample</h5>
-          <div className="space-y-1">
-            {items.map(ti => (
-              <div key={ti.id} className="flex items-center gap-2 text-[10px]">
-                <span className="font-mono text-gray-500">{ti.referenceId}</span>
-                <span className="text-gray-400">{ti.evidence.length} file{ti.evidence.length !== 1 ? 's' : ''}</span>
-                {ti.evidence.length > 0 && <span className="text-gray-300">({ti.evidence.map(e => e.fileName).join(', ')})</span>}
+                  );
+                })}
               </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Reviewer comments */}
-        <div>
-          <label className="text-[10px] font-semibold text-gray-500 block mb-1.5">Reviewer Comments</label>
-          <textarea value={comments} onChange={e => setComments(e.target.value)} rows={3}
-            placeholder="Add review comments..."
-            className="w-full px-3 py-2 border border-border rounded-lg text-[12px] text-text bg-white outline-none focus:border-primary/40 resize-none" />
-        </div>
-
-        {/* Reviewer Actions */}
-        <div className="flex items-center gap-3">
-          <button onClick={handleApprove}
-            className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[12px] font-semibold cursor-pointer transition-colors flex items-center gap-1.5">
-            <CheckCircle2 size={13} />Approve
-          </button>
-          <button onClick={handleSendBack} disabled={!comments.trim()}
-            className="px-4 py-2 rounded-lg border border-red-200 text-red-700 bg-red-50 hover:bg-red-100 text-[12px] font-semibold cursor-pointer transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed">
-            <RotateCcw size={13} />Send Back
-          </button>
-          {!comments.trim() && (
-            <span className="text-[10px] text-gray-400 italic">Comments required to send back</span>
+            </div>
           )}
+
+          {/* Reviewer comments */}
+          <div>
+            <label className="text-[10px] font-semibold text-gray-500 block mb-1.5">Reviewer Comments</label>
+            <textarea value={comments} onChange={e => setComments(e.target.value)} rows={3}
+              placeholder="Add review comments..."
+              className="w-full px-3 py-2 border border-border rounded-lg text-[12px] text-text bg-white outline-none focus:border-primary/40 resize-none" />
+          </div>
+
+          {/* Reviewer Actions */}
+          <div className="flex items-center gap-3">
+            <button onClick={handleApprove}
+              className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[12px] font-semibold cursor-pointer transition-colors flex items-center gap-1.5">
+              <CheckCircle2 size={13} />Approve
+            </button>
+            <button onClick={handleSendBack} disabled={!comments.trim()}
+              className="px-4 py-2 rounded-lg border border-red-200 text-red-700 bg-red-50 hover:bg-red-100 text-[12px] font-semibold cursor-pointer transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed">
+              <RotateCcw size={13} />Send Back
+            </button>
+            {!comments.trim() && (
+              <span className="text-[10px] text-gray-400 italic">Comments required to send back</span>
+            )}
+          </div>
         </div>
       </div>
     );
