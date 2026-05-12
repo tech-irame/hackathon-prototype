@@ -146,6 +146,7 @@ const getInitialView = (): View => {
   const v = params.get('view');
   if (v === 'reports') return 'reports';
   if (v === 'manage-exceptions') return 'manage-exceptions';
+  if (v === 'dev-configurable-engagement-v3') return 'dev-configurable-engagement-v3';
   return 'home';
 };
 
