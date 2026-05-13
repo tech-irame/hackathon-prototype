@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import type { ConfigurableEngagement } from '../../configurableEngagementTypes';
 import {
-  MOCK_PBC_REQUESTS, derivePBCSummary, REQUEST_TYPES, PRIORITIES,
+  derivePBCSummary, REQUEST_TYPES, PRIORITIES,
   type PBCRequest, type PBCRequestStatus, type PBCRequestType, type PBCPriority,
 } from './complianceRequestsData';
 
@@ -34,10 +34,12 @@ type StatusFilter = 'All' | PBCRequestStatus;
 
 interface Props {
   engagement: ConfigurableEngagement;
+  requests: PBCRequest[];
+  onCreateRequest: (req: PBCRequest) => void;
+  onUpdateRequestStatus: (id: string, status: PBCRequestStatus) => void;
 }
 
-export default function ComplianceRequestsPBCTab({ engagement }: Props) {
-  const [requests, setRequests] = useState<PBCRequest[]>(MOCK_PBC_REQUESTS);
+export default function ComplianceRequestsPBCTab({ engagement, requests, onCreateRequest, onUpdateRequestStatus }: Props) {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('All');
   const [typeFilter, setTypeFilter] = useState<string>('All Types');
   const [search, setSearch] = useState('');
@@ -54,12 +56,8 @@ export default function ComplianceRequestsPBCTab({ engagement }: Props) {
     return true;
   });
 
-  const updateStatus = (id: string, newStatus: PBCRequestStatus) => {
-    setRequests(prev => prev.map(r => r.id === id ? { ...r, status: newStatus } : r));
-  };
-
   const addRequest = (req: PBCRequest) => {
-    setRequests(prev => [req, ...prev]);
+    onCreateRequest(req);
     setShowCreateForm(false);
   };
 
@@ -183,7 +181,7 @@ export default function ComplianceRequestsPBCTab({ engagement }: Props) {
                       {req.progressText || (req.filesReceived.length > 0 ? `${req.filesReceived.length} file${req.filesReceived.length !== 1 ? 's' : ''}` : '—')}
                     </td>
                     <td className="px-3 py-2.5 text-center" onClick={e => e.stopPropagation()}>
-                      <RequestActions req={req} onUpdateStatus={updateStatus} />
+                      <RequestActions req={req} onUpdateStatus={onUpdateRequestStatus} />
                     </td>
                   </tr>
                   {isExpanded && (

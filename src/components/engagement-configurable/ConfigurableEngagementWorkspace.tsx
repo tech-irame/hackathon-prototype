@@ -2,12 +2,13 @@
 // Pattern-driven workspace with dynamic tabs. Dev-only, not persisted.
 // See docs/CONFIGURABLE_ENGAGEMENT_V3_MEMORY.md for product rules.
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import type { ConfigurableEngagement } from './configurableEngagementTypes';
 import { EngagementPatternType } from './configurableEngagementTypes';
 import { getWorkspaceTabsForPattern } from './configurableEngagementState';
 import { WorkspaceHeader, WorkspaceTabs } from './components';
 import PatternWorkspaceRenderer from './PatternWorkspaceRenderer';
+import { MOCK_PBC_REQUESTS, type PBCRequest, type PBCRequestStatus, type ComplianceWorkspaceState } from './patterns/compliance/complianceRequestsData';
 
 interface Props {
   engagement: ConfigurableEngagement;
@@ -31,8 +32,23 @@ export default function ConfigurableEngagementWorkspace({ engagement, onBack, on
 
   const visibleTabs = allTabs.filter(t => !hiddenTabIds.includes(t.id));
   const [activeTabId, setActiveTabId] = useState(visibleTabs[0]?.id || 'overview');
-
   const activeTab = visibleTabs.find(t => t.id === activeTabId) || visibleTabs[0];
+
+  // ── Compliance workspace state (lifted from tab components) ──
+  const [complianceState, setComplianceState] = useState<ComplianceWorkspaceState>(() => ({
+    requests: MOCK_PBC_REQUESTS,
+  }));
+
+  const handleCreateRequest = useCallback((req: PBCRequest) => {
+    setComplianceState(prev => ({ ...prev, requests: [req, ...prev.requests] }));
+  }, []);
+
+  const handleUpdateRequestStatus = useCallback((id: string, status: PBCRequestStatus) => {
+    setComplianceState(prev => ({
+      ...prev,
+      requests: prev.requests.map(r => r.id === id ? { ...r, status } : r),
+    }));
+  }, []);
 
   return (
     <div>
@@ -42,6 +58,9 @@ export default function ConfigurableEngagementWorkspace({ engagement, onBack, on
         engagement={engagement}
         activeTabId={activeTab?.id || 'overview'}
         activeTabLabel={activeTab?.label || 'Overview'}
+        complianceState={complianceState}
+        onCreateRequest={handleCreateRequest}
+        onUpdateRequestStatus={handleUpdateRequestStatus}
       />
     </div>
   );

@@ -1,5 +1,10 @@
 // ─── Compliance Requests / PBC — Mock Data & Types ────────────────────────
 
+// Workspace-level state (persists across tab switches)
+export interface ComplianceWorkspaceState {
+  requests: PBCRequest[];
+}
+
 export type PBCRequestStatus = 'Draft' | 'Sent' | 'Pending' | 'Partially Received' | 'Received' | 'Overdue' | 'Cancelled';
 export type PBCRequestType = 'Sample File' | 'Population Data' | 'Evidence Documents' | 'Approval Evidence' | 'Exception Support' | 'Other';
 export type PBCPriority = 'Low' | 'Medium' | 'High' | 'Critical';
