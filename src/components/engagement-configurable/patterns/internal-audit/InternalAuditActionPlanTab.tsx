@@ -32,12 +32,19 @@ export default function InternalAuditActionPlanTab({ engagement, iaState, action
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  // Initialize from report once
+  // Initialize / sync action items from agreed discussion actions
+  // Runs whenever agreed discussion items change, not just once
+  const agreedDiscItemIds = iaState.discussion.items
+    .filter(d => (d.status === 'AGREED' || d.status === 'READY_FOR_REPORT') && d.agreedAction.trim())
+    .map(d => d.observationId).join(',');
+
   useEffect(() => {
-    if (!isIssued || actionPlan.initializedFromReport) return;
+    if (!isIssued) return;
     const initialized = initializeActionItems(actionPlan.actionItems, iaState, engagement.owner);
-    onUpdateActionPlan({ ...actionPlan, actionItems: initialized, initializedFromReport: true });
-  }, [isIssued, actionPlan.initializedFromReport]);
+    if (initialized.length !== actionPlan.actionItems.length) {
+      onUpdateActionPlan({ ...actionPlan, actionItems: initialized, initializedFromReport: true });
+    }
+  }, [isIssued, agreedDiscItemIds]);
 
   const summary = deriveActionPlanSummary(actionPlan);
 
