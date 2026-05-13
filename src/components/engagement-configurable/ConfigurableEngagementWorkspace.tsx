@@ -25,6 +25,7 @@ import type { AutomationInputDataState, AutomationProjectWorkspaceState } from '
 import type { AutomationSetupState } from './patterns/automation/automationSetupData';
 import type { AutomationRunsState, ExceptionStatus as AutoExceptionStatus } from './patterns/automation/automationRunsData';
 import type { AutomationOutputReviewState } from './patterns/automation/automationOutputReviewData';
+import type { AutomationCasesState } from './patterns/automation/automationCasesData';
 
 interface Props {
   engagement: ConfigurableEngagement;
@@ -146,6 +147,7 @@ export default function ConfigurableEngagementWorkspace({ engagement, onBack, on
     setup: { setupMode: (engagement.config as any).automationSetupMode || 'QA_ADHOC_ANALYSIS', selectedWorkflowId: '', selectedWorkflowName: '', draftWorkflow: null, qaSetup: null, setupStatus: 'NOT_CONFIGURED', setupNotes: '', history: [] },
     runs: { runs: [] },
     outputReview: { reviewedOutputIds: [], approvedOutputIds: [], rejectedOutputIds: [], outputComments: {}, reviewNotes: '', history: [] },
+    cases: { cases: [], linkedExceptionIds: [], caseNotes: '' },
   }));
 
   const handleUpdateAutomationInputData = useCallback((inputData: AutomationInputDataState) => {
@@ -162,6 +164,10 @@ export default function ConfigurableEngagementWorkspace({ engagement, onBack, on
 
   const handleUpdateAutomationOutputReview = useCallback((outputReview: AutomationOutputReviewState) => {
     setAutomationState(prev => ({ ...prev, outputReview }));
+  }, []);
+
+  const handleUpdateAutomationCases = useCallback((cases: AutomationCasesState) => {
+    setAutomationState(prev => ({ ...prev, cases }));
   }, []);
 
   // Exception status update that modifies runs state (shared between Runs and Output Review)
@@ -203,6 +209,7 @@ export default function ConfigurableEngagementWorkspace({ engagement, onBack, on
         onUpdateAutomationRuns={handleUpdateAutomationRuns}
         onUpdateAutomationOutputReview={handleUpdateAutomationOutputReview}
         onUpdateAutoRunException={handleUpdateAutoRunException}
+        onUpdateAutomationCases={handleUpdateAutomationCases}
         onNavigateTab={setActiveTabId}
       />
     </div>
