@@ -1,12 +1,13 @@
 // ─── Configurable Engagement V3 — Pattern Workspace Renderer ──────────────
-// Routes the active tab to the correct component based on pattern type.
 
 import type { ConfigurableEngagement } from './configurableEngagementTypes';
 import { EngagementPatternType } from './configurableEngagementTypes';
 import type { ComplianceWorkspaceState, PBCRequest, PBCRequestStatus } from './patterns/compliance/complianceRequestsData';
+import type { SampleBatch, EvidenceItem } from './patterns/compliance/complianceSamplesEvidenceData';
 import { WorkspaceOverview, PatternPlaceholderTab } from './components';
 import ComplianceControlScopeTab from './patterns/compliance/ComplianceControlScopeTab';
 import ComplianceRequestsPBCTab from './patterns/compliance/ComplianceRequestsPBCTab';
+import ComplianceSamplesEvidenceTab from './patterns/compliance/ComplianceSamplesEvidenceTab';
 
 interface Props {
   engagement: ConfigurableEngagement;
@@ -15,15 +16,16 @@ interface Props {
   complianceState?: ComplianceWorkspaceState;
   onCreateRequest?: (req: PBCRequest) => void;
   onUpdateRequestStatus?: (id: string, status: PBCRequestStatus) => void;
+  onAddBatch?: (batch: SampleBatch) => void;
+  onAddEvidence?: (ev: EvidenceItem) => void;
+  onNavigateTab?: (tabId: string) => void;
 }
 
-export default function PatternWorkspaceRenderer({ engagement, activeTabId, activeTabLabel, complianceState, onCreateRequest, onUpdateRequestStatus }: Props) {
-  // Common overview tab
+export default function PatternWorkspaceRenderer({ engagement, activeTabId, activeTabLabel, complianceState, onCreateRequest, onUpdateRequestStatus, onAddBatch, onAddEvidence, onNavigateTab }: Props) {
   if (activeTabId === 'overview') {
     return <WorkspaceOverview engagement={engagement} />;
   }
 
-  // Compliance-specific tabs
   if (engagement.patternType === EngagementPatternType.COMPLIANCE_CONTROL_TESTING) {
     if (activeTabId === 'control-scope') {
       return <ComplianceControlScopeTab engagement={engagement} />;
@@ -38,9 +40,20 @@ export default function PatternWorkspaceRenderer({ engagement, activeTabId, acti
         />
       );
     }
+    if (activeTabId === 'samples-evidence' && complianceState && onAddBatch && onAddEvidence) {
+      return (
+        <ComplianceSamplesEvidenceTab
+          engagement={engagement}
+          samplesEvidence={complianceState.samplesEvidence}
+          pbcRequests={complianceState.requests}
+          onAddBatch={onAddBatch}
+          onAddEvidence={onAddEvidence}
+          onNavigateTab={onNavigateTab}
+        />
+      );
+    }
   }
 
-  // Fallback placeholder
   return (
     <PatternPlaceholderTab
       tabId={activeTabId}

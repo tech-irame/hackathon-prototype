@@ -9,6 +9,7 @@ import { getWorkspaceTabsForPattern } from './configurableEngagementState';
 import { WorkspaceHeader, WorkspaceTabs } from './components';
 import PatternWorkspaceRenderer from './PatternWorkspaceRenderer';
 import { MOCK_PBC_REQUESTS, type PBCRequest, type PBCRequestStatus, type ComplianceWorkspaceState } from './patterns/compliance/complianceRequestsData';
+import type { SampleBatch, EvidenceItem } from './patterns/compliance/complianceSamplesEvidenceData';
 
 interface Props {
   engagement: ConfigurableEngagement;
@@ -37,6 +38,7 @@ export default function ConfigurableEngagementWorkspace({ engagement, onBack, on
   // ── Compliance workspace state (lifted from tab components) ──
   const [complianceState, setComplianceState] = useState<ComplianceWorkspaceState>(() => ({
     requests: MOCK_PBC_REQUESTS,
+    samplesEvidence: { batches: [], evidence: [] },
   }));
 
   const handleCreateRequest = useCallback((req: PBCRequest) => {
@@ -47,6 +49,20 @@ export default function ConfigurableEngagementWorkspace({ engagement, onBack, on
     setComplianceState(prev => ({
       ...prev,
       requests: prev.requests.map(r => r.id === id ? { ...r, status } : r),
+    }));
+  }, []);
+
+  const handleAddBatch = useCallback((batch: SampleBatch) => {
+    setComplianceState(prev => ({
+      ...prev,
+      samplesEvidence: { ...prev.samplesEvidence, batches: [...prev.samplesEvidence.batches, batch] },
+    }));
+  }, []);
+
+  const handleAddEvidence = useCallback((ev: EvidenceItem) => {
+    setComplianceState(prev => ({
+      ...prev,
+      samplesEvidence: { ...prev.samplesEvidence, evidence: [...prev.samplesEvidence.evidence, ev] },
     }));
   }, []);
 
@@ -61,6 +77,9 @@ export default function ConfigurableEngagementWorkspace({ engagement, onBack, on
         complianceState={complianceState}
         onCreateRequest={handleCreateRequest}
         onUpdateRequestStatus={handleUpdateRequestStatus}
+        onAddBatch={handleAddBatch}
+        onAddEvidence={handleAddEvidence}
+        onNavigateTab={setActiveTabId}
       />
     </div>
   );

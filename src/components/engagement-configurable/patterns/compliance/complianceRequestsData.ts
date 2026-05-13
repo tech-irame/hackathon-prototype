@@ -1,8 +1,11 @@
 // ─── Compliance Requests / PBC — Mock Data & Types ────────────────────────
 
 // Workspace-level state (persists across tab switches)
+import type { SamplesEvidenceState } from './complianceSamplesEvidenceData';
+
 export interface ComplianceWorkspaceState {
   requests: PBCRequest[];
+  samplesEvidence: SamplesEvidenceState;
 }
 
 export type PBCRequestStatus = 'Draft' | 'Sent' | 'Pending' | 'Partially Received' | 'Received' | 'Overdue' | 'Cancelled';
