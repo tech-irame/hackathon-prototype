@@ -15,6 +15,7 @@ import ComplianceAttributeTestingTab from './patterns/compliance/ComplianceAttri
 import ComplianceWorkingPaperTab from './patterns/compliance/ComplianceWorkingPaperTab';
 import ComplianceReviewTab from './patterns/compliance/ComplianceReviewTab';
 import ComplianceConclusionTab from './patterns/compliance/ComplianceConclusionTab';
+import ComplianceSummaryTab from './patterns/compliance/ComplianceSummaryTab';
 
 interface Props {
   engagement: ConfigurableEngagement;
@@ -47,6 +48,15 @@ export default function PatternWorkspaceRenderer({ engagement, activeTabId, acti
           requests={complianceState.requests}
           onCreateRequest={onCreateRequest}
           onUpdateRequestStatus={onUpdateRequestStatus}
+        />
+      );
+    }
+    if (activeTabId === 'summary' && complianceState) {
+      return (
+        <ComplianceSummaryTab
+          engagement={engagement}
+          complianceState={complianceState}
+          onNavigateTab={onNavigateTab}
         />
       );
     }
