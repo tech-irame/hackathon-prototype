@@ -18,6 +18,7 @@ import { DEFAULT_ANNOUNCEMENT, type InternalAuditAnnouncementState } from './pat
 import { MOCK_IA_REQUESTS, type InternalAuditRequestState } from './patterns/internal-audit/internalAuditRequestsData';
 import type { InternalAuditAnalysisState } from './patterns/internal-audit/internalAuditAnalysisData';
 import type { InternalAuditObservationsState } from './patterns/internal-audit/internalAuditObservationsData';
+import type { InternalAuditDiscussionState } from './patterns/internal-audit/internalAuditDiscussionData';
 
 interface Props {
   engagement: ConfigurableEngagement;
@@ -96,6 +97,7 @@ export default function ConfigurableEngagementWorkspace({ engagement, onBack, on
     requests: { requests: MOCK_IA_REQUESTS, proceedWithoutIDR: false },
     analysis: { runs: [], potentialObservations: [] },
     observations: { observations: [], noObservationsConfirmed: false, noObservationsConfirmedBy: '', noObservationsConfirmedAt: null, dismissedPotentialObsIds: [] },
+    discussion: { items: [], notes: [], noObsDiscussionConfirmed: false },
   }));
 
   const handleUpdateIAScope = useCallback((scope: InternalAuditScopeState) => {
@@ -116,6 +118,10 @@ export default function ConfigurableEngagementWorkspace({ engagement, onBack, on
 
   const handleUpdateIAObservations = useCallback((obsState: InternalAuditObservationsState) => {
     setIAState(prev => ({ ...prev, observations: obsState }));
+  }, []);
+
+  const handleUpdateIADiscussion = useCallback((discState: InternalAuditDiscussionState) => {
+    setIAState(prev => ({ ...prev, discussion: discState }));
   }, []);
 
   return (
@@ -140,6 +146,7 @@ export default function ConfigurableEngagementWorkspace({ engagement, onBack, on
         onUpdateIARequests={handleUpdateIARequests}
         onUpdateIAAnalysis={handleUpdateIAAnalysis}
         onUpdateIAObservations={handleUpdateIAObservations}
+        onUpdateIADiscussion={handleUpdateIADiscussion}
         onNavigateTab={setActiveTabId}
       />
     </div>
