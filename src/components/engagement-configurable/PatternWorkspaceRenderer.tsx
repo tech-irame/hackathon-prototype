@@ -8,6 +8,7 @@ import type { ConfigurableEngagement } from './configurableEngagementTypes';
 import { EngagementPatternType } from './configurableEngagementTypes';
 import { WorkspaceOverview, PatternPlaceholderTab } from './components';
 import ComplianceControlScopeTab from './patterns/compliance/ComplianceControlScopeTab';
+import ComplianceRequestsPBCTab from './patterns/compliance/ComplianceRequestsPBCTab';
 
 interface Props {
   engagement: ConfigurableEngagement;
@@ -25,6 +26,9 @@ export default function PatternWorkspaceRenderer({ engagement, activeTabId, acti
   if (engagement.patternType === EngagementPatternType.COMPLIANCE_CONTROL_TESTING) {
     if (activeTabId === 'control-scope') {
       return <ComplianceControlScopeTab engagement={engagement} />;
+    }
+    if (activeTabId === 'requests') {
+      return <ComplianceRequestsPBCTab engagement={engagement} />;
     }
   }
 
