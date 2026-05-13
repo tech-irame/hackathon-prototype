@@ -238,9 +238,10 @@ export default function ComplianceAttributeTestingTab({ engagement, samplesEvide
         </div>
       ))}
 
-      {/* Detail panel */}
+      {/* Detail panel — key forces remount when target changes so useState re-initializes */}
       {detailTarget && (
         <AttributeDetailPanel
+          key={`${detailTarget.testItemId}::${detailTarget.attributeId}`}
           target={detailTarget}
           results={results}
           evidence={samplesEvidence.evidence}
