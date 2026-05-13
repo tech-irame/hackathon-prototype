@@ -11,6 +11,7 @@ import type { InternalAuditWorkspaceState, InternalAuditScopeState } from './pat
 import type { InternalAuditAnnouncementState } from './patterns/internal-audit/internalAuditAnnouncementData';
 import type { InternalAuditRequestState } from './patterns/internal-audit/internalAuditRequestsData';
 import type { InternalAuditAnalysisState } from './patterns/internal-audit/internalAuditAnalysisData';
+import type { InternalAuditObservationsState } from './patterns/internal-audit/internalAuditObservationsData';
 import { WorkspaceOverview, PatternPlaceholderTab } from './components';
 import ComplianceControlScopeTab from './patterns/compliance/ComplianceControlScopeTab';
 import ComplianceRequestsPBCTab from './patterns/compliance/ComplianceRequestsPBCTab';
@@ -24,6 +25,7 @@ import InternalAuditScopeTab from './patterns/internal-audit/InternalAuditScopeT
 import InternalAuditAnnouncementTab from './patterns/internal-audit/InternalAuditAnnouncementTab';
 import InternalAuditRequestsIDRTab from './patterns/internal-audit/InternalAuditRequestsIDRTab';
 import InternalAuditAnalysisTab from './patterns/internal-audit/InternalAuditAnalysisTab';
+import InternalAuditObservationsTab from './patterns/internal-audit/InternalAuditObservationsTab';
 
 interface Props {
   engagement: ConfigurableEngagement;
@@ -42,10 +44,11 @@ interface Props {
   onUpdateIAAnnouncement?: (ann: InternalAuditAnnouncementState) => void;
   onUpdateIARequests?: (state: InternalAuditRequestState) => void;
   onUpdateIAAnalysis?: (state: InternalAuditAnalysisState) => void;
+  onUpdateIAObservations?: (state: InternalAuditObservationsState) => void;
   onNavigateTab?: (tabId: string) => void;
 }
 
-export default function PatternWorkspaceRenderer({ engagement, activeTabId, activeTabLabel, complianceState, onCreateRequest, onUpdateRequestStatus, onAddBatch, onAddEvidence, onUpdateAttributeTesting, onUpdateReview, onUpdateConclusion, iaState, onUpdateIAScope, onUpdateIAAnnouncement, onUpdateIARequests, onUpdateIAAnalysis, onNavigateTab }: Props) {
+export default function PatternWorkspaceRenderer({ engagement, activeTabId, activeTabLabel, complianceState, onCreateRequest, onUpdateRequestStatus, onAddBatch, onAddEvidence, onUpdateAttributeTesting, onUpdateReview, onUpdateConclusion, iaState, onUpdateIAScope, onUpdateIAAnnouncement, onUpdateIARequests, onUpdateIAAnalysis, onUpdateIAObservations, onNavigateTab }: Props) {
   if (activeTabId === 'overview') {
     return <WorkspaceOverview engagement={engagement} />;
   }
@@ -169,6 +172,17 @@ export default function PatternWorkspaceRenderer({ engagement, activeTabId, acti
           requestState={iaState.requests}
           analysisState={iaState.analysis}
           onUpdateAnalysis={onUpdateIAAnalysis}
+          onNavigateTab={onNavigateTab}
+        />
+      );
+    }
+    if (activeTabId === 'observations' && iaState && onUpdateIAObservations) {
+      return (
+        <InternalAuditObservationsTab
+          engagement={engagement}
+          analysisState={iaState.analysis}
+          observationsState={iaState.observations}
+          onUpdateObservations={onUpdateIAObservations}
           onNavigateTab={onNavigateTab}
         />
       );
