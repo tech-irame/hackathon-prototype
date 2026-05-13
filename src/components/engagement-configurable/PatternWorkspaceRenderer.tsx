@@ -4,10 +4,12 @@ import type { ConfigurableEngagement } from './configurableEngagementTypes';
 import { EngagementPatternType } from './configurableEngagementTypes';
 import type { ComplianceWorkspaceState, PBCRequest, PBCRequestStatus } from './patterns/compliance/complianceRequestsData';
 import type { SampleBatch, EvidenceItem } from './patterns/compliance/complianceSamplesEvidenceData';
+import type { AttributeTestingState } from './patterns/compliance/complianceAttributeTestingData';
 import { WorkspaceOverview, PatternPlaceholderTab } from './components';
 import ComplianceControlScopeTab from './patterns/compliance/ComplianceControlScopeTab';
 import ComplianceRequestsPBCTab from './patterns/compliance/ComplianceRequestsPBCTab';
 import ComplianceSamplesEvidenceTab from './patterns/compliance/ComplianceSamplesEvidenceTab';
+import ComplianceAttributeTestingTab from './patterns/compliance/ComplianceAttributeTestingTab';
 
 interface Props {
   engagement: ConfigurableEngagement;
@@ -18,10 +20,11 @@ interface Props {
   onUpdateRequestStatus?: (id: string, status: PBCRequestStatus) => void;
   onAddBatch?: (batch: SampleBatch) => void;
   onAddEvidence?: (ev: EvidenceItem) => void;
+  onUpdateAttributeTesting?: (state: AttributeTestingState) => void;
   onNavigateTab?: (tabId: string) => void;
 }
 
-export default function PatternWorkspaceRenderer({ engagement, activeTabId, activeTabLabel, complianceState, onCreateRequest, onUpdateRequestStatus, onAddBatch, onAddEvidence, onNavigateTab }: Props) {
+export default function PatternWorkspaceRenderer({ engagement, activeTabId, activeTabLabel, complianceState, onCreateRequest, onUpdateRequestStatus, onAddBatch, onAddEvidence, onUpdateAttributeTesting, onNavigateTab }: Props) {
   if (activeTabId === 'overview') {
     return <WorkspaceOverview engagement={engagement} />;
   }
@@ -37,6 +40,17 @@ export default function PatternWorkspaceRenderer({ engagement, activeTabId, acti
           requests={complianceState.requests}
           onCreateRequest={onCreateRequest}
           onUpdateRequestStatus={onUpdateRequestStatus}
+        />
+      );
+    }
+    if (activeTabId === 'attr-testing' && complianceState && onUpdateAttributeTesting) {
+      return (
+        <ComplianceAttributeTestingTab
+          engagement={engagement}
+          samplesEvidence={complianceState.samplesEvidence}
+          attributeTesting={complianceState.attributeTesting}
+          onUpdateAttributeTesting={onUpdateAttributeTesting}
+          onNavigateTab={onNavigateTab}
         />
       );
     }

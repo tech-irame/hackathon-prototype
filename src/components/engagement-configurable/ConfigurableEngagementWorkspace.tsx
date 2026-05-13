@@ -10,6 +10,7 @@ import { WorkspaceHeader, WorkspaceTabs } from './components';
 import PatternWorkspaceRenderer from './PatternWorkspaceRenderer';
 import { MOCK_PBC_REQUESTS, type PBCRequest, type PBCRequestStatus, type ComplianceWorkspaceState } from './patterns/compliance/complianceRequestsData';
 import type { SampleBatch, EvidenceItem } from './patterns/compliance/complianceSamplesEvidenceData';
+import type { AttributeTestingState } from './patterns/compliance/complianceAttributeTestingData';
 
 interface Props {
   engagement: ConfigurableEngagement;
@@ -39,6 +40,7 @@ export default function ConfigurableEngagementWorkspace({ engagement, onBack, on
   const [complianceState, setComplianceState] = useState<ComplianceWorkspaceState>(() => ({
     requests: MOCK_PBC_REQUESTS,
     samplesEvidence: { batches: [], evidence: [] },
+    attributeTesting: { results: [], testingStarted: false },
   }));
 
   const handleCreateRequest = useCallback((req: PBCRequest) => {
@@ -66,6 +68,10 @@ export default function ConfigurableEngagementWorkspace({ engagement, onBack, on
     }));
   }, []);
 
+  const handleUpdateAttributeTesting = useCallback((state: AttributeTestingState) => {
+    setComplianceState(prev => ({ ...prev, attributeTesting: state }));
+  }, []);
+
   return (
     <div>
       <WorkspaceHeader engagement={engagement} onBack={onBack} onEditSetup={onEditSetup} />
@@ -79,6 +85,7 @@ export default function ConfigurableEngagementWorkspace({ engagement, onBack, on
         onUpdateRequestStatus={handleUpdateRequestStatus}
         onAddBatch={handleAddBatch}
         onAddEvidence={handleAddEvidence}
+        onUpdateAttributeTesting={handleUpdateAttributeTesting}
         onNavigateTab={setActiveTabId}
       />
     </div>

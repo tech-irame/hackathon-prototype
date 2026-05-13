@@ -2,10 +2,12 @@
 
 // Workspace-level state (persists across tab switches)
 import type { SamplesEvidenceState } from './complianceSamplesEvidenceData';
+import type { AttributeTestingState } from './complianceAttributeTestingData';
 
 export interface ComplianceWorkspaceState {
   requests: PBCRequest[];
   samplesEvidence: SamplesEvidenceState;
+  attributeTesting: AttributeTestingState;
 }
 
 export type PBCRequestStatus = 'Draft' | 'Sent' | 'Pending' | 'Partially Received' | 'Received' | 'Overdue' | 'Cancelled';
