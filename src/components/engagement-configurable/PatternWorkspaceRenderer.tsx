@@ -21,12 +21,14 @@ import type { AutomationRunsState, ExceptionStatus as AutoExceptionStatus } from
 import type { AutomationOutputReviewState } from './patterns/automation/automationOutputReviewData';
 import type { AutomationCasesState } from './patterns/automation/automationCasesData';
 import type { AutomationReportsState } from './patterns/automation/automationReportsData';
+import type { AutomationScheduleState } from './patterns/automation/automationScheduleData';
 import AutomationInputDataTab from './patterns/automation/AutomationInputDataTab';
 import AutomationSetupTab from './patterns/automation/AutomationSetupTab';
 import AutomationRunsTab from './patterns/automation/AutomationRunsTab';
 import AutomationOutputReviewTab from './patterns/automation/AutomationOutputReviewTab';
 import AutomationCasesTab from './patterns/automation/AutomationCasesTab';
 import AutomationReportsTab from './patterns/automation/AutomationReportsTab';
+import AutomationScheduleTab from './patterns/automation/AutomationScheduleTab';
 import { WorkspaceOverview, PatternPlaceholderTab } from './components';
 import ComplianceControlScopeTab from './patterns/compliance/ComplianceControlScopeTab';
 import ComplianceRequestsPBCTab from './patterns/compliance/ComplianceRequestsPBCTab';
@@ -75,10 +77,11 @@ interface Props {
   onUpdateAutoRunException?: (runId: string, exId: string, status: AutoExceptionStatus) => void;
   onUpdateAutomationCases?: (state: AutomationCasesState) => void;
   onUpdateAutomationReports?: (state: AutomationReportsState) => void;
+  onUpdateAutomationSchedule?: (state: AutomationScheduleState) => void;
   onNavigateTab?: (tabId: string) => void;
 }
 
-export default function PatternWorkspaceRenderer({ engagement, activeTabId, activeTabLabel, complianceState, onCreateRequest, onUpdateRequestStatus, onAddBatch, onAddEvidence, onUpdateAttributeTesting, onUpdateReview, onUpdateConclusion, iaState, onUpdateIAScope, onUpdateIAAnnouncement, onUpdateIARequests, onUpdateIAAnalysis, onUpdateIAObservations, onUpdateIADiscussion, onUpdateIAFinalReport, onUpdateIAActionPlan, automationState, onUpdateAutomationInputData, onUpdateAutomationSetup, onUpdateAutomationRuns, onUpdateAutomationOutputReview, onUpdateAutoRunException, onUpdateAutomationCases, onUpdateAutomationReports, onNavigateTab }: Props) {
+export default function PatternWorkspaceRenderer({ engagement, activeTabId, activeTabLabel, complianceState, onCreateRequest, onUpdateRequestStatus, onAddBatch, onAddEvidence, onUpdateAttributeTesting, onUpdateReview, onUpdateConclusion, iaState, onUpdateIAScope, onUpdateIAAnnouncement, onUpdateIARequests, onUpdateIAAnalysis, onUpdateIAObservations, onUpdateIADiscussion, onUpdateIAFinalReport, onUpdateIAActionPlan, automationState, onUpdateAutomationInputData, onUpdateAutomationSetup, onUpdateAutomationRuns, onUpdateAutomationOutputReview, onUpdateAutoRunException, onUpdateAutomationCases, onUpdateAutomationReports, onUpdateAutomationSchedule, onNavigateTab }: Props) {
   if (activeTabId === 'overview') {
     return <WorkspaceOverview engagement={engagement} />;
   }
@@ -326,6 +329,17 @@ export default function PatternWorkspaceRenderer({ engagement, activeTabId, acti
           automationState={automationState}
           reportsState={automationState.reports}
           onUpdateReports={onUpdateAutomationReports}
+          onNavigateTab={onNavigateTab}
+        />
+      );
+    }
+    if (activeTabId === 'schedule' && automationState && onUpdateAutomationSchedule) {
+      return (
+        <AutomationScheduleTab
+          engagement={engagement}
+          automationState={automationState}
+          schedule={automationState.schedule}
+          onUpdateSchedule={onUpdateAutomationSchedule}
           onNavigateTab={onNavigateTab}
         />
       );

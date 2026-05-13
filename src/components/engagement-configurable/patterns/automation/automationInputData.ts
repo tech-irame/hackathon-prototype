@@ -35,6 +35,7 @@ import type { AutomationRunsState } from './automationRunsData';
 import type { AutomationOutputReviewState } from './automationOutputReviewData';
 import type { AutomationCasesState } from './automationCasesData';
 import type { AutomationReportsState } from './automationReportsData';
+import type { AutomationScheduleState } from './automationScheduleData';
 
 export interface AutomationProjectWorkspaceState {
   inputData: AutomationInputDataState;
@@ -43,6 +44,7 @@ export interface AutomationProjectWorkspaceState {
   outputReview: AutomationOutputReviewState;
   cases: AutomationCasesState;
   reports: AutomationReportsState;
+  schedule: AutomationScheduleState;
 }
 
 export const SOURCE_TYPE_LABELS: Record<DataSourceType, string> = {
