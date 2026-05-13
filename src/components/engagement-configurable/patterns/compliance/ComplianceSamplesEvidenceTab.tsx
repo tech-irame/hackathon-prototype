@@ -12,8 +12,11 @@ import {
   deriveSamplesEvidenceSummary, EVIDENCE_TYPES,
   createUploadSamplesBatch, createPopulationBatch, createFullPopulationBatch,
   createDocumentBasedBatch, createWalkthroughBatch,
+  deriveTestItemEvidenceStatus, deriveTestItemAttributeCoverage,
+  getControlAttributes,
   type SamplesEvidenceState, type EvidenceItem, type SampleBatch,
 } from './complianceSamplesEvidenceData';
+import { MOCK_COMPLIANCE_CONTROLS } from './complianceControlScopeData';
 import type { PBCRequest } from './complianceRequestsData';
 
 const EV_STATUS_CLS = { ATTACHED: 'bg-emerald-50 text-emerald-700', NEEDS_MAPPING: 'bg-amber-50 text-amber-700', MISSING: 'bg-gray-100 text-gray-500' };
@@ -67,7 +70,7 @@ export default function ComplianceSamplesEvidenceTab({ engagement, samplesEviden
           { label: 'Evidence Files', value: summary.evidenceCount },
           { label: 'Mapped', value: summary.mapped, cls: 'text-emerald-600' },
           { label: 'Needs Mapping', value: summary.needsMapping, cls: summary.needsMapping > 0 ? 'text-amber-600' : '' },
-          { label: 'Ready', value: summary.ready ? 'Yes' : 'No', cls: summary.ready ? 'text-emerald-600' : 'text-gray-400' },
+          { label: 'Ready Items', value: `${summary.readyItems}/${summary.testItemCount}`, cls: summary.ready ? 'text-emerald-600' : 'text-gray-400' },
         ].map(s => (
           <div key={s.label} className="rounded-lg border border-border-light p-2.5 text-center">
             <div className={`text-[16px] font-bold tabular-nums ${s.cls || 'text-text'}`}>{s.value}</div>
@@ -104,17 +107,21 @@ export default function ComplianceSamplesEvidenceTab({ engagement, samplesEviden
                   </tr>
                 </thead>
                 <tbody>
-                  {batch.testItems.map(ti => (
-                    <tr key={ti.id} className="border-b border-border-light/30">
-                      <td className="px-3 py-2 font-mono text-gray-500 text-[10px]">{ti.referenceId}</td>
-                      <td className="px-3 py-2 text-text">{ti.description}</td>
-                      <td className="px-3 py-2 text-gray-500">{ti.linkedControlId}</td>
-                      <td className="px-3 py-2 text-center">
-                        <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold ${TI_STATUS_CLS[ti.evidenceStatus]}`}>{ti.evidenceStatus}</span>
-                      </td>
-                      <td className="px-3 py-2 text-center text-[10px] text-gray-500">{ti.mappedAttrCount}/{ti.totalAttrCount}</td>
-                    </tr>
-                  ))}
+                  {batch.testItems.map(ti => {
+                    const evStatus = deriveTestItemEvidenceStatus(ti, samplesEvidence.evidence);
+                    const coverage = deriveTestItemAttributeCoverage(ti, samplesEvidence.evidence);
+                    return (
+                      <tr key={ti.id} className="border-b border-border-light/30">
+                        <td className="px-3 py-2 font-mono text-gray-500 text-[10px]">{ti.referenceId}</td>
+                        <td className="px-3 py-2 text-text">{ti.description}</td>
+                        <td className="px-3 py-2 text-gray-500">{ti.linkedControlId}</td>
+                        <td className="px-3 py-2 text-center">
+                          <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold ${TI_STATUS_CLS[evStatus]}`}>{evStatus}</span>
+                        </td>
+                        <td className="px-3 py-2 text-center text-[10px] text-gray-500">{coverage.text}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -133,7 +140,11 @@ export default function ComplianceSamplesEvidenceTab({ engagement, samplesEviden
         </div>
 
         {showEvidenceForm && (
-          <AttachEvidenceForm onSave={(ev) => { onAddEvidence(ev); setShowEvidenceForm(false); }} onCancel={() => setShowEvidenceForm(false)} />
+          <AttachEvidenceForm
+            onSave={(ev) => { onAddEvidence(ev); setShowEvidenceForm(false); }}
+            onCancel={() => setShowEvidenceForm(false)}
+            testItems={samplesEvidence.batches.flatMap(b => b.testItems)}
+          />
         )}
 
         {samplesEvidence.evidence.length === 0 ? (
@@ -184,18 +195,32 @@ export default function ComplianceSamplesEvidenceTab({ engagement, samplesEviden
                   <span className="text-gray-400 ml-2">{r.filesReceived.length > 0 ? r.filesReceived.join(', ') : r.progressText || '—'}</span>
                 </div>
                 <button onClick={() => {
+                  // Map PBC attributes: "All attributes" → all for that control, specific A/B/C → match by code
+                  const ctrlAttrs = getControlAttributes(r.linkedControlId);
+                  let mappedAttrIds: string[] = [];
+                  if (r.linkedAttributes.toLowerCase().includes('all')) {
+                    mappedAttrIds = ctrlAttrs.map(a => a.id);
+                  } else {
+                    const codes = r.linkedAttributes.split(',').map(s => s.trim().charAt(0).toUpperCase());
+                    mappedAttrIds = ctrlAttrs.filter(a => codes.includes(a.code)).map(a => a.id);
+                  }
+                  // Map test items for this control
+                  const ctrlTestItems = samplesEvidence.batches.flatMap(b => b.testItems).filter(ti => ti.linkedControlId === r.linkedControlId);
+                  const testItemIds = ctrlTestItems.map(ti => ti.id);
+                  const hasFullMapping = mappedAttrIds.length > 0 && testItemIds.length > 0;
+
                   r.filesReceived.forEach((f, i) => {
                     onAddEvidence({
                       id: `ev-pbc-${Date.now()}-${i}`,
                       fileName: f,
                       evidenceType: r.requestType === 'Sample File' ? 'System Report' : r.requestType === 'Approval Evidence' ? 'Approval Log' : 'Other',
                       linkedControlId: r.linkedControlId,
-                      linkedAttributeIds: [],
-                      linkedTestItemIds: [],
+                      linkedAttributeIds: mappedAttrIds,
+                      linkedTestItemIds: testItemIds,
                       uploadedBy: r.requestedFrom,
                       uploadedAt: new Date().toISOString().slice(0, 10),
                       source: 'RECEIVED_FROM_PBC',
-                      status: 'NEEDS_MAPPING',
+                      status: hasFullMapping ? 'ATTACHED' : 'NEEDS_MAPPING',
                     });
                   });
                 }} className="px-2 py-1 rounded text-[9px] font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 cursor-pointer transition-colors">
@@ -221,7 +246,7 @@ export default function ComplianceSamplesEvidenceTab({ engagement, samplesEviden
             { label: 'At least one control ready', ok: true },
             { label: 'Sample/test items prepared', ok: hasBatches },
             { label: 'Evidence repository has mapped evidence', ok: summary.mapped > 0 },
-            { label: 'No unmapped critical evidence', ok: summary.needsMapping === 0 },
+            { label: 'All test items have evidence coverage', ok: summary.readyItems === summary.testItemCount && summary.testItemCount > 0 },
           ].map(c => (
             <div key={c.label} className="flex items-center gap-2 text-[10px]">
               {c.ok ? <CheckCircle2 size={10} className="text-emerald-500" /> : <AlertCircle size={10} className="text-amber-400" />}
@@ -311,33 +336,49 @@ const inputCls = 'w-full px-3 py-2 border border-border rounded-lg text-[12px] t
 const selectCls = inputCls + ' cursor-pointer appearance-none';
 const labelCls = 'text-[11px] font-semibold text-text-muted block mb-1';
 
-function AttachEvidenceForm({ onSave, onCancel }: { onSave: (ev: EvidenceItem) => void; onCancel: () => void }) {
+function AttachEvidenceForm({ onSave, onCancel, testItems }: { onSave: (ev: EvidenceItem) => void; onCancel: () => void; testItems: { id: string; referenceId: string; linkedControlId: string }[] }) {
   const [fileName, setFileName] = useState('');
   const [evidenceType, setEvidenceType] = useState('Invoice Copy');
   const [controlId, setControlId] = useState('C001');
-  const [attrIds, setAttrIds] = useState('');
+  const [selectedAttrIds, setSelectedAttrIds] = useState<Set<string>>(new Set());
+  const [selectedTestItemIds, setSelectedTestItemIds] = useState<Set<string>>(new Set());
   const [source, setSource] = useState<'USER_UPLOADED' | 'RECEIVED_FROM_PBC'>('USER_UPLOADED');
 
-  const controls = [
-    { id: 'C001', name: 'Three-way PO/GRN/Invoice Matching' },
-    { id: 'C002', name: 'Duplicate Invoice Detection' },
-    { id: 'C003', name: 'Vendor Master Change Review' },
-  ];
+  const controls = MOCK_COMPLIANCE_CONTROLS.filter(c => c.attributes.length > 0);
+  const controlAttrs = getControlAttributes(controlId);
+  const controlTestItems = testItems.filter(ti => ti.linkedControlId === controlId);
+
+  const handleControlChange = (newId: string) => {
+    setControlId(newId);
+    setSelectedAttrIds(new Set());
+    setSelectedTestItemIds(new Set());
+  };
+
+  const toggleAttr = (id: string) => {
+    setSelectedAttrIds(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
+  };
+
+  const toggleTestItem = (id: string) => {
+    setSelectedTestItemIds(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
+  };
+
+  const linkedAttrs = Array.from(selectedAttrIds);
+  const linkedTIs = Array.from(selectedTestItemIds);
+  const isAttached = linkedAttrs.length > 0 && linkedTIs.length > 0;
 
   const handleSave = () => {
     if (!fileName.trim()) return;
-    const linkedAttrs = attrIds.split(',').map(s => s.trim()).filter(Boolean);
     onSave({
       id: `ev-${Date.now()}`,
       fileName: fileName.trim(),
       evidenceType,
       linkedControlId: controlId,
       linkedAttributeIds: linkedAttrs,
-      linkedTestItemIds: [],
+      linkedTestItemIds: linkedTIs,
       uploadedBy: source === 'USER_UPLOADED' ? 'Auditor' : 'PBC',
       uploadedAt: new Date().toISOString().slice(0, 10),
       source,
-      status: linkedAttrs.length > 0 ? 'ATTACHED' : 'NEEDS_MAPPING',
+      status: isAttached ? 'ATTACHED' : 'NEEDS_MAPPING',
     });
   };
 
@@ -360,13 +401,9 @@ function AttachEvidenceForm({ onSave, onCancel }: { onSave: (ev: EvidenceItem) =
         </div>
         <div>
           <label className={labelCls}>Linked Control</label>
-          <select value={controlId} onChange={e => setControlId(e.target.value)} className={selectCls}>
+          <select value={controlId} onChange={e => handleControlChange(e.target.value)} className={selectCls}>
             {controls.map(c => <option key={c.id} value={c.id}>{c.id} — {c.name}</option>)}
           </select>
-        </div>
-        <div>
-          <label className={labelCls}>Linked Attributes (IDs, comma-separated)</label>
-          <input value={attrIds} onChange={e => setAttrIds(e.target.value)} placeholder="e.g. a1, a2" className={inputCls} />
         </div>
         <div>
           <label className={labelCls}>Source</label>
@@ -376,12 +413,47 @@ function AttachEvidenceForm({ onSave, onCancel }: { onSave: (ev: EvidenceItem) =
           </select>
         </div>
       </div>
-      <div className="flex items-center justify-end gap-2">
-        <button onClick={onCancel} className="px-3 py-1.5 rounded-lg border border-border-light text-[11px] font-medium text-text-muted hover:bg-surface-2/30 cursor-pointer transition-colors">Cancel</button>
-        <button onClick={handleSave} disabled={!fileName.trim()}
-          className="px-4 py-1.5 rounded-lg bg-primary hover:bg-primary/90 text-white text-[11px] font-semibold cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
-          Attach
-        </button>
+      {/* Attribute checkboxes */}
+      <div>
+        <label className={labelCls}>Linked Attributes</label>
+        <div className="flex flex-wrap gap-2 mt-1">
+          {controlAttrs.length === 0 ? (
+            <span className="text-[10px] text-gray-400 italic">No attributes for this control</span>
+          ) : controlAttrs.map(a => (
+            <label key={a.id} className="flex items-center gap-1.5 text-[10px] text-text cursor-pointer">
+              <input type="checkbox" checked={selectedAttrIds.has(a.id)} onChange={() => toggleAttr(a.id)}
+                className="w-3 h-3 rounded border-border accent-[#6a12cd] cursor-pointer" />
+              <span className="font-bold text-primary">{a.code}</span> {a.name}
+            </label>
+          ))}
+        </div>
+      </div>
+      {/* Test item checkboxes */}
+      {controlTestItems.length > 0 && (
+        <div>
+          <label className={labelCls}>Linked Test Items</label>
+          <div className="flex flex-wrap gap-2 mt-1">
+            {controlTestItems.map(ti => (
+              <label key={ti.id} className="flex items-center gap-1.5 text-[10px] text-text cursor-pointer">
+                <input type="checkbox" checked={selectedTestItemIds.has(ti.id)} onChange={() => toggleTestItem(ti.id)}
+                  className="w-3 h-3 rounded border-border accent-[#6a12cd] cursor-pointer" />
+                {ti.referenceId}
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+      <div className="flex items-center justify-between">
+        <span className="text-[9px] text-gray-400">
+          {isAttached ? 'Evidence will be marked as Attached' : 'Evidence will be marked as Needs Mapping (select attributes + test items)'}
+        </span>
+        <div className="flex items-center gap-2">
+          <button onClick={onCancel} className="px-3 py-1.5 rounded-lg border border-border-light text-[11px] font-medium text-text-muted hover:bg-surface-2/30 cursor-pointer transition-colors">Cancel</button>
+          <button onClick={handleSave} disabled={!fileName.trim()}
+            className="px-4 py-1.5 rounded-lg bg-primary hover:bg-primary/90 text-white text-[11px] font-semibold cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+            Attach
+          </button>
+        </div>
       </div>
     </div>
   );

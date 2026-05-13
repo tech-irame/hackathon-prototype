@@ -126,12 +126,55 @@ export function createWalkthroughBatch(): SampleBatch {
   };
 }
 
+// ─── Attribute Lookup Helpers ──────────────────────────────────────────────
+
+import { MOCK_COMPLIANCE_CONTROLS, type ScopeAttribute } from './complianceControlScopeData';
+
+export function getControlAttributes(controlId: string): ScopeAttribute[] {
+  return MOCK_COMPLIANCE_CONTROLS.find(c => c.id === controlId)?.attributes || [];
+}
+
+export function getAllScopeAttributes(): { controlId: string; controlName: string; attr: ScopeAttribute }[] {
+  return MOCK_COMPLIANCE_CONTROLS.flatMap(c => c.attributes.map(a => ({ controlId: c.id, controlName: c.name, attr: a })));
+}
+
+export function isValidAttributeForControl(controlId: string, attributeId: string): boolean {
+  return getControlAttributes(controlId).some(a => a.id === attributeId);
+}
+
+// ─── Derived Status Helpers ───────────────────────────────────────────────
+
+export function deriveTestItemEvidenceStatus(ti: TestItem, evidence: EvidenceItem[]): TestItemEvidenceStatus {
+  const attrs = getControlAttributes(ti.linkedControlId).filter(a => a.required);
+  if (attrs.length === 0) return 'Missing';
+  const linkedEvidence = evidence.filter(e => e.linkedTestItemIds.includes(ti.id) && e.linkedControlId === ti.linkedControlId);
+  if (linkedEvidence.length === 0) return 'Missing';
+  const coveredAttrIds = new Set(linkedEvidence.flatMap(e => e.linkedAttributeIds));
+  const allCovered = attrs.every(a => coveredAttrIds.has(a.id));
+  return allCovered ? 'Ready' : 'Partial';
+}
+
+export function deriveTestItemAttributeCoverage(ti: TestItem, evidence: EvidenceItem[]): { covered: number; total: number; text: string } {
+  const attrs = getControlAttributes(ti.linkedControlId);
+  const total = attrs.length;
+  const coveredAttrIds = new Set(
+    evidence.filter(e => e.linkedTestItemIds.includes(ti.id) && e.linkedControlId === ti.linkedControlId)
+      .flatMap(e => e.linkedAttributeIds)
+  );
+  const covered = attrs.filter(a => coveredAttrIds.has(a.id)).length;
+  return { covered, total, text: `${covered}/${total} attributes covered` };
+}
+
+// ─── Summary ──────────────────────────────────────────────────────────────
+
 export function deriveSamplesEvidenceSummary(state: SamplesEvidenceState) {
   const batchCount = state.batches.length;
-  const testItemCount = state.batches.reduce((s, b) => s + b.testItems.length, 0);
+  const allTestItems = state.batches.flatMap(b => b.testItems);
+  const testItemCount = allTestItems.length;
   const evidenceCount = state.evidence.length;
   const mapped = state.evidence.filter(e => e.status === 'ATTACHED').length;
   const needsMapping = state.evidence.filter(e => e.status === 'NEEDS_MAPPING').length;
-  const ready = batchCount > 0 && testItemCount > 0 && needsMapping === 0;
-  return { batchCount, testItemCount, evidenceCount, mapped, needsMapping, ready };
+  const readyItems = allTestItems.filter(ti => deriveTestItemEvidenceStatus(ti, state.evidence) === 'Ready').length;
+  const ready = batchCount > 0 && testItemCount > 0 && readyItems === testItemCount;
+  return { batchCount, testItemCount, evidenceCount, mapped, needsMapping, readyItems, ready };
 }
