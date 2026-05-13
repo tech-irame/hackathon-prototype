@@ -182,17 +182,19 @@ function ExistingWorkflowPanel({ inputType, setupState, onUpdateSetup, engagemen
 
 function CreateWorkflowPanel({ setupState, onUpdateSetup, engagement, inputSourceIds }: { setupState: AutomationSetupState; onUpdateSetup: (s: AutomationSetupState) => void; engagement: ConfigurableEngagement; inputSourceIds: string[] }) {
   const draft = setupState.draftWorkflow || { id: `dwf-${Date.now()}`, name: '', description: '', triggerType: 'MANUAL' as const, steps: [], status: 'DRAFT' as const };
-  const [wfName, setWfName] = useState(draft.name);
-  const [wfDesc, setWfDesc] = useState(draft.description);
 
   const saveDraft = (updates: Partial<DraftWorkflow>) => {
     const updated = { ...draft, ...updates };
     onUpdateSetup({ ...setupState, draftWorkflow: updated, history: [...setupState.history, { id: `sh-${Date.now()}`, action: 'DRAFT_WORKFLOW_CREATED', actor: engagement.owner, timestamp: now(), comments: '' }] });
   };
 
+  // Save name/description to parent on change so they persist across mode switches
+  const updateName = (v: string) => onUpdateSetup({ ...setupState, draftWorkflow: { ...draft, name: v } });
+  const updateDesc = (v: string) => onUpdateSetup({ ...setupState, draftWorkflow: { ...draft, description: v } });
+
   const addSuggestedSteps = () => {
     const steps: DraftWorkflowStep[] = SUGGESTED_STEPS.map((s, i) => ({ ...s, id: `step-${Date.now()}-${i}`, inputSourceIds }));
-    saveDraft({ name: wfName || 'Vendor Reconciliation Workflow', description: wfDesc || 'Auto-generated workflow steps.', steps, status: 'DRAFT' });
+    saveDraft({ name: draft.name || 'Vendor Reconciliation Workflow', description: draft.description || 'Auto-generated workflow steps.', steps, status: 'DRAFT' });
   };
 
   const addCustomStep = () => {
@@ -202,15 +204,15 @@ function CreateWorkflowPanel({ setupState, onUpdateSetup, engagement, inputSourc
 
   const markReady = () => {
     if (!draft.name || draft.steps.length === 0) return;
-    saveDraft({ name: wfName || draft.name, description: wfDesc || draft.description, status: 'READY' });
+    saveDraft({ name: draft.name || draft.name, description: draft.description || draft.description, status: 'READY' });
   };
 
   return (
     <div className="rounded-lg border border-border-light p-4 space-y-3">
       <h4 className="text-[11px] font-bold text-text">Create New Workflow</h4>
       <div className="grid grid-cols-2 gap-3">
-        <div><label className={labelCls}>Workflow Name</label><input value={wfName} onChange={e => setWfName(e.target.value)} placeholder="e.g. Vendor Reconciliation Workflow" className={inputCls} /></div>
-        <div><label className={labelCls}>Description</label><input value={wfDesc} onChange={e => setWfDesc(e.target.value)} placeholder="What does this workflow do?" className={inputCls} /></div>
+        <div><label className={labelCls}>Workflow Name</label><input value={draft.name} onChange={e => updateName(e.target.value)} placeholder="e.g. Vendor Reconciliation Workflow" className={inputCls} /></div>
+        <div><label className={labelCls}>Description</label><input value={draft.description} onChange={e => updateDesc(e.target.value)} placeholder="What does this workflow do?" className={inputCls} /></div>
       </div>
 
       {/* Steps */}
@@ -236,7 +238,7 @@ function CreateWorkflowPanel({ setupState, onUpdateSetup, engagement, inputSourc
       </div>
 
       <div className="flex items-center gap-2">
-        <button onClick={markReady} disabled={!wfName.trim() || draft.steps.length === 0}
+        <button onClick={markReady} disabled={!draft.name.trim() || draft.steps.length === 0}
           className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-semibold cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1">
           <CheckCircle2 size={11} />Mark Workflow Ready
         </button>
@@ -251,28 +253,33 @@ function CreateWorkflowPanel({ setupState, onUpdateSetup, engagement, inputSourc
 
 function QASetupPanel({ setupState, onUpdateSetup, engagement, inputSourceIds, isRecurring }: { setupState: AutomationSetupState; onUpdateSetup: (s: AutomationSetupState) => void; engagement: ConfigurableEngagement; inputSourceIds: string[]; isRecurring: boolean }) {
   const qa = setupState.qaSetup || { id: `qa-${Date.now()}`, objective: '', questions: [], selectedSourceIds: inputSourceIds, expectedOutputs: [], status: 'DRAFT' as const };
-  const [objective, setObjective] = useState(qa.objective);
   const [newQ, setNewQ] = useState('');
-  const [selectedOutputs, setSelectedOutputs] = useState<Set<string>>(new Set(qa.expectedOutputs));
 
   const saveQA = (updates: Partial<QASetup>) => {
     onUpdateSetup({ ...setupState, qaSetup: { ...qa, ...updates }, history: [...setupState.history, { id: `sh-${Date.now()}`, action: 'QA_CONFIGURED', actor: engagement.owner, timestamp: now(), comments: '' }] });
   };
 
+  // Save objective directly to parent state so it persists across mode switches
+  const updateObjective = (v: string) => onUpdateSetup({ ...setupState, qaSetup: { ...qa, objective: v } });
+
   const addQuestion = () => { if (newQ.trim()) { saveQA({ questions: [...qa.questions, newQ.trim()] }); setNewQ(''); } };
   const addSuggested = () => { saveQA({ questions: [...qa.questions, ...SUGGESTED_QUESTIONS.filter(q => !qa.questions.includes(q))] }); };
-  const toggleOutput = (o: string) => { const n = new Set(selectedOutputs); n.has(o) ? n.delete(o) : n.add(o); setSelectedOutputs(n); saveQA({ expectedOutputs: Array.from(n) }); };
+  const toggleOutput = (o: string) => {
+    const current = new Set(qa.expectedOutputs);
+    current.has(o) ? current.delete(o) : current.add(o);
+    saveQA({ expectedOutputs: Array.from(current) });
+  };
 
   const markReady = () => {
-    if (!objective.trim() || qa.questions.length === 0) return;
-    saveQA({ objective, status: 'READY' });
+    if (!qa.objective.trim() || qa.questions.length === 0) return;
+    saveQA({ status: 'READY' });
   };
 
   return (
     <div className="rounded-lg border border-border-light p-4 space-y-3">
       <h4 className="text-[11px] font-bold text-text">Q&A / Ad-hoc Analysis Setup</h4>
 
-      <div><label className={labelCls}>Analysis Objective</label><textarea value={objective} onChange={e => setObjective(e.target.value)} rows={2} placeholder="What should this analysis accomplish?" className={inputCls + ' resize-none'} /></div>
+      <div><label className={labelCls}>Analysis Objective</label><textarea value={qa.objective} onChange={e => updateObjective(e.target.value)} rows={2} placeholder="What should this analysis accomplish?" className={inputCls + ' resize-none'} /></div>
 
       <div>
         <div className="flex items-center justify-between mb-1">
@@ -297,7 +304,7 @@ function QASetupPanel({ setupState, onUpdateSetup, engagement, inputSourceIds, i
         <label className={labelCls}>Expected Outputs</label>
         <div className="flex flex-wrap gap-2">{EXPECTED_OUTPUTS.map(o => (
           <label key={o} className="flex items-center gap-1.5 text-[10px] text-text cursor-pointer">
-            <input type="checkbox" checked={selectedOutputs.has(o)} onChange={() => toggleOutput(o)} className="w-3 h-3 rounded border-border accent-[#6a12cd] cursor-pointer" />{o}
+            <input type="checkbox" checked={qa.expectedOutputs.includes(o)} onChange={() => toggleOutput(o)} className="w-3 h-3 rounded border-border accent-[#6a12cd] cursor-pointer" />{o}
           </label>
         ))}</div>
       </div>
@@ -309,7 +316,7 @@ function QASetupPanel({ setupState, onUpdateSetup, engagement, inputSourceIds, i
       )}
 
       <div className="flex items-center gap-2">
-        <button onClick={markReady} disabled={!objective.trim() || qa.questions.length === 0}
+        <button onClick={markReady} disabled={!qa.objective.trim() || qa.questions.length === 0}
           className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-semibold cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1">
           <CheckCircle2 size={11} />Mark Q&A Ready
         </button>
