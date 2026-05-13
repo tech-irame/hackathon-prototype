@@ -27,11 +27,13 @@ export interface InternalAuditScopeState {
 
 import type { InternalAuditAnnouncementState } from './internalAuditAnnouncementData';
 import type { InternalAuditRequestState } from './internalAuditRequestsData';
+import type { InternalAuditAnalysisState } from './internalAuditAnalysisData';
 
 export interface InternalAuditWorkspaceState {
   scope: InternalAuditScopeState;
   announcement: InternalAuditAnnouncementState;
   requests: InternalAuditRequestState;
+  analysis: InternalAuditAnalysisState;
 }
 
 export const DEFAULT_IA_SCOPE: InternalAuditScopeState = {
