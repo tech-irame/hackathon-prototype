@@ -115,13 +115,13 @@ export const SCOPE_LEVEL_LABELS: Record<string, { label: string; desc: string }>
 
 // ─── Readiness ────────────────────────────────────────────────────────────
 
-export function deriveIAScopeReadiness(scope: InternalAuditScopeState, engagement: { entityOrLocation?: string; reviewer?: string }): { status: ScopeReadiness; checks: { label: string; ok: boolean; required: boolean }[] } {
+export function deriveIAScopeReadiness(scope: InternalAuditScopeState, engagement: { entityOrLocation?: string; reviewer?: string }, config?: { auditPeriodStart?: string; auditPeriodEnd?: string; processOwner?: string }): { status: ScopeReadiness; checks: { label: string; ok: boolean; required: boolean }[] } {
   const checks = [
     { label: 'Scope level selected', ok: !!scope.scopeLevel, required: true },
     { label: 'Business process selected', ok: !!scope.businessProcessId, required: true },
-    { label: 'Audit period defined', ok: true, required: true }, // from engagement config
+    { label: 'Audit period defined', ok: !!(config?.auditPeriodStart && config?.auditPeriodEnd), required: true },
     { label: 'Entity/location defined', ok: !!engagement.entityOrLocation, required: true },
-    { label: 'Process owner assigned', ok: true, required: true }, // from config
+    { label: 'Process owner assigned', ok: !!config?.processOwner, required: true },
     { label: 'Scope objective written', ok: scope.scopeObjective.trim().length > 0, required: true },
     { label: 'SOP linked', ok: scope.sopIds.length > 0, required: false },
     { label: 'Checklist linked', ok: scope.checklistIds.length > 0, required: false },

@@ -27,7 +27,7 @@ interface Props {
 
 export default function InternalAuditScopeTab({ engagement, scope, onUpdateScope, onNavigateTab }: Props) {
   const cfg = engagement.config as InternalAuditConfig;
-  const { status, checks } = deriveIAScopeReadiness(scope, engagement);
+  const { status, checks } = deriveIAScopeReadiness(scope, engagement, cfg);
   const selectedBP = BUSINESS_PROCESSES.find(bp => bp.id === scope.businessProcessId);
   const availableSubProcesses = selectedBP?.subProcesses || [];
   const selectedSubProcesses = availableSubProcesses.filter(sp => scope.subProcessIds.includes(sp.id));
@@ -84,7 +84,7 @@ export default function InternalAuditScopeTab({ engagement, scope, onUpdateScope
             <h4 className="text-[11px] font-bold text-text">Primary Scope</h4>
             <div>
               <label className={labelCls}>Business Process <span className="text-red-400">*</span></label>
-              <select value={scope.businessProcessId} onChange={e => { update('businessProcessId', e.target.value); update('subProcessIds', []); update('activityIds', []); }} className={selectCls}>
+              <select value={scope.businessProcessId} onChange={e => onUpdateScope({ ...scope, businessProcessId: e.target.value, subProcessIds: [], activityIds: [] })} className={selectCls}>
                 <option value="">Select business process...</option>
                 {BUSINESS_PROCESSES.map(bp => <option key={bp.id} value={bp.id}>{bp.code} — {bp.name}</option>)}
               </select>
