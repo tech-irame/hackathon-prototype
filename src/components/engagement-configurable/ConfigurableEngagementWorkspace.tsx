@@ -23,7 +23,8 @@ import { DEFAULT_FINAL_REPORT, type InternalAuditFinalReportState } from './patt
 import type { InternalAuditActionPlanState } from './patterns/internal-audit/internalAuditActionPlanData';
 import type { AutomationInputDataState, AutomationProjectWorkspaceState } from './patterns/automation/automationInputData';
 import type { AutomationSetupState } from './patterns/automation/automationSetupData';
-import type { AutomationRunsState } from './patterns/automation/automationRunsData';
+import type { AutomationRunsState, ExceptionStatus as AutoExceptionStatus } from './patterns/automation/automationRunsData';
+import type { AutomationOutputReviewState } from './patterns/automation/automationOutputReviewData';
 
 interface Props {
   engagement: ConfigurableEngagement;
@@ -144,6 +145,7 @@ export default function ConfigurableEngagementWorkspace({ engagement, onBack, on
     inputData: { dataSources: [], selectedSourceIds: [], inputNotes: '', proceedWithoutData: false },
     setup: { setupMode: (engagement.config as any).automationSetupMode || 'QA_ADHOC_ANALYSIS', selectedWorkflowId: '', selectedWorkflowName: '', draftWorkflow: null, qaSetup: null, setupStatus: 'NOT_CONFIGURED', setupNotes: '', history: [] },
     runs: { runs: [] },
+    outputReview: { reviewedOutputIds: [], approvedOutputIds: [], rejectedOutputIds: [], outputComments: {}, reviewNotes: '', history: [] },
   }));
 
   const handleUpdateAutomationInputData = useCallback((inputData: AutomationInputDataState) => {
@@ -156,6 +158,18 @@ export default function ConfigurableEngagementWorkspace({ engagement, onBack, on
 
   const handleUpdateAutomationRuns = useCallback((runs: AutomationRunsState) => {
     setAutomationState(prev => ({ ...prev, runs }));
+  }, []);
+
+  const handleUpdateAutomationOutputReview = useCallback((outputReview: AutomationOutputReviewState) => {
+    setAutomationState(prev => ({ ...prev, outputReview }));
+  }, []);
+
+  // Exception status update that modifies runs state (shared between Runs and Output Review)
+  const handleUpdateAutoRunException = useCallback((runId: string, exId: string, status: AutoExceptionStatus) => {
+    setAutomationState(prev => ({
+      ...prev,
+      runs: { runs: prev.runs.runs.map(r => r.id === runId ? { ...r, exceptions: r.exceptions.map(e => e.id === exId ? { ...e, status } : e) } : r) },
+    }));
   }, []);
 
   return (
@@ -187,6 +201,8 @@ export default function ConfigurableEngagementWorkspace({ engagement, onBack, on
         onUpdateAutomationInputData={handleUpdateAutomationInputData}
         onUpdateAutomationSetup={handleUpdateAutomationSetup}
         onUpdateAutomationRuns={handleUpdateAutomationRuns}
+        onUpdateAutomationOutputReview={handleUpdateAutomationOutputReview}
+        onUpdateAutoRunException={handleUpdateAutoRunException}
         onNavigateTab={setActiveTabId}
       />
     </div>
