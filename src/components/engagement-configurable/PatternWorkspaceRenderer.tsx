@@ -28,6 +28,7 @@ import InternalAuditRequestsIDRTab from './patterns/internal-audit/InternalAudit
 import InternalAuditAnalysisTab from './patterns/internal-audit/InternalAuditAnalysisTab';
 import InternalAuditObservationsTab from './patterns/internal-audit/InternalAuditObservationsTab';
 import InternalAuditDiscussionTab from './patterns/internal-audit/InternalAuditDiscussionTab';
+import InternalAuditWorkingPaperTab from './patterns/internal-audit/InternalAuditWorkingPaperTab';
 
 interface Props {
   engagement: ConfigurableEngagement;
@@ -197,6 +198,15 @@ export default function PatternWorkspaceRenderer({ engagement, activeTabId, acti
           observationsState={iaState.observations}
           discussionState={iaState.discussion}
           onUpdateDiscussion={onUpdateIADiscussion}
+          onNavigateTab={onNavigateTab}
+        />
+      );
+    }
+    if (activeTabId === 'working-paper' && iaState) {
+      return (
+        <InternalAuditWorkingPaperTab
+          engagement={engagement}
+          iaState={iaState}
           onNavigateTab={onNavigateTab}
         />
       );
