@@ -101,9 +101,10 @@ export default function ComplianceConclusionTab({ engagement, complianceState, o
         <LockedView reviewStatus={ctrlReview.status} onNavigateTab={onNavigateTab} />
       )}
 
-      {/* Approved — show derivation and finalization */}
+      {/* Approved — show derivation and finalization (key forces remount on control switch) */}
       {isApproved && !isFinalized && (
         <ReadyToFinalizeView
+          key={selectedControlId}
           derivation={derivation}
           engagement={engagement}
           conclusionState={conclusionState}
@@ -115,6 +116,7 @@ export default function ComplianceConclusionTab({ engagement, complianceState, o
       {/* Finalized */}
       {isApproved && isFinalized && (
         <FinalizedView
+          key={selectedControlId}
           ctrlConclusion={ctrlConclusion}
           derivation={derivation}
           engagement={engagement}
