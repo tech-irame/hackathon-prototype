@@ -30,8 +30,11 @@ export interface AutomationInputDataState {
   proceedWithoutData: boolean;
 }
 
+import type { AutomationSetupState } from './automationSetupData';
+
 export interface AutomationProjectWorkspaceState {
   inputData: AutomationInputDataState;
+  setup: AutomationSetupState;
 }
 
 export const SOURCE_TYPE_LABELS: Record<DataSourceType, string> = {

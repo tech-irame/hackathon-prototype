@@ -22,6 +22,7 @@ import type { InternalAuditDiscussionState } from './patterns/internal-audit/int
 import { DEFAULT_FINAL_REPORT, type InternalAuditFinalReportState } from './patterns/internal-audit/internalAuditFinalReportData';
 import type { InternalAuditActionPlanState } from './patterns/internal-audit/internalAuditActionPlanData';
 import type { AutomationInputDataState, AutomationProjectWorkspaceState } from './patterns/automation/automationInputData';
+import type { AutomationSetupState } from './patterns/automation/automationSetupData';
 
 interface Props {
   engagement: ConfigurableEngagement;
@@ -140,10 +141,15 @@ export default function ConfigurableEngagementWorkspace({ engagement, onBack, on
   // ── Automation Project workspace state ──
   const [automationState, setAutomationState] = useState<AutomationProjectWorkspaceState>(() => ({
     inputData: { dataSources: [], selectedSourceIds: [], inputNotes: '', proceedWithoutData: false },
+    setup: { setupMode: (engagement.config as any).automationSetupMode || 'QA_ADHOC_ANALYSIS', selectedWorkflowId: '', selectedWorkflowName: '', draftWorkflow: null, qaSetup: null, setupStatus: 'NOT_CONFIGURED', setupNotes: '', history: [] },
   }));
 
   const handleUpdateAutomationInputData = useCallback((inputData: AutomationInputDataState) => {
     setAutomationState(prev => ({ ...prev, inputData }));
+  }, []);
+
+  const handleUpdateAutomationSetup = useCallback((setup: AutomationSetupState) => {
+    setAutomationState(prev => ({ ...prev, setup }));
   }, []);
 
   return (
@@ -173,6 +179,7 @@ export default function ConfigurableEngagementWorkspace({ engagement, onBack, on
         onUpdateIAActionPlan={handleUpdateIAActionPlan}
         automationState={automationState}
         onUpdateAutomationInputData={handleUpdateAutomationInputData}
+        onUpdateAutomationSetup={handleUpdateAutomationSetup}
         onNavigateTab={setActiveTabId}
       />
     </div>
