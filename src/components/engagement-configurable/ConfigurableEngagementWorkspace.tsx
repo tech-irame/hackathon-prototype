@@ -20,6 +20,7 @@ import type { InternalAuditAnalysisState } from './patterns/internal-audit/inter
 import type { InternalAuditObservationsState } from './patterns/internal-audit/internalAuditObservationsData';
 import type { InternalAuditDiscussionState } from './patterns/internal-audit/internalAuditDiscussionData';
 import { DEFAULT_FINAL_REPORT, type InternalAuditFinalReportState } from './patterns/internal-audit/internalAuditFinalReportData';
+import type { InternalAuditActionPlanState } from './patterns/internal-audit/internalAuditActionPlanData';
 
 interface Props {
   engagement: ConfigurableEngagement;
@@ -100,6 +101,7 @@ export default function ConfigurableEngagementWorkspace({ engagement, onBack, on
     observations: { observations: [], noObservationsConfirmed: false, noObservationsConfirmedBy: '', noObservationsConfirmedAt: null, dismissedPotentialObsIds: [] },
     discussion: { items: [], notes: [], noObsDiscussionConfirmed: false },
     finalReport: { ...DEFAULT_FINAL_REPORT },
+    actionPlan: { actionItems: [], initializedFromReport: false, followUpRequired: false, followUpNotes: '' },
   }));
 
   const handleUpdateIAScope = useCallback((scope: InternalAuditScopeState) => {
@@ -130,6 +132,10 @@ export default function ConfigurableEngagementWorkspace({ engagement, onBack, on
     setIAState(prev => ({ ...prev, finalReport: reportState }));
   }, []);
 
+  const handleUpdateIAActionPlan = useCallback((apState: InternalAuditActionPlanState) => {
+    setIAState(prev => ({ ...prev, actionPlan: apState }));
+  }, []);
+
   return (
     <div>
       <WorkspaceHeader engagement={engagement} onBack={onBack} onEditSetup={onEditSetup} />
@@ -154,6 +160,7 @@ export default function ConfigurableEngagementWorkspace({ engagement, onBack, on
         onUpdateIAObservations={handleUpdateIAObservations}
         onUpdateIADiscussion={handleUpdateIADiscussion}
         onUpdateIAFinalReport={handleUpdateIAFinalReport}
+        onUpdateIAActionPlan={handleUpdateIAActionPlan}
         onNavigateTab={setActiveTabId}
       />
     </div>
