@@ -15,6 +15,8 @@ import type { InternalAuditObservationsState } from './patterns/internal-audit/i
 import type { InternalAuditDiscussionState } from './patterns/internal-audit/internalAuditDiscussionData';
 import type { InternalAuditFinalReportState } from './patterns/internal-audit/internalAuditFinalReportData';
 import type { InternalAuditActionPlanState } from './patterns/internal-audit/internalAuditActionPlanData';
+import type { AutomationInputDataState, AutomationProjectWorkspaceState } from './patterns/automation/automationInputData';
+import AutomationInputDataTab from './patterns/automation/AutomationInputDataTab';
 import { WorkspaceOverview, PatternPlaceholderTab } from './components';
 import ComplianceControlScopeTab from './patterns/compliance/ComplianceControlScopeTab';
 import ComplianceRequestsPBCTab from './patterns/compliance/ComplianceRequestsPBCTab';
@@ -55,10 +57,12 @@ interface Props {
   onUpdateIADiscussion?: (state: InternalAuditDiscussionState) => void;
   onUpdateIAFinalReport?: (state: InternalAuditFinalReportState) => void;
   onUpdateIAActionPlan?: (state: InternalAuditActionPlanState) => void;
+  automationState?: AutomationProjectWorkspaceState;
+  onUpdateAutomationInputData?: (state: AutomationInputDataState) => void;
   onNavigateTab?: (tabId: string) => void;
 }
 
-export default function PatternWorkspaceRenderer({ engagement, activeTabId, activeTabLabel, complianceState, onCreateRequest, onUpdateRequestStatus, onAddBatch, onAddEvidence, onUpdateAttributeTesting, onUpdateReview, onUpdateConclusion, iaState, onUpdateIAScope, onUpdateIAAnnouncement, onUpdateIARequests, onUpdateIAAnalysis, onUpdateIAObservations, onUpdateIADiscussion, onUpdateIAFinalReport, onUpdateIAActionPlan, onNavigateTab }: Props) {
+export default function PatternWorkspaceRenderer({ engagement, activeTabId, activeTabLabel, complianceState, onCreateRequest, onUpdateRequestStatus, onAddBatch, onAddEvidence, onUpdateAttributeTesting, onUpdateReview, onUpdateConclusion, iaState, onUpdateIAScope, onUpdateIAAnnouncement, onUpdateIARequests, onUpdateIAAnalysis, onUpdateIAObservations, onUpdateIADiscussion, onUpdateIAFinalReport, onUpdateIAActionPlan, automationState, onUpdateAutomationInputData, onNavigateTab }: Props) {
   if (activeTabId === 'overview') {
     return <WorkspaceOverview engagement={engagement} />;
   }
@@ -235,6 +239,20 @@ export default function PatternWorkspaceRenderer({ engagement, activeTabId, acti
           iaState={iaState}
           actionPlan={iaState.actionPlan}
           onUpdateActionPlan={onUpdateIAActionPlan}
+          onNavigateTab={onNavigateTab}
+        />
+      );
+    }
+  }
+
+  // Automation Project tabs
+  if (engagement.patternType === EngagementPatternType.WORKFLOW_AUTOMATION_PROJECT) {
+    if (activeTabId === 'input-data' && automationState && onUpdateAutomationInputData) {
+      return (
+        <AutomationInputDataTab
+          engagement={engagement}
+          inputData={automationState.inputData}
+          onUpdateInputData={onUpdateAutomationInputData}
           onNavigateTab={onNavigateTab}
         />
       );
