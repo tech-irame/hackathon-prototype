@@ -6,6 +6,7 @@ import type { ComplianceWorkspaceState, PBCRequest, PBCRequestStatus } from './p
 import type { SampleBatch, EvidenceItem } from './patterns/compliance/complianceSamplesEvidenceData';
 import type { AttributeTestingState } from './patterns/compliance/complianceAttributeTestingData';
 import type { ComplianceReviewState } from './patterns/compliance/complianceReviewData';
+import type { ComplianceConclusionState } from './patterns/compliance/complianceConclusionData';
 import { WorkspaceOverview, PatternPlaceholderTab } from './components';
 import ComplianceControlScopeTab from './patterns/compliance/ComplianceControlScopeTab';
 import ComplianceRequestsPBCTab from './patterns/compliance/ComplianceRequestsPBCTab';
@@ -13,6 +14,7 @@ import ComplianceSamplesEvidenceTab from './patterns/compliance/ComplianceSample
 import ComplianceAttributeTestingTab from './patterns/compliance/ComplianceAttributeTestingTab';
 import ComplianceWorkingPaperTab from './patterns/compliance/ComplianceWorkingPaperTab';
 import ComplianceReviewTab from './patterns/compliance/ComplianceReviewTab';
+import ComplianceConclusionTab from './patterns/compliance/ComplianceConclusionTab';
 
 interface Props {
   engagement: ConfigurableEngagement;
@@ -25,10 +27,11 @@ interface Props {
   onAddEvidence?: (ev: EvidenceItem) => void;
   onUpdateAttributeTesting?: (state: AttributeTestingState) => void;
   onUpdateReview?: (state: ComplianceReviewState) => void;
+  onUpdateConclusion?: (state: ComplianceConclusionState) => void;
   onNavigateTab?: (tabId: string) => void;
 }
 
-export default function PatternWorkspaceRenderer({ engagement, activeTabId, activeTabLabel, complianceState, onCreateRequest, onUpdateRequestStatus, onAddBatch, onAddEvidence, onUpdateAttributeTesting, onUpdateReview, onNavigateTab }: Props) {
+export default function PatternWorkspaceRenderer({ engagement, activeTabId, activeTabLabel, complianceState, onCreateRequest, onUpdateRequestStatus, onAddBatch, onAddEvidence, onUpdateAttributeTesting, onUpdateReview, onUpdateConclusion, onNavigateTab }: Props) {
   if (activeTabId === 'overview') {
     return <WorkspaceOverview engagement={engagement} />;
   }
@@ -44,6 +47,16 @@ export default function PatternWorkspaceRenderer({ engagement, activeTabId, acti
           requests={complianceState.requests}
           onCreateRequest={onCreateRequest}
           onUpdateRequestStatus={onUpdateRequestStatus}
+        />
+      );
+    }
+    if (activeTabId === 'conclusion' && complianceState && onUpdateConclusion) {
+      return (
+        <ComplianceConclusionTab
+          engagement={engagement}
+          complianceState={complianceState}
+          onUpdateConclusion={onUpdateConclusion}
+          onNavigateTab={onNavigateTab}
         />
       );
     }

@@ -12,6 +12,7 @@ import { MOCK_PBC_REQUESTS, type PBCRequest, type PBCRequestStatus, type Complia
 import type { SampleBatch, EvidenceItem } from './patterns/compliance/complianceSamplesEvidenceData';
 import type { AttributeTestingState } from './patterns/compliance/complianceAttributeTestingData';
 import type { ComplianceReviewState } from './patterns/compliance/complianceReviewData';
+import type { ComplianceConclusionState } from './patterns/compliance/complianceConclusionData';
 
 interface Props {
   engagement: ConfigurableEngagement;
@@ -43,6 +44,7 @@ export default function ConfigurableEngagementWorkspace({ engagement, onBack, on
     samplesEvidence: { batches: [], evidence: [] },
     attributeTesting: { results: [], testingStarted: false },
     review: { reviews: [] },
+    conclusion: { conclusions: [] },
   }));
 
   const handleCreateRequest = useCallback((req: PBCRequest) => {
@@ -78,6 +80,10 @@ export default function ConfigurableEngagementWorkspace({ engagement, onBack, on
     setComplianceState(prev => ({ ...prev, review: reviewState }));
   }, []);
 
+  const handleUpdateConclusion = useCallback((conclusionState: ComplianceConclusionState) => {
+    setComplianceState(prev => ({ ...prev, conclusion: conclusionState }));
+  }, []);
+
   return (
     <div>
       <WorkspaceHeader engagement={engagement} onBack={onBack} onEditSetup={onEditSetup} />
@@ -93,6 +99,7 @@ export default function ConfigurableEngagementWorkspace({ engagement, onBack, on
         onAddEvidence={handleAddEvidence}
         onUpdateAttributeTesting={handleUpdateAttributeTesting}
         onUpdateReview={handleUpdateReview}
+        onUpdateConclusion={handleUpdateConclusion}
         onNavigateTab={setActiveTabId}
       />
     </div>

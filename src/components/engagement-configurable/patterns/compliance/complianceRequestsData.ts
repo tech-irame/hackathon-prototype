@@ -4,12 +4,14 @@
 import type { SamplesEvidenceState } from './complianceSamplesEvidenceData';
 import type { AttributeTestingState } from './complianceAttributeTestingData';
 import type { ComplianceReviewState } from './complianceReviewData';
+import type { ComplianceConclusionState } from './complianceConclusionData';
 
 export interface ComplianceWorkspaceState {
   requests: PBCRequest[];
   samplesEvidence: SamplesEvidenceState;
   attributeTesting: AttributeTestingState;
   review: ComplianceReviewState;
+  conclusion: ComplianceConclusionState;
 }
 
 export type PBCRequestStatus = 'Draft' | 'Sent' | 'Pending' | 'Partially Received' | 'Received' | 'Overdue' | 'Cancelled';
