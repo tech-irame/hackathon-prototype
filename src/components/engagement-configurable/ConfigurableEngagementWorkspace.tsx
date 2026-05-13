@@ -13,6 +13,7 @@ import type { SampleBatch, EvidenceItem } from './patterns/compliance/compliance
 import type { AttributeTestingState } from './patterns/compliance/complianceAttributeTestingData';
 import type { ComplianceReviewState } from './patterns/compliance/complianceReviewData';
 import type { ComplianceConclusionState } from './patterns/compliance/complianceConclusionData';
+import { DEFAULT_IA_SCOPE, type InternalAuditScopeState, type InternalAuditWorkspaceState } from './patterns/internal-audit/internalAuditScopeData';
 
 interface Props {
   engagement: ConfigurableEngagement;
@@ -84,6 +85,15 @@ export default function ConfigurableEngagementWorkspace({ engagement, onBack, on
     setComplianceState(prev => ({ ...prev, conclusion: conclusionState }));
   }, []);
 
+  // ── Internal Audit workspace state ──
+  const [iaState, setIAState] = useState<InternalAuditWorkspaceState>(() => ({
+    scope: { ...DEFAULT_IA_SCOPE, scopeLevel: (engagement.config as any).scopeLevel || 'PROCESS' },
+  }));
+
+  const handleUpdateIAScope = useCallback((scope: InternalAuditScopeState) => {
+    setIAState(prev => ({ ...prev, scope }));
+  }, []);
+
   return (
     <div>
       <WorkspaceHeader engagement={engagement} onBack={onBack} onEditSetup={onEditSetup} />
@@ -100,6 +110,8 @@ export default function ConfigurableEngagementWorkspace({ engagement, onBack, on
         onUpdateAttributeTesting={handleUpdateAttributeTesting}
         onUpdateReview={handleUpdateReview}
         onUpdateConclusion={handleUpdateConclusion}
+        iaState={iaState}
+        onUpdateIAScope={handleUpdateIAScope}
         onNavigateTab={setActiveTabId}
       />
     </div>
