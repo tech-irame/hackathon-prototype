@@ -25,8 +25,11 @@ export interface InternalAuditScopeState {
   outOfScopeItems: string;
 }
 
+import type { InternalAuditAnnouncementState } from './internalAuditAnnouncementData';
+
 export interface InternalAuditWorkspaceState {
   scope: InternalAuditScopeState;
+  announcement: InternalAuditAnnouncementState;
 }
 
 export const DEFAULT_IA_SCOPE: InternalAuditScopeState = {

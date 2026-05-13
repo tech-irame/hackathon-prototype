@@ -14,6 +14,7 @@ import type { AttributeTestingState } from './patterns/compliance/complianceAttr
 import type { ComplianceReviewState } from './patterns/compliance/complianceReviewData';
 import type { ComplianceConclusionState } from './patterns/compliance/complianceConclusionData';
 import { DEFAULT_IA_SCOPE, type InternalAuditScopeState, type InternalAuditWorkspaceState } from './patterns/internal-audit/internalAuditScopeData';
+import { DEFAULT_ANNOUNCEMENT, type InternalAuditAnnouncementState } from './patterns/internal-audit/internalAuditAnnouncementData';
 
 interface Props {
   engagement: ConfigurableEngagement;
@@ -88,10 +89,15 @@ export default function ConfigurableEngagementWorkspace({ engagement, onBack, on
   // ── Internal Audit workspace state ──
   const [iaState, setIAState] = useState<InternalAuditWorkspaceState>(() => ({
     scope: { ...DEFAULT_IA_SCOPE, scopeLevel: (engagement.config as any).scopeLevel || 'PROCESS' },
+    announcement: { ...DEFAULT_ANNOUNCEMENT },
   }));
 
   const handleUpdateIAScope = useCallback((scope: InternalAuditScopeState) => {
     setIAState(prev => ({ ...prev, scope }));
+  }, []);
+
+  const handleUpdateIAAnnouncement = useCallback((announcement: InternalAuditAnnouncementState) => {
+    setIAState(prev => ({ ...prev, announcement }));
   }, []);
 
   return (
@@ -112,6 +118,7 @@ export default function ConfigurableEngagementWorkspace({ engagement, onBack, on
         onUpdateConclusion={handleUpdateConclusion}
         iaState={iaState}
         onUpdateIAScope={handleUpdateIAScope}
+        onUpdateIAAnnouncement={handleUpdateIAAnnouncement}
         onNavigateTab={setActiveTabId}
       />
     </div>
