@@ -17,8 +17,10 @@ import type { InternalAuditFinalReportState } from './patterns/internal-audit/in
 import type { InternalAuditActionPlanState } from './patterns/internal-audit/internalAuditActionPlanData';
 import type { AutomationInputDataState, AutomationProjectWorkspaceState } from './patterns/automation/automationInputData';
 import type { AutomationSetupState } from './patterns/automation/automationSetupData';
+import type { AutomationRunsState } from './patterns/automation/automationRunsData';
 import AutomationInputDataTab from './patterns/automation/AutomationInputDataTab';
 import AutomationSetupTab from './patterns/automation/AutomationSetupTab';
+import AutomationRunsTab from './patterns/automation/AutomationRunsTab';
 import { WorkspaceOverview, PatternPlaceholderTab } from './components';
 import ComplianceControlScopeTab from './patterns/compliance/ComplianceControlScopeTab';
 import ComplianceRequestsPBCTab from './patterns/compliance/ComplianceRequestsPBCTab';
@@ -62,10 +64,11 @@ interface Props {
   automationState?: AutomationProjectWorkspaceState;
   onUpdateAutomationInputData?: (state: AutomationInputDataState) => void;
   onUpdateAutomationSetup?: (state: AutomationSetupState) => void;
+  onUpdateAutomationRuns?: (state: AutomationRunsState) => void;
   onNavigateTab?: (tabId: string) => void;
 }
 
-export default function PatternWorkspaceRenderer({ engagement, activeTabId, activeTabLabel, complianceState, onCreateRequest, onUpdateRequestStatus, onAddBatch, onAddEvidence, onUpdateAttributeTesting, onUpdateReview, onUpdateConclusion, iaState, onUpdateIAScope, onUpdateIAAnnouncement, onUpdateIARequests, onUpdateIAAnalysis, onUpdateIAObservations, onUpdateIADiscussion, onUpdateIAFinalReport, onUpdateIAActionPlan, automationState, onUpdateAutomationInputData, onUpdateAutomationSetup, onNavigateTab }: Props) {
+export default function PatternWorkspaceRenderer({ engagement, activeTabId, activeTabLabel, complianceState, onCreateRequest, onUpdateRequestStatus, onAddBatch, onAddEvidence, onUpdateAttributeTesting, onUpdateReview, onUpdateConclusion, iaState, onUpdateIAScope, onUpdateIAAnnouncement, onUpdateIARequests, onUpdateIAAnalysis, onUpdateIAObservations, onUpdateIADiscussion, onUpdateIAFinalReport, onUpdateIAActionPlan, automationState, onUpdateAutomationInputData, onUpdateAutomationSetup, onUpdateAutomationRuns, onNavigateTab }: Props) {
   if (activeTabId === 'overview') {
     return <WorkspaceOverview engagement={engagement} />;
   }
@@ -267,6 +270,18 @@ export default function PatternWorkspaceRenderer({ engagement, activeTabId, acti
           inputData={automationState.inputData}
           setupState={automationState.setup}
           onUpdateSetup={onUpdateAutomationSetup}
+          onNavigateTab={onNavigateTab}
+        />
+      );
+    }
+    if (activeTabId === 'runs' && automationState && onUpdateAutomationRuns) {
+      return (
+        <AutomationRunsTab
+          engagement={engagement}
+          inputData={automationState.inputData}
+          setup={automationState.setup}
+          runsState={automationState.runs}
+          onUpdateRuns={onUpdateAutomationRuns}
           onNavigateTab={onNavigateTab}
         />
       );

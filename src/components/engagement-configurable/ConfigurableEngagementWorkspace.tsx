@@ -23,6 +23,7 @@ import { DEFAULT_FINAL_REPORT, type InternalAuditFinalReportState } from './patt
 import type { InternalAuditActionPlanState } from './patterns/internal-audit/internalAuditActionPlanData';
 import type { AutomationInputDataState, AutomationProjectWorkspaceState } from './patterns/automation/automationInputData';
 import type { AutomationSetupState } from './patterns/automation/automationSetupData';
+import type { AutomationRunsState } from './patterns/automation/automationRunsData';
 
 interface Props {
   engagement: ConfigurableEngagement;
@@ -142,6 +143,7 @@ export default function ConfigurableEngagementWorkspace({ engagement, onBack, on
   const [automationState, setAutomationState] = useState<AutomationProjectWorkspaceState>(() => ({
     inputData: { dataSources: [], selectedSourceIds: [], inputNotes: '', proceedWithoutData: false },
     setup: { setupMode: (engagement.config as any).automationSetupMode || 'QA_ADHOC_ANALYSIS', selectedWorkflowId: '', selectedWorkflowName: '', draftWorkflow: null, qaSetup: null, setupStatus: 'NOT_CONFIGURED', setupNotes: '', history: [] },
+    runs: { runs: [] },
   }));
 
   const handleUpdateAutomationInputData = useCallback((inputData: AutomationInputDataState) => {
@@ -150,6 +152,10 @@ export default function ConfigurableEngagementWorkspace({ engagement, onBack, on
 
   const handleUpdateAutomationSetup = useCallback((setup: AutomationSetupState) => {
     setAutomationState(prev => ({ ...prev, setup }));
+  }, []);
+
+  const handleUpdateAutomationRuns = useCallback((runs: AutomationRunsState) => {
+    setAutomationState(prev => ({ ...prev, runs }));
   }, []);
 
   return (
@@ -180,6 +186,7 @@ export default function ConfigurableEngagementWorkspace({ engagement, onBack, on
         automationState={automationState}
         onUpdateAutomationInputData={handleUpdateAutomationInputData}
         onUpdateAutomationSetup={handleUpdateAutomationSetup}
+        onUpdateAutomationRuns={handleUpdateAutomationRuns}
         onNavigateTab={setActiveTabId}
       />
     </div>

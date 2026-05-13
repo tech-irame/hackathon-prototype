@@ -31,10 +31,12 @@ export interface AutomationInputDataState {
 }
 
 import type { AutomationSetupState } from './automationSetupData';
+import type { AutomationRunsState } from './automationRunsData';
 
 export interface AutomationProjectWorkspaceState {
   inputData: AutomationInputDataState;
   setup: AutomationSetupState;
+  runs: AutomationRunsState;
 }
 
 export const SOURCE_TYPE_LABELS: Record<DataSourceType, string> = {
