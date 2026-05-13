@@ -30,6 +30,7 @@ import type { InternalAuditRequestState } from './internalAuditRequestsData';
 import type { InternalAuditAnalysisState } from './internalAuditAnalysisData';
 import type { InternalAuditObservationsState } from './internalAuditObservationsData';
 import type { InternalAuditDiscussionState } from './internalAuditDiscussionData';
+import type { InternalAuditFinalReportState } from './internalAuditFinalReportData';
 
 export interface InternalAuditWorkspaceState {
   scope: InternalAuditScopeState;
@@ -38,6 +39,7 @@ export interface InternalAuditWorkspaceState {
   analysis: InternalAuditAnalysisState;
   observations: InternalAuditObservationsState;
   discussion: InternalAuditDiscussionState;
+  finalReport: InternalAuditFinalReportState;
 }
 
 export const DEFAULT_IA_SCOPE: InternalAuditScopeState = {
