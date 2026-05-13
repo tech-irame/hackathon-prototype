@@ -31,13 +31,18 @@ export default function InternalAuditDiscussionTab({ engagement, observationsSta
   const [noteText, setNoteText] = useState('');
 
   // Initialize discussion items from ready observations
+  // Dependency: IDs of ready observations (not just count, to catch status changes)
+  const readyObsIds = observationsState.observations
+    .filter(o => o.status === 'READY_FOR_DISCUSSION' || o.status === 'IN_DISCUSSION' || o.status === 'AGREED')
+    .map(o => o.id).join(',');
+
   useEffect(() => {
     const readyObs = observationsState.observations.filter(o => o.status === 'READY_FOR_DISCUSSION' || o.status === 'IN_DISCUSSION' || o.status === 'AGREED');
     const initialized = initializeDiscussionItems(discussionState.items, readyObs);
     if (initialized.length !== discussionState.items.length) {
       onUpdateDiscussion({ ...discussionState, items: initialized });
     }
-  }, [observationsState.observations.length]);
+  }, [readyObsIds]);
 
   const summary = deriveDiscussionSummary(discussionState);
   const noObsConfirmed = observationsState.noObservationsConfirmed;
