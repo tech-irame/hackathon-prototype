@@ -1,0 +1,108 @@
+// ─── Automation Reports — Types & Helpers ──────────────────────────────────
+
+export type ReportStatus = 'NOT_STARTED' | 'DRAFT' | 'READY' | 'FINAL';
+
+export interface ReportHistoryItem { id: string; action: string; actor: string; timestamp: string; comments: string }
+
+export interface AutomationReport {
+  id: string; title: string; status: ReportStatus;
+  generatedFromRunIds: string[]; includedOutputIds: string[]; includedCaseIds: string[];
+  executiveSummary: string; projectObjective: string; inputSummary: string;
+  automationSummary: string; runSummary: string; exceptionSummary: string;
+  caseSummary: string; keyMetrics: string; recommendations: string; distributionList: string;
+  generatedAt: string; finalizedAt: string | null; finalizedBy: string;
+  history: ReportHistoryItem[];
+}
+
+export interface AutomationReportsState {
+  reports: AutomationReport[];
+  reportNotes: string;
+}
+
+export const REPORT_STATUS_CLS: Record<ReportStatus, string> = {
+  NOT_STARTED: 'bg-gray-100 text-gray-600', DRAFT: 'bg-blue-50 text-blue-700', READY: 'bg-purple-50 text-purple-700', FINAL: 'bg-emerald-50 text-emerald-700',
+};
+
+// ─── Report Generation ────────────────────────────────────────────────────
+
+import type { AutomationProjectWorkspaceState } from './automationInputData';
+import type { ConfigurableEngagement, AutomationProjectConfig } from '../../configurableEngagementTypes';
+import { SOURCE_TYPE_LABELS } from './automationInputData';
+import { SETUP_MODE_LABELS } from './automationSetupData';
+import { EX_CAT_LABELS } from './automationRunsData';
+
+function now(): string { return new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+
+export function generateDraftReport(engagement: ConfigurableEngagement, state: AutomationProjectWorkspaceState): Partial<AutomationReport> {
+  const cfg = engagement.config as AutomationProjectConfig;
+  const { inputData, setup, runs, outputReview, cases } = state;
+  const completedRuns = runs.runs.filter(r => r.status === 'COMPLETED');
+  const allOutputs = completedRuns.flatMap(r => r.outputs);
+  const allExceptions = completedRuns.flatMap(r => r.exceptions);
+  const approvedIds = outputReview.approvedOutputIds;
+  const totalRecords = completedRuns.reduce((s, r) => s + r.processedRecords, 0);
+
+  const title = `${engagement.name} — Automation Output Report`;
+  const projectObjective = engagement.description;
+
+  const selectedSources = inputData.dataSources.filter(d => inputData.selectedSourceIds.includes(d.id));
+  const inputSummaryText = selectedSources.length > 0
+    ? selectedSources.map(d => `${d.name} (${SOURCE_TYPE_LABELS[d.sourceType]}, ${d.recordCount || d.pageCount || d.imageCount || 0} items)`).join('\n')
+    : 'No input data sources selected.';
+
+  const automationSummaryText = `Setup mode: ${SETUP_MODE_LABELS[setup.setupMode]}.\n${setup.selectedWorkflowName ? `Workflow: ${setup.selectedWorkflowName}.` : setup.draftWorkflow?.name ? `Draft workflow: ${setup.draftWorkflow.name}.` : setup.qaSetup?.objective ? `Q&A objective: ${setup.qaSetup.objective}.` : ''}`;
+
+  const runSummaryText = completedRuns.length > 0
+    ? completedRuns.map(r => `${r.runName}: ${r.processedRecords} records, ${r.exceptionCount} exceptions, ${r.outputCount} outputs. Completed ${r.completedAt}.`).join('\n')
+    : 'No completed runs.';
+
+  const openEx = allExceptions.filter(e => e.status === 'OPEN').length;
+  const reviewedEx = allExceptions.filter(e => e.status === 'REVIEWED').length;
+  const dismissedEx = allExceptions.filter(e => e.status === 'DISMISSED').length;
+  const caseEx = allExceptions.filter(e => e.status === 'CASE_CANDIDATE').length;
+  const exceptionSummaryText = `Total: ${allExceptions.length}. Open: ${openEx}. Reviewed: ${reviewedEx}. Dismissed: ${dismissedEx}. Case candidates: ${caseEx}.`;
+
+  const caseSummaryText = cases.cases.length > 0
+    ? cases.cases.map(c => `${c.title} — ${c.priority} priority, ${c.status}, owner: ${c.owner || '—'}, due: ${c.dueDate || '—'}.`).join('\n')
+    : 'No cases created.';
+
+  const keyMetricsText = `Records processed: ${totalRecords}\nOutputs generated: ${allOutputs.length}\nOutputs approved: ${approvedIds.length}\nExceptions: ${allExceptions.length}\nHigh/Critical exceptions: ${allExceptions.filter(e => e.severity === 'HIGH' || e.severity === 'CRITICAL').length}\nCases created: ${cases.cases.length}`;
+
+  const recs: string[] = [];
+  if (allExceptions.filter(e => e.severity === 'HIGH' || e.severity === 'CRITICAL').length > 0) recs.push('Review and resolve high/critical cases promptly.');
+  if (cfg.runType === 'RECURRING') recs.push('Finalize schedule configuration for recurring runs.');
+  recs.push('Integrate with Case Management for long-term tracking.');
+  if (openEx > 0) recs.push(`${openEx} open exception(s) require attention.`);
+  const recommendationsText = recs.join('\n');
+
+  const executiveSummary = `${completedRuns.length} automation run(s) completed processing ${totalRecords} records. ${allOutputs.length} output(s) generated, ${approvedIds.length} approved. ${allExceptions.length} exception(s) identified, ${cases.cases.length} case(s) created.`;
+
+  return {
+    title, status: 'DRAFT',
+    generatedFromRunIds: completedRuns.map(r => r.id),
+    includedOutputIds: approvedIds,
+    includedCaseIds: cases.cases.map(c => c.id),
+    executiveSummary, projectObjective, inputSummary: inputSummaryText,
+    automationSummary: automationSummaryText, runSummary: runSummaryText,
+    exceptionSummary: exceptionSummaryText, caseSummary: caseSummaryText,
+    keyMetrics: keyMetricsText, recommendations: recommendationsText,
+    distributionList: `${engagement.owner}${engagement.reviewer ? `, ${engagement.reviewer}` : ''}`,
+    generatedAt: now(), finalizedAt: null, finalizedBy: '',
+    history: [{ id: `rrh-${Date.now()}`, action: 'GENERATED', actor: engagement.owner, timestamp: now(), comments: 'Draft report generated.' }],
+  };
+}
+
+export function deriveReportReadiness(state: AutomationProjectWorkspaceState, cfg: AutomationProjectConfig) {
+  const completedRuns = state.runs.runs.filter(r => r.status === 'COMPLETED');
+  const hasReport = cfg.outputTypes.includes('REPORT');
+  const hasCaseMgmt = cfg.outputTypes.includes('CASE_MANAGEMENT');
+  const allEx = completedRuns.flatMap(r => r.exceptions);
+  const checks = [
+    { label: 'At least one completed run', ok: completedRuns.length > 0 },
+    ...(hasReport ? [{ label: 'At least one approved output', ok: state.outputReview.approvedOutputIds.length > 0 }] : []),
+    { label: 'Critical/high exceptions reviewed', ok: allEx.filter(e => (e.severity === 'HIGH' || e.severity === 'CRITICAL') && e.status === 'OPEN').length === 0 },
+    ...(hasCaseMgmt ? [{ label: 'Case candidates have cases', ok: allEx.filter(e => e.status === 'CASE_CANDIDATE').length === 0 || state.cases.cases.length > 0 }] : []),
+  ];
+  const ready = checks.every(c => c.ok);
+  return { ready, checks };
+}

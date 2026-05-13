@@ -26,6 +26,7 @@ import type { AutomationSetupState } from './patterns/automation/automationSetup
 import type { AutomationRunsState, ExceptionStatus as AutoExceptionStatus } from './patterns/automation/automationRunsData';
 import type { AutomationOutputReviewState } from './patterns/automation/automationOutputReviewData';
 import type { AutomationCasesState } from './patterns/automation/automationCasesData';
+import type { AutomationReportsState } from './patterns/automation/automationReportsData';
 
 interface Props {
   engagement: ConfigurableEngagement;
@@ -148,6 +149,7 @@ export default function ConfigurableEngagementWorkspace({ engagement, onBack, on
     runs: { runs: [] },
     outputReview: { reviewedOutputIds: [], approvedOutputIds: [], rejectedOutputIds: [], outputComments: {}, reviewNotes: '', history: [] },
     cases: { cases: [], linkedExceptionIds: [], caseNotes: '' },
+    reports: { reports: [], reportNotes: '' },
   }));
 
   const handleUpdateAutomationInputData = useCallback((inputData: AutomationInputDataState) => {
@@ -168,6 +170,10 @@ export default function ConfigurableEngagementWorkspace({ engagement, onBack, on
 
   const handleUpdateAutomationCases = useCallback((cases: AutomationCasesState) => {
     setAutomationState(prev => ({ ...prev, cases }));
+  }, []);
+
+  const handleUpdateAutomationReports = useCallback((reports: AutomationReportsState) => {
+    setAutomationState(prev => ({ ...prev, reports }));
   }, []);
 
   // Exception status update that modifies runs state (shared between Runs and Output Review)
@@ -210,6 +216,7 @@ export default function ConfigurableEngagementWorkspace({ engagement, onBack, on
         onUpdateAutomationOutputReview={handleUpdateAutomationOutputReview}
         onUpdateAutoRunException={handleUpdateAutoRunException}
         onUpdateAutomationCases={handleUpdateAutomationCases}
+        onUpdateAutomationReports={handleUpdateAutomationReports}
         onNavigateTab={setActiveTabId}
       />
     </div>
