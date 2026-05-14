@@ -101,18 +101,18 @@ export function deriveSetupReadiness(inputData: AutomationInputDataState, setup:
   const isRecurring = config.runType === 'RECURRING';
 
   const checks = [
-    { label: 'Setup mode selected', ok: setup.setupMode !== 'UPLOAD_DATA_FIRST_DECIDE_LATER' },
-    { label: 'Input sources selected or documented', ok: hasInput },
+    { label: 'Automation approach selected', ok: setup.setupMode !== 'UPLOAD_DATA_FIRST_DECIDE_LATER' },
+    { label: 'Input data selected or intentionally skipped', ok: hasInput },
   ];
 
   if (setup.setupMode === 'SELECT_EXISTING_WORKFLOW') {
     const wfIds = setup.selectedWorkflowIds?.length > 0 ? setup.selectedWorkflowIds : (setup.selectedWorkflowId ? [setup.selectedWorkflowId] : []);
-    checks.push({ label: `Workflow${wfIds.length !== 1 ? 's' : ''} selected (${wfIds.length})`, ok: wfIds.length > 0 });
+    checks.push({ label: `${wfIds.length} workflow${wfIds.length !== 1 ? 's' : ''} selected`, ok: wfIds.length > 0 });
   } else if (setup.setupMode === 'CREATE_NEW_WORKFLOW') {
     const savedCreated = (setup.createdWorkflows || []).filter(w => w.status === 'SAVED');
     const selectedCreated = savedCreated.filter(w => (setup.selectedWorkflowIds || []).includes(w.id));
-    checks.push({ label: `Created workflow${savedCreated.length !== 1 ? 's' : ''} saved (${savedCreated.length})`, ok: savedCreated.length > 0 });
-    checks.push({ label: `Created workflow selected for run (${selectedCreated.length})`, ok: selectedCreated.length > 0 });
+    checks.push({ label: `${savedCreated.length} workflow${savedCreated.length !== 1 ? 's' : ''} built and saved`, ok: savedCreated.length > 0 });
+    checks.push({ label: `${selectedCreated.length} built workflow${selectedCreated.length !== 1 ? 's' : ''} selected for run`, ok: selectedCreated.length > 0 });
   } else if (setup.setupMode === 'QA_ADHOC_ANALYSIS') {
     checks.push({ label: 'Q&A setup ready', ok: setup.qaSetup?.status === 'READY' });
   }
@@ -122,10 +122,10 @@ export function deriveSetupReadiness(inputData: AutomationInputDataState, setup:
     const hasSavedCreatedWf = (setup.createdWorkflows || []).some(w => w.status === 'SAVED' && (setup.selectedWorkflowIds || []).includes(w.id));
     const hasDraftReady = setup.draftWorkflow?.status === 'READY';
     const hasWorkflow = setup.setupMode === 'SELECT_EXISTING_WORKFLOW' ? hasExistingWf : setup.setupMode === 'CREATE_NEW_WORKFLOW' ? hasSavedCreatedWf : hasDraftReady;
-    checks.push({ label: 'Recurring project has workflow', ok: !!hasWorkflow });
+    checks.push({ label: 'Recurring automation has at least one saved workflow', ok: !!hasWorkflow });
   }
 
-  checks.push({ label: 'Output type configured', ok: config.outputTypes.length > 0 });
+  checks.push({ label: 'Output types selected', ok: config.outputTypes.length > 0 });
 
   const allOk = checks.every(c => c.ok);
   let status: SetupStatus;

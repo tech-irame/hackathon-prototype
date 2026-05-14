@@ -256,13 +256,19 @@ function AutomationProjectSetup({ config, onChange }: { config: AutomationProjec
           </select>
         </div>
         <div>
-          <label className={labelCls}>Automation Setup Mode <span className="text-red-400">*</span></label>
+          <label className={labelCls}>How do you want to automate this? <span className="text-red-400">*</span></label>
           <select value={config.automationSetupMode} onChange={e => update('automationSetupMode', e.target.value as AutomationSetupMode)} className={selectCls}>
-            <option value={AutomationSetupMode.SELECT_EXISTING_WORKFLOW}>Select Existing Workflow</option>
-            <option value={AutomationSetupMode.CREATE_NEW_WORKFLOW}>Create New Workflow</option>
-            <option value={AutomationSetupMode.QA_ADHOC_ANALYSIS}>Use Q&A / Ad-hoc Analysis</option>
+            <option value={AutomationSetupMode.SELECT_EXISTING_WORKFLOW}>Use Existing Workflow</option>
+            <option value={AutomationSetupMode.CREATE_NEW_WORKFLOW}>Build New Workflow</option>
+            <option value={AutomationSetupMode.QA_ADHOC_ANALYSIS}>Ask Questions / Ad-hoc Analysis</option>
             <option value={AutomationSetupMode.UPLOAD_DATA_FIRST_DECIDE_LATER}>Upload Data First, Decide Later</option>
           </select>
+          <p className="text-[9px] text-gray-400 mt-1">{
+            config.automationSetupMode === AutomationSetupMode.SELECT_EXISTING_WORKFLOW ? 'Choose one or more saved workflows to run on the selected input data. Best for repeatable automation and bulk runs.' :
+            config.automationSetupMode === AutomationSetupMode.CREATE_NEW_WORKFLOW ? 'Build a new workflow using the workflow builder. You can link existing project data or add new data during workflow creation.' :
+            config.automationSetupMode === AutomationSetupMode.QA_ADHOC_ANALYSIS ? 'Use this for one-time exploration or Q&A on data/documents. For recurring automation, convert this into a saved workflow.' :
+            'Add input data now and choose the automation approach later.'
+          }</p>
         </div>
       </div>
 

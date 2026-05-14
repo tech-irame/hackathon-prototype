@@ -45,7 +45,7 @@ export default function AutomationSetupTab({ engagement, inputData, setupState, 
       <div className="flex items-start justify-between gap-4">
         <div>
           <h3 className="text-[15px] font-bold text-text mb-0.5">Automation Setup</h3>
-          <p className="text-[12px] text-text-muted">Existing or newly built workflows can be selected for single or bulk runs.</p>
+          <p className="text-[12px] text-text-muted">Choose whether this project will use saved workflows, newly built workflows, or ad-hoc Q&A analysis.</p>
         </div>
         <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold shrink-0 ${SETUP_STATUS_CLS[status]}`}>{status.replace(/_/g, ' ')}</span>
       </div>
@@ -53,7 +53,7 @@ export default function AutomationSetupTab({ engagement, inputData, setupState, 
       {/* Context */}
       <div className="rounded-lg border border-border-light p-3">
         <div className="grid grid-cols-4 gap-3 text-[11px]">
-          <div><span className="text-gray-400 block text-[10px]">Setup Mode</span><span className="text-text font-medium">{SETUP_MODE_LABELS[setupState.setupMode]}</span></div>
+          <div><span className="text-gray-400 block text-[10px]">Automation Approach</span><span className="text-text font-medium">{SETUP_MODE_LABELS[setupState.setupMode]}</span></div>
           <div><span className="text-gray-400 block text-[10px]">Input Sources</span><span className={`font-medium ${hasInput ? 'text-emerald-600' : 'text-amber-600'}`}>{hasInput ? `${inputData.selectedSourceIds.length} selected` : 'None'}</span></div>
           <div><span className="text-gray-400 block text-[10px]">Run Type</span><span className="text-text font-medium">{cfg.runType.replace(/_/g, ' ')}{cfg.frequency ? ` (${cfg.frequency})` : ''}</span></div>
           <div><span className="text-gray-400 block text-[10px]">Outputs</span><span className="text-text font-medium">{cfg.outputTypes.map(o => o.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase())).join(', ')}</span></div>
@@ -62,17 +62,17 @@ export default function AutomationSetupTab({ engagement, inputData, setupState, 
 
       {!hasInput && (
         <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-[10px] text-amber-700">
-          <AlertCircle size={11} className="shrink-0 mt-0.5" /><span>No input data selected. Configure input data or proceed with Q&A/ad-hoc setup.</span>
+          <AlertCircle size={11} className="shrink-0 mt-0.5" /><span>Select input data or choose to proceed without data for now.</span>
         </div>
       )}
 
       {/* Mode selector */}
       <div className="grid grid-cols-2 gap-3">
         {([
-          { mode: 'SELECT_EXISTING_WORKFLOW' as SetupMode, icon: Workflow, title: 'Use Existing Workflow', desc: 'Select a saved or project-created workflow from the library.' },
-          { mode: 'CREATE_NEW_WORKFLOW' as SetupMode, icon: Plus, title: 'Build New Workflow', desc: 'Build a new workflow using the workflow builder.' },
-          { mode: 'QA_ADHOC_ANALYSIS' as SetupMode, icon: MessageSquare, title: 'Ask Questions / Ad-hoc Analysis', desc: 'Ask questions or define analysis instructions.' },
-          { mode: 'UPLOAD_DATA_FIRST_DECIDE_LATER' as SetupMode, icon: Clock, title: 'Upload Data First, Decide Later', desc: 'Keep setup open until requirements are clearer.' },
+          { mode: 'SELECT_EXISTING_WORKFLOW' as SetupMode, icon: Workflow, title: 'Use Existing Workflow', desc: 'Select one or more saved workflows from the workflow library. Supports bulk workflow runs.' },
+          { mode: 'CREATE_NEW_WORKFLOW' as SetupMode, icon: Plus, title: 'Build New Workflow', desc: 'Create a new workflow using builder/Q&A and link it to project data sources.' },
+          { mode: 'QA_ADHOC_ANALYSIS' as SetupMode, icon: MessageSquare, title: 'Ask Questions / Ad-hoc Analysis', desc: 'Ask questions or run one-time analysis without saving a repeatable workflow yet.' },
+          { mode: 'UPLOAD_DATA_FIRST_DECIDE_LATER' as SetupMode, icon: Clock, title: 'Upload Data First, Decide Later', desc: 'Keep automation setup open until input data and requirements are clearer.' },
         ]).map(m => {
           const Icon = m.icon;
           const isSelected = setupState.setupMode === m.mode;
@@ -103,8 +103,8 @@ export default function AutomationSetupTab({ engagement, inputData, setupState, 
       {setupState.setupMode === 'UPLOAD_DATA_FIRST_DECIDE_LATER' && (
         <div className="rounded-lg border border-border-light p-4 text-center space-y-2">
           <Clock size={24} className="text-gray-300 mx-auto" />
-          <h4 className="text-[13px] font-semibold text-text">Automation setup is not configured yet</h4>
-          <p className="text-[11px] text-gray-500">Review input data, then choose a setup mode above.</p>
+          <h4 className="text-[13px] font-semibold text-text">Decide Later</h4>
+          <p className="text-[11px] text-gray-500">Automation setup is not configured yet. You can review input data first, then choose a workflow or Q&A approach later.</p>
         </div>
       )}
 
@@ -128,7 +128,7 @@ export default function AutomationSetupTab({ engagement, inputData, setupState, 
       {/* Readiness */}
       <div className="rounded-lg border border-border-light p-4 space-y-2">
         <div className="flex items-center justify-between">
-          <h4 className="text-[11px] font-bold text-text">Automation Setup Readiness</h4>
+          <h4 className="text-[11px] font-bold text-text">Automation Readiness</h4>
           <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${SETUP_STATUS_CLS[status]}`}>{status.replace(/_/g, ' ')}</span>
         </div>
         <div className="space-y-1">{checks.map(c => (
@@ -139,7 +139,7 @@ export default function AutomationSetupTab({ engagement, inputData, setupState, 
         ))}</div>
         {isRecurring && setupState.setupMode === 'QA_ADHOC_ANALYSIS' && (
           <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-[10px] text-amber-700">
-            <AlertCircle size={11} className="shrink-0 mt-0.5" /><span>Recurring automation should use a saved workflow. Q&A setup is valid for ad-hoc runs only.</span>
+            <AlertCircle size={11} className="shrink-0 mt-0.5" /><span>Recurring automation requires at least one saved or built workflow. Q&A setup is valid for ad-hoc runs only.</span>
           </div>
         )}
         <button onClick={() => onNavigateTab?.('runs')} disabled={status !== 'READY_FOR_RUN'}
@@ -190,12 +190,13 @@ function ExistingWorkflowPanel({ inputType, setupState, onUpdateSetup, engagemen
   return (
     <div className="rounded-lg border border-border-light p-4 space-y-3">
       <div className="flex items-center justify-between">
-        <h4 className="text-[11px] font-bold text-text">Select Workflows <span className="font-normal text-gray-400 ml-1">({ids.length} selected)</span></h4>
+        <h4 className="text-[11px] font-bold text-text">Select Existing Workflows <span className="font-normal text-gray-400 ml-1">(Selected: {ids.length})</span></h4>
         <div className="flex items-center gap-2">
           <button onClick={selectRecommended} className="text-[9px] font-semibold text-primary hover:underline cursor-pointer">Select Recommended</button>
           {ids.length > 0 && <button onClick={() => onUpdateSetup({ ...setupState, selectedWorkflowIds: [], selectedWorkflowNames: [], selectedWorkflowId: '', selectedWorkflowName: '' })} className="text-[9px] font-semibold text-gray-500 hover:underline cursor-pointer">Clear</button>}
         </div>
       </div>
+      <p className="text-[10px] text-gray-500">Choose one or more workflows to run against the selected input data.</p>
       <div className="space-y-2">
         {allWorkflows.map(wf => {
           const isSelected = ids.includes(wf.id);
@@ -219,6 +220,9 @@ function ExistingWorkflowPanel({ inputType, setupState, onUpdateSetup, engagemen
           );
         })}
       </div>
+      {ids.length > 1 && (
+        <p className="text-[9px] text-gray-400 italic">Selected workflows can be run individually or together as a bulk run from the Runs tab.</p>
+      )}
     </div>
   );
 }
@@ -306,7 +310,7 @@ function CreateWorkflowPanel({ setupState, onUpdateSetup, engagement, inputData,
         <div className="flex items-center justify-between">
           <div>
             <h4 className="text-[12px] font-bold text-text">Build New Workflow</h4>
-            <p className="text-[10px] text-gray-500">Build a workflow using the workflow builder. Select project data sources or add new data during workflow creation.</p>
+            <p className="text-[10px] text-gray-500">Use the workflow builder to create one or more workflows for this project. Saved workflows will appear in the existing workflow list and can be selected for runs.</p>
           </div>
           <button onClick={() => openBuilder()} className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white text-[12px] font-semibold cursor-pointer transition-colors shrink-0">
             <Plus size={13} />Build Workflow
@@ -487,7 +491,7 @@ function WorkflowBuilderPanel({ engagement, inputData, existingWorkflow, onSave,
       <div className="flex items-center justify-between">
         <div>
           <h4 className="text-[14px] font-bold text-text">{existingWorkflow ? 'Edit Workflow' : 'Workflow Builder'}</h4>
-          <p className="text-[10px] text-gray-500">Use this builder to define the workflow logic. In production this will open the full Workflow Builder / Q&A experience.</p>
+          <p className="text-[10px] text-gray-500">In production, this will open the full Workflow Builder / Q&A workflow creation experience.</p>
         </div>
         <button onClick={onCancel} className="p-1.5 rounded text-gray-400 hover:text-text cursor-pointer"><X size={16} /></button>
       </div>
@@ -506,6 +510,7 @@ function WorkflowBuilderPanel({ engagement, inputData, existingWorkflow, onSave,
           <label className={labelCls}>Data Sources <span className="text-red-400">*</span> <span className="font-normal text-gray-400">({linkedSourceIds.length} linked)</span></label>
           <button onClick={() => setShowAddSource(true)} className="px-2 py-1 rounded text-[9px] font-semibold text-primary bg-primary/10 hover:bg-primary/20 cursor-pointer transition-colors"><Plus size={9} /> Add New Source</button>
         </div>
+        <p className="text-[9px] text-gray-400 mb-1">Select data from the project input pool or add a new data source for this workflow.</p>
         {allSources.length === 0 ? (
           <div className="text-[10px] text-gray-400 italic py-2">No project data sources available. Add a new data source below.</div>
         ) : (
@@ -579,7 +584,7 @@ function WorkflowBuilderPanel({ engagement, inputData, existingWorkflow, onSave,
           <CheckCircle2 size={12} />Save Workflow
         </button>
         <button onClick={onCancel} className="px-3 py-1.5 rounded-lg border border-border-light text-[11px] font-medium text-text-muted hover:bg-surface-2/30 cursor-pointer transition-colors">Cancel</button>
-        <span className="text-[9px] text-gray-400 ml-auto">Workflow will be available in Select Existing Workflow mode.</span>
+        <span className="text-[9px] text-gray-400 ml-auto">Saved workflows appear under Use Existing Workflow and can be selected for runs.</span>
       </div>
     </div>
   );
@@ -613,7 +618,8 @@ function QASetupPanel({ setupState, onUpdateSetup, engagement, inputSourceIds, i
 
   return (
     <div className="rounded-lg border border-border-light p-4 space-y-3">
-      <h4 className="text-[11px] font-bold text-text">Q&A / Ad-hoc Analysis Setup</h4>
+      <h4 className="text-[11px] font-bold text-text">Ask Questions / Ad-hoc Analysis</h4>
+      <p className="text-[9px] text-gray-400">Use this when you want to explore data or documents without creating a repeatable workflow yet.</p>
 
       <div><label className={labelCls}>Analysis Objective</label><textarea value={qa.objective} onChange={e => updateObjective(e.target.value)} rows={2} placeholder="What should this analysis accomplish?" className={inputCls + ' resize-none'} /></div>
 
@@ -647,14 +653,14 @@ function QASetupPanel({ setupState, onUpdateSetup, engagement, inputSourceIds, i
 
       {isRecurring && (
         <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-[10px] text-amber-700">
-          <AlertCircle size={11} className="shrink-0 mt-0.5" /><span>Recurring automation should be converted into a saved workflow. Q&A is valid for ad-hoc/one-time runs.</span>
+          <AlertCircle size={11} className="shrink-0 mt-0.5" /><span>Recurring automation requires a saved workflow. Convert this Q&A setup into a workflow before scheduling.</span>
         </div>
       )}
 
       <div className="flex items-center gap-2">
         <button onClick={markReady} disabled={!qa.objective.trim() || qa.questions.length === 0}
           className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-semibold cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1">
-          <CheckCircle2 size={11} />Mark Q&A Ready
+          <CheckCircle2 size={11} />Mark Q&A Setup Ready
         </button>
         {qa.status === 'READY' && <span className="text-[10px] text-emerald-600 font-medium flex items-center gap-1"><CheckCircle2 size={10} />Ready</span>}
       </div>

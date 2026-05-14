@@ -93,8 +93,8 @@ export default function AutomationRunsTab({ engagement, inputData, setup, runsSt
       {/* Context */}
       <div className="rounded-lg border border-border-light p-3">
         <div className="grid grid-cols-4 gap-3 text-[11px]">
-          <div><span className="text-gray-400 block text-[10px]">Setup Mode</span><span className="text-text font-medium">{SETUP_MODE_LABELS[setup.setupMode]}</span></div>
-          <div><span className="text-gray-400 block text-[10px]">Workflow / Q&A</span><span className="text-text font-medium truncate">{wfLabel}{isBulk ? ' (Bulk)' : ''}</span></div>
+          <div><span className="text-gray-400 block text-[10px]">Automation Approach</span><span className="text-text font-medium">{SETUP_MODE_LABELS[setup.setupMode]}</span></div>
+          <div><span className="text-gray-400 block text-[10px]">Workflows</span><span className="text-text font-medium truncate">{isBulk ? `Bulk run available · ${wfNames.length} workflows selected` : wfNames.length === 1 ? '1 workflow selected' : setup.setupMode === 'QA_ADHOC_ANALYSIS' ? 'Q&A / ad-hoc analysis setup' : 'No workflow selected'}</span></div>
           <div><span className="text-gray-400 block text-[10px]">Input Sources</span><span className="text-text font-medium">{inputData.selectedSourceIds.length} selected</span></div>
           <div><span className="text-gray-400 block text-[10px]">Run Type</span><span className="text-text font-medium">{cfg.runType.replace(/_/g, ' ')}{cfg.frequency ? ` (${cfg.frequency})` : ''}</span></div>
         </div>
