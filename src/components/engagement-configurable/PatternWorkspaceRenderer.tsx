@@ -74,7 +74,7 @@ interface Props {
   onUpdateAutomationSetup?: (state: AutomationSetupState) => void;
   onUpdateAutomationRuns?: (state: AutomationRunsState) => void;
   onUpdateAutomationOutputReview?: (state: AutomationOutputReviewState) => void;
-  onUpdateAutoRunException?: (runId: string, exId: string, status: AutoExceptionStatus) => void;
+  onUpdateAutoRunException?: (runId: string, exId: string, status: AutoExceptionStatus, triageData?: Record<string, unknown>) => void;
   onUpdateAutomationCases?: (state: AutomationCasesState) => void;
   onUpdateAutomationReports?: (state: AutomationReportsState) => void;
   onUpdateAutomationSchedule?: (state: AutomationScheduleState) => void;

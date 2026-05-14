@@ -9,7 +9,12 @@ export type ExceptionStatus = 'OPEN' | 'REVIEWED' | 'DISMISSED' | 'CASE_CANDIDAT
 export type LogLevel = 'INFO' | 'WARNING' | 'ERROR';
 
 export interface AutomationRunOutput { id: string; outputType: OutputType; name: string; description: string; recordCount: number | null; status: 'GENERATED' | 'NEEDS_REVIEW' | 'FAILED'; sourceWorkflowName?: string }
-export interface AutomationRunException { id: string; severity: ExceptionSeverity; title: string; description: string; sourceRecord: string; sourceFile: string; category: ExceptionCategory; status: ExceptionStatus; sourceWorkflowName?: string }
+export interface AutomationRunException {
+  id: string; severity: ExceptionSeverity; title: string; description: string; sourceRecord: string; sourceFile: string;
+  category: ExceptionCategory; status: ExceptionStatus; sourceWorkflowName?: string;
+  deficiencyType?: string; assignedOwner?: string; reviewer?: string; dueDate?: string;
+  triageNotes?: string; caseCandidateMarkedAt?: string; caseCandidateMarkedBy?: string;
+}
 export interface AutomationRunLog { id: string; timestamp: string; level: LogLevel; message: string }
 
 export interface AutomationRun {

@@ -182,11 +182,11 @@ export default function ConfigurableEngagementWorkspace({ engagement, onBack, on
     setAutomationState(prev => ({ ...prev, schedule }));
   }, []);
 
-  // Exception status update that modifies runs state (shared between Runs and Output Review)
-  const handleUpdateAutoRunException = useCallback((runId: string, exId: string, status: AutoExceptionStatus) => {
+  // Exception update that modifies runs state (shared between Runs and Output Review)
+  const handleUpdateAutoRunException = useCallback((runId: string, exId: string, status: AutoExceptionStatus, triageData?: Record<string, unknown>) => {
     setAutomationState(prev => ({
       ...prev,
-      runs: { runs: prev.runs.runs.map(r => r.id === runId ? { ...r, exceptions: r.exceptions.map(e => e.id === exId ? { ...e, status } : e) } : r) },
+      runs: { runs: prev.runs.runs.map(r => r.id === runId ? { ...r, exceptions: r.exceptions.map(e => e.id === exId ? { ...e, status, ...triageData } : e) } : r) },
     }));
   }, []);
 

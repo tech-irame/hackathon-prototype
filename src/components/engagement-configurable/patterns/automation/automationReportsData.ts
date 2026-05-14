@@ -64,13 +64,23 @@ export function generateDraftReport(engagement: ConfigurableEngagement, state: A
   const reviewedEx = allExceptions.filter(e => e.status === 'REVIEWED').length;
   const dismissedEx = allExceptions.filter(e => e.status === 'DISMISSED').length;
   const caseEx = allExceptions.filter(e => e.status === 'CASE_CANDIDATE').length;
-  const exceptionSummaryText = `Total: ${allExceptions.length}. Open: ${openEx}. Reviewed: ${reviewedEx}. Dismissed: ${dismissedEx}. Case candidates: ${caseEx}.`;
+  // Deficiency breakdown from case candidates
+  const candidateExceptions = allExceptions.filter(e => e.status === 'CASE_CANDIDATE');
+  const defBreakdown = candidateExceptions.reduce<Record<string, number>>((acc, e) => { const t = e.deficiencyType || 'Unclassified'; acc[t] = (acc[t] || 0) + 1; return acc; }, {});
+  const defBreakdownText = Object.entries(defBreakdown).map(([k, v]) => `${v} ${k.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}`).join(', ');
+  const exceptionSummaryText = `Total: ${allExceptions.length}. Open: ${openEx}. Reviewed: ${reviewedEx}. Dismissed: ${dismissedEx}. Case candidates: ${caseEx}.${defBreakdownText ? `\nDeficiency breakdown: ${defBreakdownText}.` : ''}`;
 
+  // Case and remediation summary
+  const remNotStarted = cases.cases.filter(c => !c.remediationStatus || c.remediationStatus === 'NOT_STARTED').length;
+  const remInProgress = cases.cases.filter(c => c.remediationStatus === 'IN_PROGRESS').length;
+  const remSubmitted = cases.cases.filter(c => c.remediationStatus === 'SUBMITTED').length;
+  const remAccepted = cases.cases.filter(c => c.remediationStatus === 'ACCEPTED').length;
+  const remRejected = cases.cases.filter(c => c.remediationStatus === 'REJECTED').length;
   const caseSummaryText = cases.cases.length > 0
-    ? cases.cases.map(c => `${c.title} — ${c.priority} priority, ${c.status}, owner: ${c.owner || '—'}, due: ${c.dueDate || '—'}.`).join('\n')
+    ? cases.cases.map(c => `${c.title} — ${c.priority} priority, ${c.status}, ${c.deficiencyType ? c.deficiencyType.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, ch => ch.toUpperCase()) + ', ' : ''}owner: ${c.owner || '—'}, due: ${c.dueDate || '—'}.`).join('\n') + `\n\nRemediation status: ${remNotStarted} not started, ${remInProgress} in progress, ${remSubmitted} submitted, ${remAccepted} accepted, ${remRejected} rejected.`
     : 'No cases created.';
 
-  const keyMetricsText = `Records processed: ${totalRecords}\nOutputs generated: ${allOutputs.length}\nOutputs approved: ${approvedIds.length}\nExceptions: ${allExceptions.length}\nHigh/Critical exceptions: ${allExceptions.filter(e => e.severity === 'HIGH' || e.severity === 'CRITICAL').length}\nCases created: ${cases.cases.length}`;
+  const keyMetricsText = `Records processed: ${totalRecords}\nOutputs generated: ${allOutputs.length}\nOutputs approved: ${approvedIds.length}\nExceptions: ${allExceptions.length}\nHigh/Critical exceptions: ${allExceptions.filter(e => e.severity === 'HIGH' || e.severity === 'CRITICAL').length}\nCase candidates: ${caseEx}\nCases created: ${cases.cases.length}\nRemediation accepted: ${remAccepted}`;
 
   const recs: string[] = [];
   if (allExceptions.filter(e => e.severity === 'HIGH' || e.severity === 'CRITICAL').length > 0) recs.push('Review and resolve high/critical cases promptly.');
