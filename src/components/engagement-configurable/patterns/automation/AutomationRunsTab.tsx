@@ -121,17 +121,18 @@ export default function AutomationRunsTab({ engagement, inputData, setup, runsSt
       <div className="rounded-lg border-2 border-dashed border-primary/20 bg-primary/5 p-4 space-y-2">
         <div className="flex items-center justify-between">
           <h4 className="text-[12px] font-bold text-text">Create Run</h4>
-          {isBulk && <span className="px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 text-[9px] font-bold">Bulk · {wfNames.length} workflows</span>}
+          {isBulk && <span className="px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 text-[9px] font-bold">{wfNames.length} workflows selected</span>}
         </div>
         {isBulk && (
           <div className="flex flex-wrap gap-1">
             {wfNames.map((n, i) => <span key={i} className="px-1.5 py-0.5 rounded bg-gray-100 text-[9px] text-gray-600">{n}</span>)}
           </div>
         )}
+        {isBulk && <p className="text-[10px] text-gray-500">This will run all selected workflows together. Each workflow will generate its own outputs and exceptions.</p>}
         <div className="flex items-center gap-3">
           <input value={runName} onChange={e => setRunName(e.target.value)} placeholder={defaultRunName} className="flex-1 px-3 py-2 border border-border rounded-lg text-[12px] text-text bg-white outline-none focus:border-primary/40" />
           <button onClick={handleCreateRun}
-            className="px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white text-[12px] font-semibold cursor-pointer transition-colors shrink-0">{isBulk ? 'Create Bulk Run' : 'Create Run'}</button>
+            className="px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white text-[12px] font-semibold cursor-pointer transition-colors shrink-0">{isBulk ? 'Run Selected Workflows' : 'Run Workflow'}</button>
         </div>
       </div>
 
