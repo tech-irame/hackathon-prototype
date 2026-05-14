@@ -10,6 +10,8 @@ export interface WorkflowItem { id: string; name: string; type: 'Automated' | 'M
 
 export type ScopeReadiness = 'Draft Scope' | 'Needs Details' | 'Scope Ready';
 
+export interface CustomSubProcess { id: string; name: string; businessProcessId: string; createdAt: string; source: 'CUSTOM' }
+
 export interface InternalAuditScopeState {
   scopeLevel: string;
   businessProcessId: string;
@@ -23,6 +25,7 @@ export interface InternalAuditScopeState {
   scopeObjective: string;
   inScopeItems: string;
   outOfScopeItems: string;
+  customSubProcesses: CustomSubProcess[];
 }
 
 import type { InternalAuditAnnouncementState } from './internalAuditAnnouncementData';
@@ -57,6 +60,7 @@ export const DEFAULT_IA_SCOPE: InternalAuditScopeState = {
   scopeObjective: '',
   inScopeItems: '',
   outOfScopeItems: '',
+  customSubProcesses: [],
 };
 
 // ─── Mock Data ────────────────────────────────────────────────────────────

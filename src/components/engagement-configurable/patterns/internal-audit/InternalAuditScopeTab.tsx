@@ -1,9 +1,9 @@
 // ─── Internal Audit — Scope Tab ───────────────────────────────────────────
 // Define what the audit assignment covers. Scope-first, not control-first.
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
-  CheckCircle2, AlertCircle, ChevronRight, FileText, Workflow, ClipboardCheck, Info, Plus,
+  CheckCircle2, AlertCircle, ChevronRight, FileText, Workflow, ClipboardCheck, Info, Plus, X,
 } from 'lucide-react';
 import type { ConfigurableEngagement, InternalAuditConfig } from '../../configurableEngagementTypes';
 import {
@@ -29,9 +29,18 @@ export default function InternalAuditScopeTab({ engagement, scope, onUpdateScope
   const cfg = engagement.config as InternalAuditConfig;
   const { status, checks } = deriveIAScopeReadiness(scope, engagement, cfg);
   const selectedBP = BUSINESS_PROCESSES.find(bp => bp.id === scope.businessProcessId);
-  const availableSubProcesses = selectedBP?.subProcesses || [];
-  const selectedSubProcesses = availableSubProcesses.filter(sp => scope.subProcessIds.includes(sp.id));
+  const predefinedSubProcesses = selectedBP?.subProcesses || [];
+  const customSubProcsForBP = (scope.customSubProcesses || []).filter(c => c.businessProcessId === scope.businessProcessId);
+  const allSubProcesses: { id: string; name: string; isCustom: boolean; activities: { id: string; name: string }[] }[] = [
+    ...predefinedSubProcesses.map(sp => ({ ...sp, isCustom: false })),
+    ...customSubProcsForBP.map(c => ({ id: c.id, name: c.name, isCustom: true, activities: [] })),
+  ];
+  const selectedSubProcesses = allSubProcesses.filter(sp => scope.subProcessIds.includes(sp.id));
   const availableActivities = selectedSubProcesses.flatMap(sp => sp.activities);
+
+  const [showAddSubProc, setShowAddSubProc] = useState(false);
+  const [newSubProcName, setNewSubProcName] = useState('');
+  const [subProcValidation, setSubProcValidation] = useState('');
 
   const update = <K extends keyof InternalAuditScopeState>(field: K, value: InternalAuditScopeState[K]) =>
     onUpdateScope({ ...scope, [field]: value });
@@ -39,6 +48,26 @@ export default function InternalAuditScopeTab({ engagement, scope, onUpdateScope
   const toggleMulti = (field: 'subProcessIds' | 'activityIds' | 'sopIds' | 'racmVersionIds' | 'checklistIds' | 'selectedWorkflowIds', id: string) => {
     const current = scope[field] as string[];
     update(field, current.includes(id) ? current.filter(x => x !== id) : [...current, id]);
+  };
+
+  const addCustomSubProcess = () => {
+    const name = newSubProcName.trim();
+    if (!name) { setSubProcValidation('Name is required.'); return; }
+    if (allSubProcesses.some(sp => sp.name.toLowerCase() === name.toLowerCase())) { setSubProcValidation('A sub-process with this name already exists.'); return; }
+    const id = `custom-subproc-${Date.now()}`;
+    const custom = { id, name, businessProcessId: scope.businessProcessId, createdAt: new Date().toISOString().slice(0, 10), source: 'CUSTOM' as const };
+    onUpdateScope({ ...scope, customSubProcesses: [...(scope.customSubProcesses || []), custom], subProcessIds: [...scope.subProcessIds, id] });
+    setNewSubProcName('');
+    setShowAddSubProc(false);
+    setSubProcValidation('');
+  };
+
+  const removeCustomSubProcess = (id: string) => {
+    onUpdateScope({
+      ...scope,
+      customSubProcesses: (scope.customSubProcesses || []).filter(c => c.id !== id),
+      subProcessIds: scope.subProcessIds.filter(x => x !== id),
+    });
   };
 
   return (
@@ -90,17 +119,49 @@ export default function InternalAuditScopeTab({ engagement, scope, onUpdateScope
               </select>
             </div>
 
-            {availableSubProcesses.length > 0 && (scope.scopeLevel === 'SUB_PROCESS' || scope.scopeLevel === 'ACTIVITY' || scope.scopeLevel === 'PROCESS') && (
+            {(predefinedSubProcesses.length > 0 || customSubProcsForBP.length > 0) && (scope.scopeLevel === 'SUB_PROCESS' || scope.scopeLevel === 'ACTIVITY' || scope.scopeLevel === 'PROCESS') && (
               <div>
-                <label className={labelCls}>Sub-processes {scope.scopeLevel !== 'PROCESS' && <span className="text-red-400">*</span>}</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className={labelCls + ' mb-0'}>Sub-processes {scope.scopeLevel !== 'PROCESS' && <span className="text-red-400">*</span>}</label>
+                  {scope.businessProcessId && <button onClick={() => { setShowAddSubProc(true); setSubProcValidation(''); }} className="flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-semibold text-primary hover:bg-primary/10 cursor-pointer transition-colors"><Plus size={9} />Add Sub-process</button>}
+                </div>
                 <div className="flex flex-wrap gap-1.5">
-                  {availableSubProcesses.map(sp => (
+                  {allSubProcesses.map(sp => (
                     <button key={sp.id} onClick={() => toggleMulti('subProcessIds', sp.id)}
-                      className={`px-2 py-1 rounded text-[10px] font-medium cursor-pointer transition-colors ${scope.subProcessIds.includes(sp.id) ? 'bg-primary/10 text-primary border border-primary/30' : 'bg-gray-100 text-gray-500 border border-transparent hover:bg-gray-200'}`}>
+                      className={`px-2 py-1 rounded text-[10px] font-medium cursor-pointer transition-colors flex items-center gap-1 ${scope.subProcessIds.includes(sp.id) ? 'bg-primary/10 text-primary border border-primary/30' : 'bg-gray-100 text-gray-500 border border-transparent hover:bg-gray-200'}`}>
                       {sp.name}
+                      {sp.isCustom && <span className="px-1 py-0 rounded text-[7px] font-bold bg-purple-50 text-purple-600">Custom</span>}
+                      {sp.isCustom && scope.subProcessIds.includes(sp.id) && (
+                        <span onClick={e => { e.stopPropagation(); removeCustomSubProcess(sp.id); }} className="ml-0.5 text-gray-400 hover:text-red-500 cursor-pointer"><X size={8} /></span>
+                      )}
                     </button>
                   ))}
                 </div>
+                {showAddSubProc && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <input value={newSubProcName} onChange={e => { setNewSubProcName(e.target.value); setSubProcValidation(''); }} placeholder="Sub-process name..." className="flex-1 px-3 py-1.5 border border-border rounded-lg text-[11px] text-text bg-white outline-none focus:border-primary/40" onKeyDown={e => { if (e.key === 'Enter') addCustomSubProcess(); }} />
+                    <button onClick={addCustomSubProcess} disabled={!newSubProcName.trim()} className="px-3 py-1.5 rounded-lg bg-primary hover:bg-primary/90 text-white text-[10px] font-semibold cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed">Add</button>
+                    <button onClick={() => { setShowAddSubProc(false); setNewSubProcName(''); setSubProcValidation(''); }} className="px-2 py-1.5 rounded text-[10px] text-gray-500 hover:text-text cursor-pointer">Cancel</button>
+                  </div>
+                )}
+                {subProcValidation && <p className="text-[9px] text-red-500 mt-1">{subProcValidation}</p>}
+              </div>
+            )}
+            {scope.businessProcessId && predefinedSubProcesses.length === 0 && customSubProcsForBP.length === 0 && (scope.scopeLevel === 'SUB_PROCESS' || scope.scopeLevel === 'ACTIVITY' || scope.scopeLevel === 'PROCESS') && (
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className={labelCls + ' mb-0'}>Sub-processes {scope.scopeLevel !== 'PROCESS' && <span className="text-red-400">*</span>}</label>
+                  <button onClick={() => { setShowAddSubProc(true); setSubProcValidation(''); }} className="flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-semibold text-primary hover:bg-primary/10 cursor-pointer transition-colors"><Plus size={9} />Add Sub-process</button>
+                </div>
+                <p className="text-[10px] text-gray-400 italic">No predefined sub-processes for this business process. Add a custom one.</p>
+                {showAddSubProc && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <input value={newSubProcName} onChange={e => { setNewSubProcName(e.target.value); setSubProcValidation(''); }} placeholder="Sub-process name..." className="flex-1 px-3 py-1.5 border border-border rounded-lg text-[11px] text-text bg-white outline-none focus:border-primary/40" onKeyDown={e => { if (e.key === 'Enter') addCustomSubProcess(); }} />
+                    <button onClick={addCustomSubProcess} disabled={!newSubProcName.trim()} className="px-3 py-1.5 rounded-lg bg-primary hover:bg-primary/90 text-white text-[10px] font-semibold cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed">Add</button>
+                    <button onClick={() => { setShowAddSubProc(false); setNewSubProcName(''); setSubProcValidation(''); }} className="px-2 py-1.5 rounded text-[10px] text-gray-500 hover:text-text cursor-pointer">Cancel</button>
+                  </div>
+                )}
+                {subProcValidation && <p className="text-[9px] text-red-500 mt-1">{subProcValidation}</p>}
               </div>
             )}
 
@@ -232,7 +293,7 @@ export default function InternalAuditScopeTab({ engagement, scope, onUpdateScope
               <div className="flex items-center gap-2"><span className="text-gray-400 w-20">Level:</span><span className="text-text font-medium">{SCOPE_LEVEL_LABELS[scope.scopeLevel]?.label || '—'}</span></div>
               <div className="flex items-center gap-2"><span className="text-gray-400 w-20">Process:</span><span className="text-text font-medium">{selectedBP?.name || '—'}</span></div>
               {scope.subProcessIds.length > 0 && (
-                <div className="flex items-start gap-2"><span className="text-gray-400 w-20 shrink-0">Sub-proc:</span><div className="flex flex-wrap gap-1">{selectedSubProcesses.map(sp => <span key={sp.id} className={chipCls}>{sp.name}</span>)}</div></div>
+                <div className="flex items-start gap-2"><span className="text-gray-400 w-20 shrink-0">Sub-proc:</span><div className="flex flex-wrap gap-1">{selectedSubProcesses.map(sp => <span key={sp.id} className={chipCls}>{sp.name}{sp.isCustom ? ' · Custom' : ''}</span>)}</div></div>
               )}
               {scope.sopIds.length > 0 && (
                 <div className="flex items-start gap-2"><span className="text-gray-400 w-20 shrink-0">SOPs:</span><div className="flex flex-wrap gap-1">{scope.sopIds.map(id => { const s = SOPS.find(x => x.id === id); return s ? <span key={id} className={chipCls}>{s.name}</span> : null; })}</div></div>
