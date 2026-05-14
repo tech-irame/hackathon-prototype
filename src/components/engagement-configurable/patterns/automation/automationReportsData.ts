@@ -50,7 +50,11 @@ export function generateDraftReport(engagement: ConfigurableEngagement, state: A
     ? selectedSources.map(d => `${d.name} (${SOURCE_TYPE_LABELS[d.sourceType]}, ${d.recordCount || d.pageCount || d.imageCount || 0} items)`).join('\n')
     : 'No input data sources selected.';
 
-  const automationSummaryText = `Setup mode: ${SETUP_MODE_LABELS[setup.setupMode]}.\n${setup.selectedWorkflowName ? `Workflow: ${setup.selectedWorkflowName}.` : setup.draftWorkflow?.name ? `Draft workflow: ${setup.draftWorkflow.name}.` : setup.qaSetup?.objective ? `Q&A objective: ${setup.qaSetup.objective}.` : ''}`;
+  const wfNames = setup.selectedWorkflowNames?.length ? setup.selectedWorkflowNames : (setup.selectedWorkflowName ? [setup.selectedWorkflowName] : []);
+  const createdNames = (setup.createdWorkflows || []).filter(w => w.status === 'SAVED' && wfNames.includes(w.name)).map(w => `${w.name} (Created in Project)`);
+  const wfSummary = wfNames.length > 1 ? `Workflows (${wfNames.length}): ${wfNames.join(', ')}.` : wfNames.length === 1 ? `Workflow: ${wfNames[0]}.` : setup.draftWorkflow?.name ? `Draft workflow: ${setup.draftWorkflow.name}.` : setup.qaSetup?.objective ? `Q&A objective: ${setup.qaSetup.objective}.` : '';
+  const createdNote = createdNames.length > 0 ? `\nProject-created: ${createdNames.join(', ')}.` : '';
+  const automationSummaryText = `Setup mode: ${SETUP_MODE_LABELS[setup.setupMode]}.\n${wfSummary}${createdNote}`;
 
   const runSummaryText = completedRuns.length > 0
     ? completedRuns.map(r => `${r.runName}: ${r.processedRecords} records, ${r.exceptionCount} exceptions, ${r.outputCount} outputs. Completed ${r.completedAt}.`).join('\n')

@@ -51,13 +51,17 @@ export default function AutomationRunsTab({ engagement, inputData, setup, runsSt
   }
 
   const runType: AutoRunType = setup.setupMode === 'SELECT_EXISTING_WORKFLOW' ? 'WORKFLOW' : setup.setupMode === 'CREATE_NEW_WORKFLOW' ? 'DRAFT_WORKFLOW' : 'QA_ADHOC';
-  const wfName = setup.selectedWorkflowName || setup.draftWorkflow?.name || setup.qaSetup?.objective || 'Automation';
-  const defaultRunName = `${wfName} Run — ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+  const wfNames = setup.selectedWorkflowNames?.length ? setup.selectedWorkflowNames : (setup.selectedWorkflowName ? [setup.selectedWorkflowName] : []);
+  const wfIds = setup.selectedWorkflowIds?.length ? setup.selectedWorkflowIds : (setup.selectedWorkflowId ? [setup.selectedWorkflowId] : []);
+  const wfLabel = wfNames.length > 1 ? `${wfNames.length} Workflows` : (wfNames[0] || setup.draftWorkflow?.name || setup.qaSetup?.objective || 'Automation');
+  const defaultRunName = `${wfLabel} Run — ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+  const isBulk = wfNames.length > 1;
 
   const handleCreateRun = () => {
     const run: AutomationRun = {
       id: `run-${Date.now()}`, runName: runName.trim() || defaultRunName, runType, sourceSetupMode: setup.setupMode,
-      workflowName: setup.selectedWorkflowName || setup.draftWorkflow?.name || '', inputSourceIds: inputData.selectedSourceIds,
+      workflowName: wfNames[0] || setup.draftWorkflow?.name || '', inputSourceIds: inputData.selectedSourceIds,
+      workflowIds: wfIds, workflowNames: wfNames, bulkRun: isBulk,
       status: 'READY', startedAt: null, completedAt: null, runBy: '', summary: '', processedRecords: 0,
       exceptionCount: 0, outputCount: 0, outputs: [], exceptions: [], logs: [],
     };
@@ -90,7 +94,7 @@ export default function AutomationRunsTab({ engagement, inputData, setup, runsSt
       <div className="rounded-lg border border-border-light p-3">
         <div className="grid grid-cols-4 gap-3 text-[11px]">
           <div><span className="text-gray-400 block text-[10px]">Setup Mode</span><span className="text-text font-medium">{SETUP_MODE_LABELS[setup.setupMode]}</span></div>
-          <div><span className="text-gray-400 block text-[10px]">Workflow / Q&A</span><span className="text-text font-medium truncate">{wfName}</span></div>
+          <div><span className="text-gray-400 block text-[10px]">Workflow / Q&A</span><span className="text-text font-medium truncate">{wfLabel}{isBulk ? ' (Bulk)' : ''}</span></div>
           <div><span className="text-gray-400 block text-[10px]">Input Sources</span><span className="text-text font-medium">{inputData.selectedSourceIds.length} selected</span></div>
           <div><span className="text-gray-400 block text-[10px]">Run Type</span><span className="text-text font-medium">{cfg.runType.replace(/_/g, ' ')}{cfg.frequency ? ` (${cfg.frequency})` : ''}</span></div>
         </div>
@@ -115,11 +119,19 @@ export default function AutomationRunsTab({ engagement, inputData, setup, runsSt
 
       {/* Create run */}
       <div className="rounded-lg border-2 border-dashed border-primary/20 bg-primary/5 p-4 space-y-2">
-        <h4 className="text-[12px] font-bold text-text">Create Run</h4>
+        <div className="flex items-center justify-between">
+          <h4 className="text-[12px] font-bold text-text">Create Run</h4>
+          {isBulk && <span className="px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 text-[9px] font-bold">Bulk · {wfNames.length} workflows</span>}
+        </div>
+        {isBulk && (
+          <div className="flex flex-wrap gap-1">
+            {wfNames.map((n, i) => <span key={i} className="px-1.5 py-0.5 rounded bg-gray-100 text-[9px] text-gray-600">{n}</span>)}
+          </div>
+        )}
         <div className="flex items-center gap-3">
           <input value={runName} onChange={e => setRunName(e.target.value)} placeholder={defaultRunName} className="flex-1 px-3 py-2 border border-border rounded-lg text-[12px] text-text bg-white outline-none focus:border-primary/40" />
           <button onClick={handleCreateRun}
-            className="px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white text-[12px] font-semibold cursor-pointer transition-colors shrink-0">Create Run</button>
+            className="px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white text-[12px] font-semibold cursor-pointer transition-colors shrink-0">{isBulk ? 'Create Bulk Run' : 'Create Run'}</button>
         </div>
       </div>
 
@@ -138,7 +150,7 @@ export default function AutomationRunsTab({ engagement, inputData, setup, runsSt
                   <tr className={`border-b border-border-light/50 cursor-pointer hover:bg-surface-2/20 ${isExp ? 'bg-surface-2/20' : ''}`} onClick={() => setExpandedRunId(isExp ? null : run.id)}>
                     <td className="px-3 py-2 text-gray-400">{isExp ? <ChevronDown size={11} /> : <ChevronRight size={11} />}</td>
                     <td className="px-3 py-2"><div className="font-medium text-text">{run.runName}</div><div className="text-[9px] text-gray-400">{run.completedAt || 'Pending'}</div></td>
-                    <td className="px-3 py-2 text-center text-[10px] text-gray-500">{run.runType === 'QA_ADHOC' ? 'Q&A' : run.runType === 'DRAFT_WORKFLOW' ? 'Draft WF' : 'Workflow'}</td>
+                    <td className="px-3 py-2 text-center text-[10px] text-gray-500">{run.bulkRun ? `Bulk (${run.workflowNames?.length || 0})` : run.runType === 'QA_ADHOC' ? 'Q&A' : run.runType === 'DRAFT_WORKFLOW' ? 'Draft WF' : 'Workflow'}</td>
                     <td className="px-3 py-2 text-center tabular-nums text-gray-500">{run.processedRecords || '—'}</td>
                     <td className="px-3 py-2 text-center"><span className={`px-2 py-0.5 rounded-full text-[8px] font-bold ${RUN_STATUS_CLS[run.status]}`}>{run.status}</span></td>
                     <td className="px-3 py-2 text-center"><span className={`tabular-nums ${run.exceptionCount > 0 ? 'text-amber-600 font-medium' : 'text-gray-400'}`}>{run.exceptionCount}</span></td>
@@ -195,10 +207,13 @@ function RunDetail({ run, onUpdateException }: { run: AutomationRun; onUpdateExc
       <div><h6 className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Summary</h6><p className="text-[11px] text-text">{run.summary}</p></div>
       <div className="grid grid-cols-4 gap-3 text-[10px]">
         <div><span className="text-gray-400 block text-[9px]">Processed</span><span className="text-text font-medium tabular-nums">{run.processedRecords}</span></div>
-        <div><span className="text-gray-400 block text-[9px]">Workflow</span><span className="text-text">{run.workflowName || 'Q&A Analysis'}</span></div>
+        <div><span className="text-gray-400 block text-[9px]">Workflow{run.bulkRun ? 's' : ''}</span><span className="text-text">{run.bulkRun && run.workflowNames?.length ? `${run.workflowNames.length} workflows` : (run.workflowName || 'Q&A Analysis')}</span></div>
         <div><span className="text-gray-400 block text-[9px]">Completed</span><span className="text-text">{run.completedAt} by {run.runBy}</span></div>
         <div><span className="text-gray-400 block text-[9px]">Inputs</span><span className="text-text">{run.inputSourceIds.length} source(s)</span></div>
       </div>
+      {run.bulkRun && run.workflowNames && run.workflowNames.length > 1 && (
+        <div><h6 className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Workflows ({run.workflowNames.length})</h6><div className="flex flex-wrap gap-1">{run.workflowNames.map((n, i) => <span key={i} className="px-1.5 py-0.5 rounded bg-purple-50 text-[9px] text-purple-700">{n}</span>)}</div></div>
+      )}
 
       {/* Outputs */}
       {run.outputs.length > 0 && (
@@ -207,12 +222,13 @@ function RunDetail({ run, onUpdateException }: { run: AutomationRun; onUpdateExc
           <div className="rounded-lg border border-border-light overflow-hidden">
             <table className="w-full text-[10px]">
               <thead><tr className="border-b border-border-light bg-surface-2/30 text-[8px] font-semibold text-gray-400 uppercase">
-                <th className="px-2 py-1 text-left">Output</th><th className="px-2 py-1 text-left">Type</th><th className="px-2 py-1 text-center">Records</th><th className="px-2 py-1 text-center">Status</th>
+                <th className="px-2 py-1 text-left">Output</th><th className="px-2 py-1 text-left">Type</th>{run.bulkRun && <th className="px-2 py-1 text-left">Workflow</th>}<th className="px-2 py-1 text-center">Records</th><th className="px-2 py-1 text-center">Status</th>
               </tr></thead>
               <tbody>{run.outputs.map(o => (
                 <tr key={o.id} className="border-b border-border-light/50">
                   <td className="px-2 py-1.5 text-text font-medium">{o.name}</td>
                   <td className="px-2 py-1.5 text-gray-500">{o.outputType.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}</td>
+                  {run.bulkRun && <td className="px-2 py-1.5 text-gray-500 text-[9px]">{o.sourceWorkflowName || '—'}</td>}
                   <td className="px-2 py-1.5 text-center tabular-nums text-gray-500">{o.recordCount || '—'}</td>
                   <td className="px-2 py-1.5 text-center"><span className={`px-1.5 py-0.5 rounded text-[7px] font-bold ${o.status === 'GENERATED' ? 'bg-emerald-50 text-emerald-700' : o.status === 'NEEDS_REVIEW' ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-700'}`}>{o.status.replace(/_/g, ' ')}</span></td>
                 </tr>
@@ -234,6 +250,7 @@ function RunDetail({ run, onUpdateException }: { run: AutomationRun; onUpdateExc
                 <div className="text-[10px] text-gray-500 mb-1">{ex.description}</div>
                 <div className="flex items-center gap-2 text-[9px] text-gray-400">
                   <span>{EX_CAT_LABELS[ex.category]}</span>
+                  {ex.sourceWorkflowName && <span>· WF: {ex.sourceWorkflowName}</span>}
                   {ex.sourceRecord && <span>· Record: {ex.sourceRecord}</span>}
                   {ex.sourceFile && <span>· File: {ex.sourceFile}</span>}
                   <span className={`px-1.5 py-0.5 rounded text-[7px] font-bold ${EX_STATUS_CLS[ex.status]}`}>{ex.status.replace(/_/g, ' ')}</span>

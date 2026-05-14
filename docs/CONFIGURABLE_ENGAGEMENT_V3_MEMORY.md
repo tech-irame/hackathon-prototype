@@ -590,6 +590,19 @@ Initial open questions:
 | 2026-05-14 | Implemented Automation Schedule tab — completes Automation Project pattern. Schedule requirement derivation (required for RECURRING, not for AD_HOC/ONE_TIME). Not-required/blocked states. Schedule form (frequency/dates/time/timezone/notifications/auto-cases/auto-report). Next run preview. Activate/Pause/Resume/Disable workflow. Schedule history. Run monitoring expectations. Project readiness panel (7+ checks across all automation tabs). All 8 Automation Project tabs (excl. optional Review) now have real content. |
 | 2026-05-14 | E2E QA for full Workflow Automation Project pattern. Verified all 8 tabs: Input Data→Automation Setup→Runs→Output Review→Cases→Reports→Schedule. Shared exception state consistent (handleUpdateAutoRunException). Duplicate case prevention via linkedExceptionIds. Q&A-only recurring blocked by deriveScheduleRequirement. Review tab hidden when reviewRequired=false. Reports reflect latest approved outputs/cases. Schedule not-required for AD_HOC/ONE_TIME. All state persists across tabs. Build passes. No bugs found. All 3 patterns (Compliance 9 tabs, IA 10 tabs, Automation 8 tabs) are complete and stable. |
 | 2026-05-14 | Final V3 platform QA and integration-readiness review. Module structure: 63 files cleanly organized (core + components + patterns/compliance + patterns/internal-audit + patterns/automation). Routing: 27 real tab routes verified across 3 patterns, no broken fallbacks. State: 3 workspace-level state holders (compliance/IA/automation), all business state lifted. TypeScript: zero errors, 3 safe `as any` casts for pattern config access. Build: passes at 3,930 KB (V3 adds ~460 KB). No bugs found. All 3 patterns stable. Ready for Process Hub integration behind feature flag. |
+| 2026-05-14 | Updated Automation Project multi-workflow support: selectedWorkflowIds/selectedWorkflowNames, bulk run creation, sourceWorkflowName on outputs/exceptions, multi-workflow display in Runs/Output Review/Cases/Reports/Schedule. |
+| 2026-05-14 | Replaced Automation Project Create New Workflow "Mark Workflow Ready" with Build Workflow prototype panel. Added ProjectCreatedWorkflow type (id/name/description/objective/status/steps/linkedDataSourceIds/builderPrompt). Workflow Builder panel: name, objective, description, builder prompt, multi-select project data sources, add new data source (synced to project Input Data pool), suggested/custom steps, validation. Created workflows appear under Created Workflows in Create New Workflow mode and in Select Existing Workflow list (with "Created in this Project" badge). Created workflows auto-selected for run, support bulk workflow runs. Readiness updated: CREATE_NEW_WORKFLOW requires saved + selected created workflow. Schedule requirement updated to recognize created workflows. Reports automation summary includes project-created workflow note. UI copy updated: "Use Existing Workflow" / "Build New Workflow" / "Ask Questions / Ad-hoc Analysis" / "Upload Data First, Decide Later". |
+
+---
+
+## 17. Automation Project — Workflow Data Model
+
+- Automation Project has a shared input data source pool (`inputData.dataSources`).
+- Each workflow (mock or project-created) maps to one or more project data sources via `linkedDataSourceIds`.
+- Workflow Builder can add new data sources; new sources are synced back to project-level Input Data (`onUpdateInputData`).
+- Create New Workflow feeds the same workflow list used by Select Existing Workflow.
+- `createdWorkflows: ProjectCreatedWorkflow[]` on `AutomationSetupState` stores project-created workflows.
+- `selectedWorkflowIds` / `selectedWorkflowNames` are shared between both setup modes — they reference both mock library IDs and created workflow IDs.
 
 ---
 

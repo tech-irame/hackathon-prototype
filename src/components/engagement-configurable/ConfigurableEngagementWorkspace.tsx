@@ -146,7 +146,7 @@ export default function ConfigurableEngagementWorkspace({ engagement, onBack, on
   // ── Automation Project workspace state ──
   const [automationState, setAutomationState] = useState<AutomationProjectWorkspaceState>(() => ({
     inputData: { dataSources: [], selectedSourceIds: [], inputNotes: '', proceedWithoutData: false },
-    setup: { setupMode: (engagement.config as any).automationSetupMode || 'QA_ADHOC_ANALYSIS', selectedWorkflowId: '', selectedWorkflowName: '', draftWorkflow: null, qaSetup: null, setupStatus: 'NOT_CONFIGURED', setupNotes: '', history: [] },
+    setup: { setupMode: (engagement.config as any).automationSetupMode || 'QA_ADHOC_ANALYSIS', selectedWorkflowId: '', selectedWorkflowName: '', selectedWorkflowIds: [], selectedWorkflowNames: [], draftWorkflow: null, qaSetup: null, createdWorkflows: [], setupStatus: 'NOT_CONFIGURED', setupNotes: '', history: [] },
     runs: { runs: [] },
     outputReview: { reviewedOutputIds: [], approvedOutputIds: [], rejectedOutputIds: [], outputComments: {}, reviewNotes: '', history: [] },
     cases: { cases: [], linkedExceptionIds: [], caseNotes: '' },

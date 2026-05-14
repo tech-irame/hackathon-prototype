@@ -151,6 +151,7 @@ export default function AutomationCasesTab({ engagement, runsState, casesState, 
                   <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold ${EX_SEVERITY_CLS[ex.severity]}`}>{ex.severity}</span>
                   <span className="text-[11px] font-medium text-text">{ex.title}</span>
                   <span className="text-[9px] text-gray-400">{EX_CAT_LABELS[ex.category]}</span>
+                  {ex.sourceWorkflowName && <span className="text-[9px] text-gray-400">· {ex.sourceWorkflowName}</span>}
                 </div>
                 <div className="text-[9px] text-gray-400 mt-0.5">{ex.description.slice(0, 80)}...</div>
               </div>

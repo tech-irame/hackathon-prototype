@@ -41,7 +41,10 @@ export function deriveScheduleRequirement(cfg: AutomationProjectConfig, state: A
   const blockingReasons: string[] = [];
   const warnings: string[] = [];
 
-  const hasWorkflow = state.setup.setupMode === 'SELECT_EXISTING_WORKFLOW' ? !!state.setup.selectedWorkflowId : state.setup.draftWorkflow?.status === 'READY';
+  const hasExistingWf = (state.setup.selectedWorkflowIds?.length > 0) || !!state.setup.selectedWorkflowId;
+  const hasCreatedWf = (state.setup.createdWorkflows || []).some(w => w.status === 'SAVED' && (state.setup.selectedWorkflowIds || []).includes(w.id));
+  const hasDraftReady = state.setup.draftWorkflow?.status === 'READY';
+  const hasWorkflow = state.setup.setupMode === 'SELECT_EXISTING_WORKFLOW' ? hasExistingWf : state.setup.setupMode === 'CREATE_NEW_WORKFLOW' ? hasCreatedWf : hasDraftReady;
   if (!hasWorkflow) blockingReasons.push('Saved or ready workflow is required for recurring automation.');
   if (state.setup.setupMode === 'QA_ADHOC_ANALYSIS' && !state.setup.draftWorkflow) blockingReasons.push('Q&A/ad-hoc setup alone cannot be scheduled. Convert to a saved workflow.');
 

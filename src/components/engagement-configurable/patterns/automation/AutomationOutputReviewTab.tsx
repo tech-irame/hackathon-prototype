@@ -137,7 +137,7 @@ export default function AutomationOutputReviewTab({ engagement, runsState, outpu
         ) : (
           <table className="w-full text-[10px]">
             <thead><tr className="border-b border-border-light bg-surface-2/30 text-[8px] font-semibold text-gray-400 uppercase">
-              <th className="px-3 py-1.5 text-left">Output</th><th className="px-3 py-1.5 text-center">Type</th><th className="px-3 py-1.5 text-center">Records</th><th className="px-3 py-1.5 text-center">Status</th><th className="px-3 py-1.5 text-center">Review</th><th className="px-3 py-1.5 text-center">Action</th>
+              <th className="px-3 py-1.5 text-left">Output</th><th className="px-3 py-1.5 text-center">Type</th><th className="px-3 py-1.5 text-left">Workflow</th><th className="px-3 py-1.5 text-center">Records</th><th className="px-3 py-1.5 text-center">Status</th><th className="px-3 py-1.5 text-center">Review</th><th className="px-3 py-1.5 text-center">Action</th>
             </tr></thead>
             <tbody>{outputs.map(o => {
               const rs = getOutputReviewState(o.id);
@@ -145,6 +145,7 @@ export default function AutomationOutputReviewTab({ engagement, runsState, outpu
                 <tr key={o.id} className="border-b border-border-light/50">
                   <td className="px-3 py-2"><div className="font-medium text-text">{o.name}</div><div className="text-[9px] text-gray-400">{o.description}</div></td>
                   <td className="px-3 py-2 text-center text-gray-500">{o.outputType.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}</td>
+                  <td className="px-3 py-2 text-[9px] text-gray-500">{o.sourceWorkflowName || '—'}</td>
                   <td className="px-3 py-2 text-center tabular-nums text-gray-500">{o.recordCount || '—'}</td>
                   <td className="px-3 py-2 text-center"><span className={`px-1.5 py-0.5 rounded text-[7px] font-bold ${o.status === 'GENERATED' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{o.status.replace(/_/g, ' ')}</span></td>
                   <td className="px-3 py-2 text-center"><span className={`px-1.5 py-0.5 rounded text-[7px] font-bold ${outputReviewCls(rs)}`}>{rs}</span></td>
@@ -183,7 +184,7 @@ export default function AutomationOutputReviewTab({ engagement, runsState, outpu
         ) : (
           <table className="w-full text-[10px]">
             <thead><tr className="border-b border-border-light bg-surface-2/30 text-[8px] font-semibold text-gray-400 uppercase">
-              <th className="px-3 py-1.5 text-left">Exception</th><th className="px-3 py-1.5 text-center">Severity</th><th className="px-3 py-1.5 text-center">Category</th><th className="px-3 py-1.5 text-center">Status</th><th className="px-3 py-1.5 text-center">Action</th>
+              <th className="px-3 py-1.5 text-left">Exception</th><th className="px-3 py-1.5 text-center">Severity</th><th className="px-3 py-1.5 text-left">Workflow</th><th className="px-3 py-1.5 text-center">Category</th><th className="px-3 py-1.5 text-center">Status</th><th className="px-3 py-1.5 text-center">Action</th>
             </tr></thead>
             <tbody>{exceptions.map(ex => {
               const parentRun = completedRuns.find(r => r.exceptions.some(e => e.id === ex.id));
@@ -191,6 +192,7 @@ export default function AutomationOutputReviewTab({ engagement, runsState, outpu
                 <tr key={ex.id} className="border-b border-border-light/50">
                   <td className="px-3 py-2"><div className="font-medium text-text">{ex.title}</div><div className="text-[9px] text-gray-400">{ex.description.slice(0, 60)}...</div></td>
                   <td className="px-3 py-2 text-center"><span className={`px-1.5 py-0.5 rounded text-[7px] font-bold ${EX_SEVERITY_CLS[ex.severity]}`}>{ex.severity}</span></td>
+                  <td className="px-3 py-2 text-[9px] text-gray-500">{ex.sourceWorkflowName || '—'}</td>
                   <td className="px-3 py-2 text-center text-gray-500">{EX_CAT_LABELS[ex.category]}</td>
                   <td className="px-3 py-2 text-center"><span className={`px-1.5 py-0.5 rounded text-[7px] font-bold ${EX_STATUS_CLS[ex.status]}`}>{ex.status.replace(/_/g, ' ')}</span></td>
                   <td className="px-3 py-2 text-center">

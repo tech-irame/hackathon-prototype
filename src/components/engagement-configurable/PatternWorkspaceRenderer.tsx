@@ -283,6 +283,7 @@ export default function PatternWorkspaceRenderer({ engagement, activeTabId, acti
           inputData={automationState.inputData}
           setupState={automationState.setup}
           onUpdateSetup={onUpdateAutomationSetup}
+          onUpdateInputData={onUpdateAutomationInputData}
           onNavigateTab={onNavigateTab}
         />
       );

@@ -8,12 +8,13 @@ export type ExceptionSeverity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 export type ExceptionStatus = 'OPEN' | 'REVIEWED' | 'DISMISSED' | 'CASE_CANDIDATE';
 export type LogLevel = 'INFO' | 'WARNING' | 'ERROR';
 
-export interface AutomationRunOutput { id: string; outputType: OutputType; name: string; description: string; recordCount: number | null; status: 'GENERATED' | 'NEEDS_REVIEW' | 'FAILED' }
-export interface AutomationRunException { id: string; severity: ExceptionSeverity; title: string; description: string; sourceRecord: string; sourceFile: string; category: ExceptionCategory; status: ExceptionStatus }
+export interface AutomationRunOutput { id: string; outputType: OutputType; name: string; description: string; recordCount: number | null; status: 'GENERATED' | 'NEEDS_REVIEW' | 'FAILED'; sourceWorkflowName?: string }
+export interface AutomationRunException { id: string; severity: ExceptionSeverity; title: string; description: string; sourceRecord: string; sourceFile: string; category: ExceptionCategory; status: ExceptionStatus; sourceWorkflowName?: string }
 export interface AutomationRunLog { id: string; timestamp: string; level: LogLevel; message: string }
 
 export interface AutomationRun {
   id: string; runName: string; runType: AutoRunType; sourceSetupMode: string; workflowName: string;
+  workflowIds?: string[]; workflowNames?: string[]; bulkRun?: boolean;
   inputSourceIds: string[]; status: AutoRunStatus; startedAt: string | null; completedAt: string | null;
   runBy: string; summary: string; processedRecords: number; exceptionCount: number; outputCount: number;
   outputs: AutomationRunOutput[]; exceptions: AutomationRunException[]; logs: AutomationRunLog[];
@@ -35,62 +36,82 @@ function now(): string { return new Date().toLocaleString('en-US', { month: 'sho
 import type { AutomationSetupState } from './automationSetupData';
 import type { AutomationInputDataState } from './automationInputData';
 
+function simulateWorkflow(wfName: string, records: number, ts: string, idx: number): { outputs: AutomationRunOutput[]; exceptions: AutomationRunException[]; log: string } {
+  const n = wfName.toLowerCase();
+  const outputs: AutomationRunOutput[] = [];
+  const exceptions: AutomationRunException[] = [];
+  const prefix = wfName.split(' ').slice(0, 2).join(' ');
+
+  if (n.includes('reconcil') || n.includes('vendor') || n.includes('match')) {
+    exceptions.push(
+      { id: `ex-${Date.now()}-${idx}-1`, severity: 'HIGH', title: 'Vendor payment mismatch', description: 'Payment for Vendor A invoice INV-1003 does not match ledger amount.', sourceRecord: 'INV-1003', sourceFile: 'vendor_ledger_april.xlsx', category: 'RECONCILIATION_MISMATCH', status: 'OPEN', sourceWorkflowName: wfName },
+      { id: `ex-${Date.now()}-${idx}-2`, severity: 'MEDIUM', title: 'Duplicate invoice pattern detected', description: 'Vendor A has two invoices for identical amount 45,000 within 4 days.', sourceRecord: 'INV-1001, INV-1003', sourceFile: 'vendor_ledger_april.xlsx', category: 'DUPLICATE', status: 'OPEN', sourceWorkflowName: wfName },
+    );
+    outputs.push(
+      { id: `out-${Date.now()}-${idx}-1`, outputType: 'RECONCILIATION_OUTPUT', name: `${prefix} — Reconciliation Summary`, description: `${records} records processed.`, recordCount: records, status: 'GENERATED', sourceWorkflowName: wfName },
+      { id: `out-${Date.now()}-${idx}-2`, outputType: 'EXCEPTION_LIST', name: `${prefix} — Exception Report`, description: `${exceptions.length} exceptions.`, recordCount: exceptions.length, status: 'GENERATED', sourceWorkflowName: wfName },
+    );
+  } else if (n.includes('duplicate') || n.includes('expense')) {
+    exceptions.push({ id: `ex-${Date.now()}-${idx}-3`, severity: 'MEDIUM', title: 'Duplicate reimbursement claim', description: 'Expense claim EXP-442 appears twice.', sourceRecord: 'EXP-442', sourceFile: '', category: 'DUPLICATE', status: 'OPEN', sourceWorkflowName: wfName });
+    outputs.push({ id: `out-${Date.now()}-${idx}-4`, outputType: 'EXCEPTION_LIST', name: `${prefix} — Duplicate Report`, description: '1 duplicate found.', recordCount: 1, status: 'GENERATED', sourceWorkflowName: wfName });
+  } else if (n.includes('image') || n.includes('document')) {
+    exceptions.push({ id: `ex-${Date.now()}-${idx}-5`, severity: 'HIGH', title: 'Missing supporting document', description: 'Missing images for verification.', sourceRecord: '', sourceFile: '', category: 'MISSING_DOCUMENT', status: 'OPEN', sourceWorkflowName: wfName });
+    outputs.push({ id: `out-${Date.now()}-${idx}-6`, outputType: 'REPORT_DATA', name: `${prefix} — Review Report`, description: 'Review completed.', recordCount: null, status: 'GENERATED', sourceWorkflowName: wfName });
+  } else {
+    outputs.push({ id: `out-${Date.now()}-${idx}-7`, outputType: 'DASHBOARD_METRICS', name: `${prefix} — Output`, description: 'Output generated.', recordCount: records || null, status: 'GENERATED', sourceWorkflowName: wfName });
+  }
+  return { outputs, exceptions, log: `Executed ${wfName}.` };
+}
+
 export function simulateRun(run: AutomationRun, setup: AutomationSetupState, inputData: AutomationInputDataState, actor: string): AutomationRun {
   const ts = now();
   const records = inputData.dataSources.filter(d => run.inputSourceIds.includes(d.id)).reduce((s, d) => s + (d.recordCount || d.pageCount || d.imageCount || 0), 0);
-  const wfName = (setup.selectedWorkflowName || setup.draftWorkflow?.name || '').toLowerCase();
   const qaQ = (setup.qaSetup?.questions || []).join(' ').toLowerCase();
 
   const outputs: AutomationRunOutput[] = [];
   const exceptions: AutomationRunException[] = [];
   const logs: AutomationRunLog[] = [
     { id: `log-${Date.now()}-1`, timestamp: ts, level: 'INFO', message: 'Input validation completed.' },
-    { id: `log-${Date.now()}-2`, timestamp: ts, level: 'INFO', message: 'Automation logic executed.' },
   ];
 
-  // Determine exceptions based on workflow/Q&A
-  const isRecon = wfName.includes('reconcil') || wfName.includes('vendor') || wfName.includes('match') || qaQ.includes('unmatched') || qaQ.includes('reconcil') || qaQ.includes('payment');
-  const isDupe = wfName.includes('duplicate') || wfName.includes('expense') || qaQ.includes('duplicate');
-  const isDoc = wfName.includes('document') || wfName.includes('image') || qaQ.includes('document') || qaQ.includes('support');
-
-  if (isRecon) {
-    exceptions.push(
-      { id: `ex-${Date.now()}-1`, severity: 'HIGH', title: 'Vendor payment mismatch', description: 'Payment for Vendor A invoice INV-1003 does not match ledger amount. Ledger: 45,000 vs Payment: 44,500.', sourceRecord: 'INV-1003', sourceFile: 'vendor_ledger_april.xlsx', category: 'RECONCILIATION_MISMATCH', status: 'OPEN' },
-      { id: `ex-${Date.now()}-2`, severity: 'MEDIUM', title: 'Duplicate invoice pattern detected', description: 'Vendor A has two invoices for identical amount 45,000 within 4 days.', sourceRecord: 'INV-1001, INV-1003', sourceFile: 'vendor_ledger_april.xlsx', category: 'DUPLICATE', status: 'OPEN' },
-    );
-    outputs.push(
-      { id: `out-${Date.now()}-1`, outputType: 'RECONCILIATION_OUTPUT', name: 'Reconciliation Summary', description: `${records} records processed. 2 mismatches found.`, recordCount: records, status: 'GENERATED' },
-      { id: `out-${Date.now()}-2`, outputType: 'EXCEPTION_LIST', name: 'Exception Report', description: '2 exceptions identified.', recordCount: 2, status: 'GENERATED' },
-      { id: `out-${Date.now()}-3`, outputType: 'DASHBOARD_METRICS', name: 'Dashboard Metrics', description: 'Match rate, exception rate, vendor summary.', recordCount: null, status: 'GENERATED' },
-    );
-  } else if (isDupe) {
-    exceptions.push(
-      { id: `ex-${Date.now()}-3`, severity: 'MEDIUM', title: 'Duplicate reimbursement claim', description: 'Expense claim EXP-442 appears twice with same amount and date.', sourceRecord: 'EXP-442', sourceFile: '', category: 'DUPLICATE', status: 'OPEN' },
-    );
-    outputs.push({ id: `out-${Date.now()}-4`, outputType: 'EXCEPTION_LIST', name: 'Duplicate Detection Report', description: '1 duplicate found.', recordCount: 1, status: 'GENERATED' });
-  } else if (isDoc) {
-    exceptions.push(
-      { id: `ex-${Date.now()}-4`, severity: 'HIGH', title: 'Missing supporting document', description: 'Asset image batch missing 3 expected images for verification.', sourceRecord: '', sourceFile: 'asset_images_batch1.zip', category: 'MISSING_DOCUMENT', status: 'OPEN' },
-    );
-    outputs.push({ id: `out-${Date.now()}-5`, outputType: 'REPORT_DATA', name: 'Document Review Report', description: 'Review completed with 1 exception.', recordCount: null, status: 'GENERATED' });
+  // Bulk workflow run
+  const wfNames = run.workflowNames?.length ? run.workflowNames : (run.workflowName ? [run.workflowName] : []);
+  if (wfNames.length > 0) {
+    wfNames.forEach((wf, i) => {
+      const result = simulateWorkflow(wf, records, ts, i);
+      outputs.push(...result.outputs);
+      exceptions.push(...result.exceptions);
+      logs.push({ id: `log-${Date.now()}-wf-${i}`, timestamp: ts, level: 'INFO', message: result.log });
+    });
+  } else if (qaQ) {
+    // Q&A path
+    const isRecon = qaQ.includes('unmatched') || qaQ.includes('reconcil') || qaQ.includes('payment');
+    const isDupe = qaQ.includes('duplicate');
+    if (isRecon) {
+      exceptions.push({ id: `ex-${Date.now()}-q1`, severity: 'HIGH', title: 'Vendor payment mismatch', description: 'Payment mismatch detected via Q&A.', sourceRecord: 'INV-1003', sourceFile: '', category: 'RECONCILIATION_MISMATCH', status: 'OPEN' });
+      outputs.push({ id: `out-${Date.now()}-q1`, outputType: 'RECONCILIATION_OUTPUT', name: 'Q&A Reconciliation Output', description: `${records} records analyzed.`, recordCount: records, status: 'GENERATED' });
+    } else if (isDupe) {
+      exceptions.push({ id: `ex-${Date.now()}-q2`, severity: 'MEDIUM', title: 'Duplicate detected via Q&A', description: 'Duplicate pattern found.', sourceRecord: '', sourceFile: '', category: 'DUPLICATE', status: 'OPEN' });
+      outputs.push({ id: `out-${Date.now()}-q2`, outputType: 'EXCEPTION_LIST', name: 'Q&A Duplicate Report', description: '1 duplicate.', recordCount: 1, status: 'GENERATED' });
+    } else {
+      outputs.push({ id: `out-${Date.now()}-q3`, outputType: 'REPORT_DATA', name: 'Q&A Analysis Output', description: 'Analysis completed.', recordCount: records || null, status: 'GENERATED' });
+    }
+    logs.push({ id: `log-${Date.now()}-qa`, timestamp: ts, level: 'INFO', message: 'Q&A analysis executed.' });
   } else {
-    exceptions.push(
-      { id: `ex-${Date.now()}-5`, severity: 'MEDIUM', title: 'Data quality issue', description: 'Minor formatting inconsistency detected in source data.', sourceRecord: '', sourceFile: '', category: 'DATA_QUALITY', status: 'OPEN' },
-    );
-    outputs.push({ id: `out-${Date.now()}-6`, outputType: 'REPORT_DATA', name: 'Analysis Output', description: 'Analysis completed.', recordCount: records || null, status: 'GENERATED' });
+    outputs.push({ id: `out-${Date.now()}-g`, outputType: 'REPORT_DATA', name: 'Analysis Output', description: 'Completed.', recordCount: records || null, status: 'GENERATED' });
   }
 
-  // Always add case candidates output if exceptions exist
   if (exceptions.length > 0) {
-    outputs.push({ id: `out-${Date.now()}-7`, outputType: 'CASE_CANDIDATES', name: 'Case Candidates', description: `${exceptions.length} potential case(s).`, recordCount: exceptions.length, status: 'NEEDS_REVIEW' });
+    outputs.push({ id: `out-${Date.now()}-cc`, outputType: 'CASE_CANDIDATES', name: 'Case Candidates', description: `${exceptions.length} potential case(s).`, recordCount: exceptions.length, status: 'NEEDS_REVIEW' });
   }
 
   logs.push(
-    { id: `log-${Date.now()}-3`, timestamp: ts, level: 'INFO', message: `${outputs.length} output(s) generated.` },
-    { id: `log-${Date.now()}-4`, timestamp: ts, level: exceptions.length > 0 ? 'WARNING' : 'INFO', message: `${exceptions.length} exception(s) identified.` },
+    { id: `log-${Date.now()}-s1`, timestamp: ts, level: 'INFO', message: `${outputs.length} output(s) generated.` },
+    { id: `log-${Date.now()}-s2`, timestamp: ts, level: exceptions.length > 0 ? 'WARNING' : 'INFO', message: `${exceptions.length} exception(s) identified.` },
   );
 
-  const summary = `${records} record(s) processed. ${outputs.length} output(s) generated. ${exceptions.length} exception(s) found.`;
+  const wfLabel = wfNames.length > 1 ? `Bulk run · ${wfNames.length} workflows` : wfNames[0] || 'Q&A Analysis';
+  const summary = `${wfLabel}. ${records} record(s) processed. ${outputs.length} output(s) generated. ${exceptions.length} exception(s) found.`;
 
   return { ...run, status: 'COMPLETED', startedAt: ts, completedAt: ts, runBy: actor, summary, processedRecords: records, exceptionCount: exceptions.length, outputCount: outputs.length, outputs, exceptions, logs };
 }

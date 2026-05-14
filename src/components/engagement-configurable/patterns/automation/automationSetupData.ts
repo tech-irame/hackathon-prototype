@@ -16,12 +16,32 @@ export interface QASetup {
 }
 export interface SetupHistoryItem { id: string; action: string; actor: string; timestamp: string; comments: string }
 
+export type ProjectWorkflowStatus = 'DRAFT' | 'SAVED';
+
+export interface ProjectCreatedWorkflow {
+  id: string;
+  name: string;
+  description: string;
+  objective: string;
+  status: ProjectWorkflowStatus;
+  createdAt: string;
+  createdBy: string;
+  source: 'PROJECT_BUILDER';
+  linkedDataSourceIds: string[];
+  linkedDataSourceNames: string[];
+  builderPrompt: string;
+  steps: DraftWorkflowStep[];
+}
+
 export interface AutomationSetupState {
   setupMode: SetupMode;
-  selectedWorkflowId: string;
-  selectedWorkflowName: string;
+  selectedWorkflowId: string; // backward compat — derived from selectedWorkflowIds[0]
+  selectedWorkflowName: string; // backward compat
+  selectedWorkflowIds: string[];
+  selectedWorkflowNames: string[];
   draftWorkflow: DraftWorkflow | null;
   qaSetup: QASetup | null;
+  createdWorkflows: ProjectCreatedWorkflow[];
   setupStatus: SetupStatus;
   setupNotes: string;
   history: SetupHistoryItem[];
@@ -86,15 +106,22 @@ export function deriveSetupReadiness(inputData: AutomationInputDataState, setup:
   ];
 
   if (setup.setupMode === 'SELECT_EXISTING_WORKFLOW') {
-    checks.push({ label: 'Workflow selected', ok: !!setup.selectedWorkflowId });
+    const wfIds = setup.selectedWorkflowIds?.length > 0 ? setup.selectedWorkflowIds : (setup.selectedWorkflowId ? [setup.selectedWorkflowId] : []);
+    checks.push({ label: `Workflow${wfIds.length !== 1 ? 's' : ''} selected (${wfIds.length})`, ok: wfIds.length > 0 });
   } else if (setup.setupMode === 'CREATE_NEW_WORKFLOW') {
-    checks.push({ label: 'Draft workflow ready', ok: setup.draftWorkflow?.status === 'READY' });
+    const savedCreated = (setup.createdWorkflows || []).filter(w => w.status === 'SAVED');
+    const selectedCreated = savedCreated.filter(w => (setup.selectedWorkflowIds || []).includes(w.id));
+    checks.push({ label: `Created workflow${savedCreated.length !== 1 ? 's' : ''} saved (${savedCreated.length})`, ok: savedCreated.length > 0 });
+    checks.push({ label: `Created workflow selected for run (${selectedCreated.length})`, ok: selectedCreated.length > 0 });
   } else if (setup.setupMode === 'QA_ADHOC_ANALYSIS') {
     checks.push({ label: 'Q&A setup ready', ok: setup.qaSetup?.status === 'READY' });
   }
 
   if (isRecurring) {
-    const hasWorkflow = setup.setupMode === 'SELECT_EXISTING_WORKFLOW' ? !!setup.selectedWorkflowId : setup.draftWorkflow?.status === 'READY';
+    const hasExistingWf = setup.selectedWorkflowIds?.length > 0 || !!setup.selectedWorkflowId;
+    const hasSavedCreatedWf = (setup.createdWorkflows || []).some(w => w.status === 'SAVED' && (setup.selectedWorkflowIds || []).includes(w.id));
+    const hasDraftReady = setup.draftWorkflow?.status === 'READY';
+    const hasWorkflow = setup.setupMode === 'SELECT_EXISTING_WORKFLOW' ? hasExistingWf : setup.setupMode === 'CREATE_NEW_WORKFLOW' ? hasSavedCreatedWf : hasDraftReady;
     checks.push({ label: 'Recurring project has workflow', ok: !!hasWorkflow });
   }
 
@@ -105,6 +132,7 @@ export function deriveSetupReadiness(inputData: AutomationInputDataState, setup:
   if (setup.setupMode === 'UPLOAD_DATA_FIRST_DECIDE_LATER') status = 'NOT_CONFIGURED';
   else if (!hasInput && !inputData.proceedWithoutData) status = 'NEEDS_INPUT';
   else if (allOk) status = 'READY_FOR_RUN';
+  else if (setup.setupMode === 'CREATE_NEW_WORKFLOW' && (setup.createdWorkflows || []).filter(w => w.status === 'SAVED').length === 0) status = 'NEEDS_WORKFLOW';
   else status = 'DRAFT';
 
   return { status, checks };

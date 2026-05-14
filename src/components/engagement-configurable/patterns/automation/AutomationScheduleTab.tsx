@@ -31,7 +31,8 @@ export default function AutomationScheduleTab({ engagement, automationState, sch
   const cfg = engagement.config as AutomationProjectConfig;
   const { required, canSchedule, blockingReasons, warnings } = deriveScheduleRequirement(cfg, automationState);
   const completedRuns = automationState.runs.runs.filter(r => r.status === 'COMPLETED');
-  const wfName = automationState.setup.selectedWorkflowName || automationState.setup.draftWorkflow?.name || 'Not selected';
+  const wfNames = automationState.setup.selectedWorkflowNames?.length ? automationState.setup.selectedWorkflowNames : (automationState.setup.selectedWorkflowName ? [automationState.setup.selectedWorkflowName] : []);
+  const wfName = wfNames.length > 1 ? `${wfNames.length} Workflows` : (wfNames[0] || automationState.setup.draftWorkflow?.name || 'Not selected');
   const isActive = schedule.status === 'ACTIVE';
   const isPaused = schedule.status === 'PAUSED';
   const isDisabled = schedule.status === 'DISABLED';
@@ -135,7 +136,7 @@ export default function AutomationScheduleTab({ engagement, automationState, sch
           <div><label className={labelCls}>End Date (optional)</label><input type="date" value={schedule.endDate} onChange={e => update('endDate', e.target.value)} className={inputCls} disabled={isActive} /></div>
           <div><label className={labelCls}>Run Time</label><input type="time" value={schedule.runTime} onChange={e => update('runTime', e.target.value)} className={inputCls} disabled={isActive} /></div>
           <div><label className={labelCls}>Timezone</label><input value={schedule.timezone} onChange={e => update('timezone', e.target.value)} className={inputCls} disabled={isActive} /></div>
-          <div><label className={labelCls}>Workflow</label><input value={wfName} disabled className={inputCls + ' bg-gray-50'} /></div>
+          <div><label className={labelCls}>Workflow{wfNames.length > 1 ? 's' : ''}</label><input value={wfName} disabled className={inputCls + ' bg-gray-50'} />{wfNames.length > 1 && <div className="flex flex-wrap gap-1 mt-1">{wfNames.map((n, i) => <span key={i} className="px-1.5 py-0.5 rounded bg-purple-50 text-[8px] text-purple-700">{n}</span>)}</div>}</div>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div><label className={labelCls}>Notification Recipients</label><input value={schedule.notificationRecipients} onChange={e => update('notificationRecipients', e.target.value)} placeholder="e.g. owner@company.com" className={inputCls} disabled={isActive} /></div>
@@ -157,7 +158,7 @@ export default function AutomationScheduleTab({ engagement, automationState, sch
           <h4 className="text-[11px] font-bold text-text flex items-center gap-1.5"><Clock size={12} className="text-primary" />Next Run Preview</h4>
           <div className="grid grid-cols-4 gap-3 text-[11px]">
             <div><span className="text-gray-400 block text-[10px]">Next Run</span><span className="text-text font-medium">{nextRun || 'Not calculated'}</span></div>
-            <div><span className="text-gray-400 block text-[10px]">Workflow</span><span className="text-text font-medium">{wfName}</span></div>
+            <div><span className="text-gray-400 block text-[10px]">Workflow{wfNames.length > 1 ? 's' : ''}</span><span className="text-text font-medium">{wfName}</span></div>
             <div><span className="text-gray-400 block text-[10px]">Input Sources</span><span className="text-text font-medium">{automationState.inputData.selectedSourceIds.length} selected</span></div>
             <div><span className="text-gray-400 block text-[10px]">Auto Actions</span><span className="text-text font-medium">{[schedule.autoCreateCases && 'Cases', schedule.autoGenerateReport && 'Report'].filter(Boolean).join(', ') || 'None'}</span></div>
           </div>
@@ -221,7 +222,7 @@ function ProjectReadinessPanel({ automationState, cfg, required, isActive }: { a
 
   const checks = [
     { label: 'Input data configured', ok: automationState.inputData.dataSources.length > 0 || automationState.inputData.proceedWithoutData },
-    { label: 'Automation setup ready', ok: automationState.setup.setupStatus === 'READY_FOR_RUN' || automationState.setup.selectedWorkflowId || automationState.setup.draftWorkflow?.status === 'READY' || automationState.setup.qaSetup?.status === 'READY' },
+    { label: 'Automation setup ready', ok: automationState.setup.setupStatus === 'READY_FOR_RUN' || (automationState.setup.selectedWorkflowIds?.length > 0) || !!automationState.setup.selectedWorkflowId || automationState.setup.draftWorkflow?.status === 'READY' || automationState.setup.qaSetup?.status === 'READY' },
     { label: 'At least one run completed', ok: completedRuns.length > 0 },
     { label: 'Output review completed', ok: automationState.outputReview.approvedOutputIds.length > 0 || !hasReport },
     ...(hasCaseMgmt ? [{ label: 'Cases reviewed', ok: automationState.cases.cases.length > 0 || automationState.runs.runs.flatMap(r => r.exceptions).filter(e => e.status === 'CASE_CANDIDATE').length === 0 }] : []),
