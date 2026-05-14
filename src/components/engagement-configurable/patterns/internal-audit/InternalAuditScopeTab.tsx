@@ -3,7 +3,7 @@
 
 import React from 'react';
 import {
-  CheckCircle2, AlertCircle, ChevronRight, FileText, Workflow, ClipboardCheck, Info,
+  CheckCircle2, AlertCircle, ChevronRight, FileText, Workflow, ClipboardCheck, Info, Plus,
 } from 'lucide-react';
 import type { ConfigurableEngagement, InternalAuditConfig } from '../../configurableEngagementTypes';
 import {
@@ -131,7 +131,10 @@ export default function InternalAuditScopeTab({ engagement, scope, onUpdateScope
           <div className="rounded-lg border border-border-light p-4 space-y-3">
             <h4 className="text-[11px] font-bold text-text">Scope Sources</h4>
             <div>
-              <label className={labelCls}>SOPs <span className="text-[9px] text-gray-400 font-normal ml-1">Recommended</span></label>
+              <div className="flex items-center justify-between mb-1">
+                <label className={labelCls + ' mb-0'}>SOPs <span className="text-[9px] text-gray-400 font-normal ml-1">Recommended</span></label>
+                <button onClick={() => alert('Upload SOP will be connected later.')} className="flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-semibold text-primary hover:bg-primary/10 cursor-pointer transition-colors"><Plus size={9} />Upload SOP</button>
+              </div>
               <div className="flex flex-wrap gap-1.5">
                 {SOPS.map(s => (
                   <button key={s.id} onClick={() => toggleMulti('sopIds', s.id)}
@@ -142,7 +145,10 @@ export default function InternalAuditScopeTab({ engagement, scope, onUpdateScope
               </div>
             </div>
             <div>
-              <label className={labelCls}>Checklists <span className="text-[9px] text-gray-400 font-normal ml-1">Optional</span></label>
+              <div className="flex items-center justify-between mb-1">
+                <label className={labelCls + ' mb-0'}>Checklists <span className="text-[9px] text-gray-400 font-normal ml-1">Optional</span></label>
+                <button onClick={() => alert('Upload Checklist will be connected later.')} className="flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-semibold text-primary hover:bg-primary/10 cursor-pointer transition-colors"><Plus size={9} />Upload Checklist</button>
+              </div>
               <div className="flex flex-wrap gap-1.5">
                 {CHECKLISTS.map(c => (
                   <button key={c.id} onClick={() => toggleMulti('checklistIds', c.id)}
@@ -153,7 +159,10 @@ export default function InternalAuditScopeTab({ engagement, scope, onUpdateScope
               </div>
             </div>
             <div>
-              <label className={labelCls}>RACM <span className="text-[9px] text-gray-400 font-normal ml-1">Optional</span></label>
+              <div className="flex items-center justify-between mb-1">
+                <label className={labelCls + ' mb-0'}>RACM <span className="text-[9px] text-gray-400 font-normal ml-1">Optional</span></label>
+                <button onClick={() => alert('Upload RACM will be connected later.')} className="flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-semibold text-primary hover:bg-primary/10 cursor-pointer transition-colors"><Plus size={9} />Upload RACM</button>
+              </div>
               <div className="flex flex-wrap gap-1.5">
                 {RACMS.map(r => (
                   <button key={r.id} onClick={() => toggleMulti('racmVersionIds', r.id)}
@@ -164,7 +173,10 @@ export default function InternalAuditScopeTab({ engagement, scope, onUpdateScope
               </div>
             </div>
             <div>
-              <label className={labelCls}>Workflows <span className="text-[9px] text-gray-400 font-normal ml-1">Optional — for analysis</span></label>
+              <div className="flex items-center justify-between mb-1">
+                <label className={labelCls + ' mb-0'}>Workflows <span className="text-[9px] text-gray-400 font-normal ml-1">Optional — for analysis</span></label>
+                <button onClick={() => alert('Add/Link Workflow will be connected later.')} className="flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-semibold text-primary hover:bg-primary/10 cursor-pointer transition-colors"><Plus size={9} />Add Workflow</button>
+              </div>
               <div className="flex flex-wrap gap-1.5">
                 {WORKFLOWS.map(w => (
                   <button key={w.id} onClick={() => toggleMulti('selectedWorkflowIds', w.id)}
