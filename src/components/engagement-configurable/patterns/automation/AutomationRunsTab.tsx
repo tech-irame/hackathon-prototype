@@ -243,6 +243,7 @@ function RunDetail({ run, onUpdateException }: { run: AutomationRun; onUpdateExc
       {run.exceptions.length > 0 && (
         <div>
           <h6 className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Exceptions ({run.exceptions.length})</h6>
+          <p className="text-[9px] text-gray-400 mb-1.5">Exceptions are not cases yet. Mark valid exceptions as case candidates in Output Review.</p>
           <div className="space-y-1.5">{run.exceptions.map(ex => (
             <div key={ex.id} className="rounded-lg border border-border-light p-3 flex items-start gap-3">
               <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold shrink-0 mt-0.5 ${EX_SEVERITY_CLS[ex.severity]}`}>{ex.severity}</span>

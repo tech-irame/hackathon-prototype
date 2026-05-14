@@ -2,7 +2,7 @@
 
 export type AutoRunType = 'WORKFLOW' | 'DRAFT_WORKFLOW' | 'QA_ADHOC';
 export type AutoRunStatus = 'READY' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
-export type OutputType = 'REPORT_DATA' | 'EXCEPTION_LIST' | 'RECONCILIATION_OUTPUT' | 'DASHBOARD_METRICS' | 'CASE_CANDIDATES' | 'DOWNLOADABLE_FILE';
+export type OutputType = 'REPORT_DATA' | 'EXCEPTION_LIST' | 'RECONCILIATION_OUTPUT' | 'DASHBOARD_METRICS' | 'DOWNLOADABLE_FILE';
 export type ExceptionCategory = 'RECONCILIATION_MISMATCH' | 'DUPLICATE' | 'MISSING_DOCUMENT' | 'POLICY_VIOLATION' | 'DATA_QUALITY' | 'OTHER';
 export type ExceptionSeverity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 export type ExceptionStatus = 'OPEN' | 'REVIEWED' | 'DISMISSED' | 'CASE_CANDIDATE';
@@ -99,10 +99,6 @@ export function simulateRun(run: AutomationRun, setup: AutomationSetupState, inp
     logs.push({ id: `log-${Date.now()}-qa`, timestamp: ts, level: 'INFO', message: 'Q&A analysis executed.' });
   } else {
     outputs.push({ id: `out-${Date.now()}-g`, outputType: 'REPORT_DATA', name: 'Analysis Output', description: 'Completed.', recordCount: records || null, status: 'GENERATED' });
-  }
-
-  if (exceptions.length > 0) {
-    outputs.push({ id: `out-${Date.now()}-cc`, outputType: 'CASE_CANDIDATES', name: 'Case Candidates', description: `${exceptions.length} potential case(s).`, recordCount: exceptions.length, status: 'NEEDS_REVIEW' });
   }
 
   logs.push(
