@@ -76,11 +76,18 @@ export default function InternalAuditObservationsTab({ engagement, analysisState
     setEditingId(null);
   };
 
+  const [validationMessage, setValidationMessage] = useState<string | null>(null);
+
   const markReady = (id: string) => {
     const obs = observationsState.observations.find(o => o.id === id);
     if (!obs) return;
     const missing = validateObservationForDiscussion(obs);
-    if (missing.length > 0) return; // validation shown in edit panel
+    if (missing.length > 0) {
+      setValidationMessage(`Cannot mark ready — missing: ${missing.join(', ')}. Click Edit to complete required fields.`);
+      setTimeout(() => setValidationMessage(null), 5000);
+      return;
+    }
+    setValidationMessage(null);
     updateObs({ ...obs, status: 'READY_FOR_DISCUSSION', updatedAt: new Date().toISOString().slice(0, 10), history: [...obs.history, { id: `oh-${Date.now()}`, action: 'MARKED_READY', actor: engagement.owner, timestamp: now(), comments: '' }] });
   };
 
@@ -132,6 +139,13 @@ export default function InternalAuditObservationsTab({ engagement, analysisState
       </div>
 
       {/* Potential observations from analysis */}
+      {/* Validation message */}
+      {validationMessage && (
+        <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-[11px] text-red-700">
+          <AlertCircle size={13} className="shrink-0 mt-0.5" /><span>{validationMessage}</span>
+        </div>
+      )}
+
       {unconvertedPotObs.length > 0 && (
         <div className="rounded-lg border border-amber-200/50 bg-amber-50/20 p-4 space-y-2">
           <h4 className="text-[11px] font-bold text-amber-700 flex items-center gap-1.5"><AlertTriangle size={12} />Potential Observations from Analysis ({unconvertedPotObs.length})</h4>
