@@ -48,8 +48,8 @@ export interface AutomationSetupState {
 }
 
 export const SETUP_MODE_LABELS: Record<SetupMode, string> = {
-  SELECT_EXISTING_WORKFLOW: 'Select Existing Workflow', CREATE_NEW_WORKFLOW: 'Create New Workflow',
-  QA_ADHOC_ANALYSIS: 'Q&A / Ad-hoc Analysis', UPLOAD_DATA_FIRST_DECIDE_LATER: 'Decide Later',
+  SELECT_EXISTING_WORKFLOW: 'Use Existing Workflow', CREATE_NEW_WORKFLOW: 'Build New Workflow',
+  QA_ADHOC_ANALYSIS: 'Ask Questions / Ad-hoc Analysis', UPLOAD_DATA_FIRST_DECIDE_LATER: 'Upload Data First, Decide Later',
 };
 export const SETUP_STATUS_CLS: Record<SetupStatus, string> = {
   NOT_CONFIGURED: 'bg-gray-100 text-gray-600', DRAFT: 'bg-blue-50 text-blue-700', NEEDS_INPUT: 'bg-amber-50 text-amber-700',

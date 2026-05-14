@@ -324,6 +324,7 @@ function CreateWorkflowPanel({ setupState, onUpdateSetup, engagement, inputData,
       {/* Builder panel */}
       {builderOpen && (
         <WorkflowBuilderPanel
+          key={editingWorkflowId || 'new'}
           engagement={engagement}
           inputData={inputData}
           existingWorkflow={editingWorkflowId ? createdWorkflows.find(w => w.id === editingWorkflowId) : undefined}
