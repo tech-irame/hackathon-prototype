@@ -596,18 +596,34 @@ Initial open questions:
 | 2026-05-14 | Product copy and UX cleanup pass for Automation Setup. Wizard label changed from "Automation Setup Mode" to "How do you want to automate this?" with contextual helper text per option. Setup page subtitle updated. Context card label "Setup Mode" → "Automation Approach". Mode card subtitles rewritten for clarity. Existing Workflow section: "Select Existing Workflows" with helper text and bulk run note. Build New Workflow section: clearer builder description and data source helper. Q&A section: renamed to "Ask Questions / Ad-hoc Analysis", added helper text, recurring warning reworded. Decide Later section: title + helper rewritten. Readiness panel renamed to "Automation Readiness", check labels rewritten to human-readable ("Automation approach selected", "Input data selected or intentionally skipped", "N workflows selected", "Recurring automation has at least one saved workflow", "Output types selected"). Runs context card updated: "Automation Approach" label, workflow count display ("Bulk run available · N workflows selected" / "1 workflow selected" / "Q&A / ad-hoc analysis setup"). No functional behavior changed. |
 | 2026-05-14 | Removed "Case Candidates" from generated run outputs. Case Candidate is an exception review action in Output Review, not a workflow output. Removed CASE_CANDIDATES from OutputType union. Cases tab continues to consume exceptions with status CASE_CANDIDATE. Reports/Output Review already derived case candidate counts from exception status, not output type — no downstream changes needed. Added helper text in Runs exception section clarifying exceptions must be reviewed in Output Review before becoming case candidates. Product model: Output = generated workflow result, Exception = issue found by workflow, Case Candidate = reviewed exception selected for case creation. |
 | 2026-05-14 | Enhanced exception triage and case creation flow. Added DeficiencyType enum (8 types: System/Design/Operating/Data/Documentation/Control/Process/Other) with labels and CSS classes. Extended AutomationRunException with triage fields (deficiencyType, assignedOwner, reviewer, dueDate, triageNotes, caseCandidateMarkedAt/By). Extended AutomationCase with deficiencyType, reviewer, remediation fields (plan/rootCause/owner/dueDate/status), closureNotes, sourceWorkflowName. RemediationStatus: NOT_STARTED/IN_PROGRESS/SUBMITTED/ACCEPTED/REJECTED. Output Review: bulk exception selection with Select All Open, bulk Mark Reviewed/Dismiss/Mark as Case Candidate, triage form (deficiency type + owner + reviewer + due date + notes required before case candidate marking). Single row "→ Case" now opens same triage form. Exception table columns extended (checkbox/deficiency/owner/due). Cases: prefilled from triage metadata (deficiency/owner/reviewer/due/notes/workflow), bulk case creation from selected candidates, case detail panel with Remediation/Action Plan section (root cause/plan/owner/due/status with Submit/Accept/Reject workflow). Cases table shows Deficiency column. Reports: deficiency breakdown and remediation status summary in exception/case/key metrics sections. Workspace exception handler extended to accept optional triageData. |
+| 2026-05-15 | Refactored Automation Cases from generic create/resolve model to owner assignment and response model. Internal CaseStatus enum values unchanged (OPEN/IN_PROGRESS/RESOLVED/CLOSED/CANCELLED) — added CASE_STATUS_LABELS map for user-facing labels: Sent to Owner / Owner Response In Progress / Submitted for Review / Accepted & Closed / Closed — Not Required. Renamed "Create Case" CTAs to "Assign Case" / "Assign Selected Cases". Added AssignmentPanel with owner/reviewer/due date/deficiency/priority/message fields. Case detail refactored into 3 sections: (1) Exception & Auditor Assignment (auditor-owned), (2) Owner Response / Action Plan with root cause + remediation + preventive action + evidence + Submit Response to Auditor validation, (3) Auditor Review & Closure with Accept & Close / Reject Send Back / Close as Not Required. Added preventiveAction and auditorNotes fields to AutomationCase. Summary cards updated: Assigned / With Owner / For Review / Closed. Reports updated: case status uses assigned/submitted/accepted terminology. deriveCasesSummary updated for new flow. |
 
 ---
 
-## 18. Exception Triage & Case Model
+## 18. Exception Triage & Case Assignment Model
 
 - Exception = system-generated finding from workflow
 - Deficiency = auditor/user classification of the valid issue (set during triage)
 - Case Candidate = reviewed exception selected for follow-up (with deficiency/owner/due date)
-- Case = assigned follow-up item with remediation/action plan
-- Remediation = owner's planned fix inside the case (NOT_STARTED → IN_PROGRESS → SUBMITTED → ACCEPTED/REJECTED)
+- Case = assigned follow-up item — assigned to risk/process owner, not just "created"
+- Cases are assigned to risk/process owners after exception triage
+- Risk/process owner provides root cause, remediation plan, preventive action, evidence, and submits response
+- Auditor/project owner reviews response and accepts/closes or rejects/sends back
+- "Create case" language should be avoided where assignment is the real business action
 - Bulk triage is required for high-volume automation exceptions
 - Not every exception becomes a case — user reviews and selects valid ones
+
+Case status flow (internal → user-facing label):
+- OPEN → Sent to Owner
+- IN_PROGRESS → Owner Response In Progress
+- RESOLVED → Submitted for Review
+- CLOSED → Accepted & Closed
+- CANCELLED → Closed — Not Required
+
+Case detail has 3 sections:
+1. Exception & Auditor Assignment (auditor-owned)
+2. Owner Response / Action Plan (risk/process owner-owned)
+3. Auditor Review & Closure (auditor accept/reject/close)
 
 ---
 

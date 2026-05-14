@@ -76,11 +76,16 @@ export function generateDraftReport(engagement: ConfigurableEngagement, state: A
   const remSubmitted = cases.cases.filter(c => c.remediationStatus === 'SUBMITTED').length;
   const remAccepted = cases.cases.filter(c => c.remediationStatus === 'ACCEPTED').length;
   const remRejected = cases.cases.filter(c => c.remediationStatus === 'REJECTED').length;
+  const sentToOwner = cases.cases.filter(c => c.status === 'OPEN').length;
+  const withOwner = cases.cases.filter(c => c.status === 'IN_PROGRESS').length;
+  const submittedForReview = cases.cases.filter(c => c.status === 'RESOLVED').length;
+  const acceptedClosed = cases.cases.filter(c => c.status === 'CLOSED').length;
+  const rejectedBack = cases.cases.filter(c => c.remediationStatus === 'REJECTED').length;
   const caseSummaryText = cases.cases.length > 0
-    ? cases.cases.map(c => `${c.title} — ${c.priority} priority, ${c.status}, ${c.deficiencyType ? c.deficiencyType.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, ch => ch.toUpperCase()) + ', ' : ''}owner: ${c.owner || '—'}, due: ${c.dueDate || '—'}.`).join('\n') + `\n\nRemediation status: ${remNotStarted} not started, ${remInProgress} in progress, ${remSubmitted} submitted, ${remAccepted} accepted, ${remRejected} rejected.`
-    : 'No cases created.';
+    ? cases.cases.map(c => `${c.title} — ${c.priority} priority, ${c.deficiencyType ? c.deficiencyType.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, ch => ch.toUpperCase()) + ', ' : ''}owner: ${c.owner || '—'}, due: ${c.dueDate || '—'}.`).join('\n') + `\n\nCase status: ${sentToOwner} sent to owner, ${withOwner} with owner, ${submittedForReview} submitted for review, ${acceptedClosed} accepted & closed, ${rejectedBack} rejected/sent back.`
+    : 'No cases assigned.';
 
-  const keyMetricsText = `Records processed: ${totalRecords}\nOutputs generated: ${allOutputs.length}\nOutputs approved: ${approvedIds.length}\nExceptions: ${allExceptions.length}\nHigh/Critical exceptions: ${allExceptions.filter(e => e.severity === 'HIGH' || e.severity === 'CRITICAL').length}\nCase candidates: ${caseEx}\nCases created: ${cases.cases.length}\nRemediation accepted: ${remAccepted}`;
+  const keyMetricsText = `Records processed: ${totalRecords}\nOutputs generated: ${allOutputs.length}\nOutputs approved: ${approvedIds.length}\nExceptions: ${allExceptions.length}\nHigh/Critical exceptions: ${allExceptions.filter(e => e.severity === 'HIGH' || e.severity === 'CRITICAL').length}\nCase candidates: ${caseEx}\nCases assigned: ${cases.cases.length}\nOwner responses submitted: ${submittedForReview + acceptedClosed}\nAccepted & closed: ${acceptedClosed}`;
 
   const recs: string[] = [];
   if (allExceptions.filter(e => e.severity === 'HIGH' || e.severity === 'CRITICAL').length > 0) recs.push('Review and resolve high/critical cases promptly.');

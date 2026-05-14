@@ -22,6 +22,12 @@ export const REMEDIATION_STATUS_CLS: Record<RemediationStatus, string> = {
 };
 export const DEFICIENCY_TYPES: DeficiencyType[] = ['SYSTEM_DEFICIENCY', 'DESIGN_DEFICIENCY', 'OPERATING_DEFICIENCY', 'DATA_DEFICIENCY', 'DOCUMENTATION_DEFICIENCY', 'CONTROL_DEFICIENCY', 'PROCESS_DEFICIENCY', 'OTHER'];
 
+// User-facing status labels for audit assignment flow
+export const CASE_STATUS_LABELS: Record<CaseStatus, string> = {
+  DRAFT: 'Draft', OPEN: 'Sent to Owner', IN_PROGRESS: 'Owner Response In Progress',
+  RESOLVED: 'Submitted for Review', CLOSED: 'Accepted & Closed', CANCELLED: 'Closed — Not Required',
+};
+
 export interface CaseHistoryItem { id: string; action: string; actor: string; timestamp: string; comments: string }
 
 export interface AutomationCase {
@@ -33,10 +39,12 @@ export interface AutomationCase {
   reviewer?: string;
   remediationPlan?: string;
   rootCause?: string;
+  preventiveAction?: string;
   remediationOwner?: string;
   remediationDueDate?: string;
   remediationStatus?: RemediationStatus;
   closureNotes?: string;
+  auditorNotes?: string;
   sourceWorkflowName?: string;
   evidenceRefs: string[]; comments: string;
   createdAt: string; updatedAt: string;
@@ -65,9 +73,11 @@ export function deriveCasesSummary(state: AutomationCasesState) {
   const c = state.cases;
   return {
     total: c.length,
-    open: c.filter(x => x.status === 'OPEN').length,
-    inProgress: c.filter(x => x.status === 'IN_PROGRESS').length,
-    resolved: c.filter(x => x.status === 'RESOLVED' || x.status === 'CLOSED').length,
-    criticalHigh: c.filter(x => (x.priority === 'CRITICAL' || x.priority === 'HIGH') && !['RESOLVED', 'CLOSED', 'CANCELLED'].includes(x.status)).length,
+    sentToOwner: c.filter(x => x.status === 'OPEN').length,
+    withOwner: c.filter(x => x.status === 'IN_PROGRESS').length,
+    submittedForReview: c.filter(x => x.status === 'RESOLVED').length,
+    acceptedClosed: c.filter(x => x.status === 'CLOSED').length,
+    closedNotRequired: c.filter(x => x.status === 'CANCELLED').length,
+    criticalHigh: c.filter(x => (x.priority === 'CRITICAL' || x.priority === 'HIGH') && !['CLOSED', 'CANCELLED'].includes(x.status)).length,
   };
 }
