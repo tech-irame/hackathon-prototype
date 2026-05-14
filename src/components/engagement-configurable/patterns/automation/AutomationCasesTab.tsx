@@ -409,9 +409,9 @@ function CaseDetailPanel({ caseItem, engagement, onUpdate, onTransition, onAddEv
     onUpdate({
       rootCause: draft.rootCause, remediationPlan: draft.remediationPlan, preventiveAction: draft.preventiveAction,
       remediationOwner: draft.remediationOwner, remediationDueDate: draft.remediationDueDate, comments: draft.comments,
-      remediationStatus: 'SUBMITTED',
+      remediationStatus: 'SUBMITTED', status: 'RESOLVED' as CaseStatus,
+      history: [...caseItem.history, { id: `ch-${Date.now()}`, action: 'OWNER_RESPONSE_SUBMITTED', actor: engagement.owner, timestamp: now(), comments: '' }],
     });
-    onTransition('RESOLVED', 'OWNER_RESPONSE_SUBMITTED');
   };
 
   const isSentToOwner = caseItem.status === 'OPEN';
@@ -501,11 +501,11 @@ function CaseDetailPanel({ caseItem, engagement, onUpdate, onTransition, onAddEv
           <div className="flex items-center gap-2">
             {isSubmittedForReview && (
               <>
-                <button onClick={() => { onUpdate({ closureNotes: draft.closureNotes }); onTransition('CLOSED', 'ACCEPTED_AND_CLOSED'); }} className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-semibold cursor-pointer transition-colors flex items-center gap-1"><CheckCircle2 size={10} />Accept & Close</button>
-                <button onClick={() => { onUpdate({ closureNotes: draft.closureNotes }); onTransition('IN_PROGRESS', 'REJECTED_SENT_BACK'); }} className="px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 text-white text-[10px] font-semibold cursor-pointer transition-colors">Reject / Send Back</button>
+                <button onClick={() => { onUpdate({ closureNotes: draft.closureNotes, status: 'CLOSED' as CaseStatus, history: [...caseItem.history, { id: `ch-${Date.now()}`, action: 'ACCEPTED_AND_CLOSED', actor: engagement.owner, timestamp: now(), comments: '' }] }); }} className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-semibold cursor-pointer transition-colors flex items-center gap-1"><CheckCircle2 size={10} />Accept & Close</button>
+                <button onClick={() => { onUpdate({ closureNotes: draft.closureNotes, status: 'IN_PROGRESS' as CaseStatus, remediationStatus: 'REJECTED' as RemediationStatus, history: [...caseItem.history, { id: `ch-${Date.now()}`, action: 'REJECTED_SENT_BACK', actor: engagement.owner, timestamp: now(), comments: '' }] }); }} className="px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 text-white text-[10px] font-semibold cursor-pointer transition-colors">Reject / Send Back</button>
               </>
             )}
-            <button onClick={() => { onUpdate({ closureNotes: draft.closureNotes }); onTransition('CANCELLED', 'CLOSED_NOT_REQUIRED'); }} className="px-3 py-1.5 rounded-lg border border-gray-300 text-[10px] font-medium text-gray-500 hover:bg-gray-50 cursor-pointer transition-colors">Close as Not Required</button>
+            <button onClick={() => { onUpdate({ closureNotes: draft.closureNotes, status: 'CANCELLED' as CaseStatus, history: [...caseItem.history, { id: `ch-${Date.now()}`, action: 'CLOSED_NOT_REQUIRED', actor: engagement.owner, timestamp: now(), comments: '' }] }); }} className="px-3 py-1.5 rounded-lg border border-gray-300 text-[10px] font-medium text-gray-500 hover:bg-gray-50 cursor-pointer transition-colors">Close as Not Required</button>
           </div>
         )}
         {caseItem.status === 'CLOSED' && <div className="flex items-center gap-2 text-[10px] text-emerald-600"><CheckCircle2 size={11} /><span>Accepted and closed by auditor.{caseItem.closureNotes ? ` — ${caseItem.closureNotes}` : ''}</span></div>}
