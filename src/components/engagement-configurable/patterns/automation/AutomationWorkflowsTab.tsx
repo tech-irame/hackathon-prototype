@@ -1,22 +1,29 @@
 // ─── Automation Project — Workflows Tab ───────────────────────────────────
-// Select/build workflows and run them via Workflow Library BulkExecuteModal.
-// Combines the old Automation Setup + Runs into one streamlined page.
+// Workflow Library-style list + detail + BulkExecuteModal execution.
 
 import React, { useState, useMemo } from 'react';
 import {
-  Workflow, Plus, Play, CheckCircle2, AlertCircle, ChevronDown, ChevronRight, MessageSquare, Info,
+  Search, Sparkles, Play, ArrowLeft, ChevronRight, ChevronDown, ExternalLink,
+  CheckCircle2, AlertCircle, Info, Clock, Plus,
 } from 'lucide-react';
 import { AnimatePresence } from 'motion/react';
 import type { ConfigurableEngagement, AutomationProjectConfig } from '../../configurableEngagementTypes';
 import type { AutomationInputDataState } from './automationInputData';
-import type { AutomationSetupState, SetupMode } from './automationSetupData';
-import { SETUP_MODE_LABELS, MOCK_WORKFLOWS } from './automationSetupData';
-import type { AutomationRunsState, AutomationRun, AutoRunType, ExceptionStatus } from './automationRunsData';
-import { simulateRun, deriveRunsSummary, RUN_STATUS_CLS, EX_SEVERITY_CLS, EX_STATUS_CLS, EX_CAT_LABELS } from './automationRunsData';
-import { BulkExecuteModal } from '../../../workflow/BulkExecuteModal';
+import type { AutomationSetupState, SetupMode, MockWorkflow } from './automationSetupData';
+import { MOCK_WORKFLOWS } from './automationSetupData';
+import type { AutomationRunsState, AutomationRun, AutoRunType } from './automationRunsData';
+import { simulateRun, deriveRunsSummary, RUN_STATUS_CLS } from './automationRunsData';
+import { BulkExecuteModal, Checkbox } from '../../../workflow/BulkExecuteModal';
 import type { LibraryWorkflow } from '../../../workflow/WorkflowLibraryView';
 
 function now(): string { return new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+
+// Unified workflow shape for this tab
+type ProjectWorkflow = {
+  id: string; name: string; description: string; status: string;
+  businessProcess: string; tags: string[]; controlId: string;
+  isCreated: boolean; live: boolean; steps?: string[];
+};
 
 interface Props {
   engagement: ConfigurableEngagement;
@@ -29,28 +36,43 @@ interface Props {
   onNavigateTab?: (tabId: string) => void;
 }
 
-export default function AutomationWorkflowsTab({ engagement, inputData, setup, runsState, onUpdateSetup, onUpdateRuns, onUpdateInputData, onNavigateTab }: Props) {
+export default function AutomationWorkflowsTab({ engagement, inputData, setup, runsState, onUpdateSetup, onUpdateRuns, onNavigateTab }: Props) {
   const cfg = engagement.config as AutomationProjectConfig;
   const summary = deriveRunsSummary(runsState);
-  const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
   const [showBulkModal, setShowBulkModal] = useState(false);
-  const [runName, setRunName] = useState('');
-
-  // Workflow IDs/names from setup
-  const wfNames = setup.selectedWorkflowNames?.length ? setup.selectedWorkflowNames : (setup.selectedWorkflowName ? [setup.selectedWorkflowName] : []);
-  const wfIds = setup.selectedWorkflowIds?.length ? setup.selectedWorkflowIds : (setup.selectedWorkflowId ? [setup.selectedWorkflowId] : []);
-  const isBulk = wfNames.length > 1;
-  const hasWorkflows = wfIds.length > 0;
-  const isWorkflowMode = setup.setupMode === 'SELECT_EXISTING_WORKFLOW' || setup.setupMode === 'CREATE_NEW_WORKFLOW';
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const bp = engagement.businessProcess || 'P2P';
   const createdWorkflows = setup.createdWorkflows || [];
 
-  // All available workflows: mock library + project-created
-  const allWorkflows = useMemo(() => [
-    ...MOCK_WORKFLOWS.map(wf => ({ id: wf.id, name: wf.name, description: wf.description, isCreated: false, status: wf.status })),
-    ...createdWorkflows.filter(w => w.status === 'SAVED').map(w => ({ id: w.id, name: w.name, description: w.description || w.objective, isCreated: true, status: 'Active' })),
-  ], [createdWorkflows]);
+  // Workflow IDs/names from setup
+  const wfIds = setup.selectedWorkflowIds?.length ? setup.selectedWorkflowIds : (setup.selectedWorkflowId ? [setup.selectedWorkflowId] : []);
 
-  // Toggle workflow selection
+  // Build unified list
+  const allWorkflows = useMemo((): ProjectWorkflow[] => [
+    ...MOCK_WORKFLOWS.map(wf => ({
+      id: wf.id, name: wf.name, description: wf.description,
+      status: wf.status, businessProcess: bp,
+      tags: wf.compatibleTypes, controlId: wf.id,
+      isCreated: false, live: wf.status === 'Active',
+      steps: wf.steps,
+    })),
+    ...createdWorkflows.filter(w => w.status === 'SAVED').map(w => ({
+      id: w.id, name: w.name, description: w.description || w.objective,
+      status: 'Active', businessProcess: bp,
+      tags: ['Project'], controlId: w.id.slice(-6),
+      isCreated: true, live: false,
+      steps: w.steps.map(s => s.name || s.stepType),
+    })),
+  ], [createdWorkflows, bp]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return allWorkflows;
+    return allWorkflows.filter(w => w.name.toLowerCase().includes(q) || w.description.toLowerCase().includes(q));
+  }, [allWorkflows, search]);
+
+  // Toggle
   const toggleWorkflow = (id: string) => {
     const isSelected = wfIds.includes(id);
     const newIds = isSelected ? wfIds.filter(x => x !== id) : [...wfIds, id];
@@ -58,39 +80,45 @@ export default function AutomationWorkflowsTab({ engagement, inputData, setup, r
     onUpdateSetup({
       ...setup,
       setupMode: 'SELECT_EXISTING_WORKFLOW' as SetupMode,
-      selectedWorkflowIds: newIds,
-      selectedWorkflowNames: newNames,
-      selectedWorkflowId: newIds[0] || '',
-      selectedWorkflowName: newNames[0] || '',
+      selectedWorkflowIds: newIds, selectedWorkflowNames: newNames,
+      selectedWorkflowId: newIds[0] || '', selectedWorkflowName: newNames[0] || '',
       history: [...setup.history, { id: `sh-${Date.now()}`, action: 'WORKFLOW_TOGGLED', actor: engagement.owner, timestamp: now(), comments: `${newIds.length} selected` }],
     });
   };
 
-  // Map for BulkExecuteModal
-  const libraryWorkflows = useMemo((): LibraryWorkflow[] => {
-    return wfIds.map((id, i) => {
-      const mockWf = MOCK_WORKFLOWS.find(w => w.id === id);
-      const createdWf = createdWorkflows.find(w => w.id === id);
-      const name = wfNames[i] || mockWf?.name || createdWf?.name || 'Workflow';
-      return {
-        id, name,
-        description: mockWf?.description || createdWf?.description || createdWf?.objective || name,
-        tags: mockWf ? mockWf.compatibleTypes : ['Automation'],
-        businessProcess: engagement.businessProcess || 'P2P',
-        controlId: mockWf?.id ? `CTRL-${mockWf.id.replace('mwf-', '')}` : `PRJ-${id.slice(-3)}`,
-        live: !!mockWf,
-      };
-    });
-  }, [wfIds, wfNames, createdWorkflows, engagement.businessProcess]);
+  const allVisibleSelected = filtered.length > 0 && filtered.every(w => wfIds.includes(w.id));
+  const someVisibleSelected = filtered.some(w => wfIds.includes(w.id));
+  const toggleSelectAll = () => {
+    if (allVisibleSelected) {
+      const removeIds = new Set(filtered.map(w => w.id));
+      const newIds = wfIds.filter(id => !removeIds.has(id));
+      const newNames = newIds.map(wid => allWorkflows.find(w => w.id === wid)?.name || '').filter(Boolean);
+      onUpdateSetup({ ...setup, selectedWorkflowIds: newIds, selectedWorkflowNames: newNames, selectedWorkflowId: newIds[0] || '', selectedWorkflowName: newNames[0] || '' });
+    } else {
+      const addIds = new Set([...wfIds, ...filtered.map(w => w.id)]);
+      const newIds = Array.from(addIds);
+      const newNames = newIds.map(wid => allWorkflows.find(w => w.id === wid)?.name || '').filter(Boolean);
+      onUpdateSetup({ ...setup, selectedWorkflowIds: newIds, selectedWorkflowNames: newNames, selectedWorkflowId: newIds[0] || '', selectedWorkflowName: newNames[0] || '' });
+    }
+  };
 
-  const wfLabel = wfNames.length > 1 ? `${wfNames.length} Workflows` : (wfNames[0] || 'Automation');
+  // LibraryWorkflow map for modal
+  const libraryWorkflows = useMemo((): LibraryWorkflow[] =>
+    wfIds.map((id, i) => {
+      const wf = allWorkflows.find(w => w.id === id);
+      return { id, name: wf?.name || '', description: wf?.description || '', tags: wf?.tags || [], businessProcess: bp, controlId: wf?.controlId || '', live: wf?.live };
+    }),
+  [wfIds, allWorkflows, bp]);
+
+  const wfNames = setup.selectedWorkflowNames?.length ? setup.selectedWorkflowNames : [];
+  const isBulk = wfIds.length > 1;
+  const wfLabel = wfIds.length > 1 ? `${wfIds.length} Workflows` : (wfNames[0] || 'Automation');
   const defaultRunName = `${wfLabel} Run — ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
 
-  // Run creation
   const handleBulkModalComplete = () => {
-    const runType: AutoRunType = setup.setupMode === 'SELECT_EXISTING_WORKFLOW' ? 'WORKFLOW' : setup.setupMode === 'CREATE_NEW_WORKFLOW' ? 'DRAFT_WORKFLOW' : 'QA_ADHOC';
+    const runType: AutoRunType = 'WORKFLOW';
     const run: AutomationRun = {
-      id: `run-${Date.now()}`, runName: runName.trim() || defaultRunName, runType, sourceSetupMode: setup.setupMode,
+      id: `run-${Date.now()}`, runName: defaultRunName, runType, sourceSetupMode: setup.setupMode,
       workflowName: wfNames[0] || '', inputSourceIds: inputData.selectedSourceIds,
       workflowIds: wfIds, workflowNames: wfNames, bulkRun: isBulk,
       status: 'READY', startedAt: null, completedAt: null, runBy: '', summary: '', processedRecords: 0,
@@ -98,140 +126,119 @@ export default function AutomationWorkflowsTab({ engagement, inputData, setup, r
     };
     const completed = simulateRun(run, setup, inputData, engagement.owner);
     onUpdateRuns({ runs: [...runsState.runs, completed] });
-    setRunName('');
     setShowBulkModal(false);
   };
 
-  const hasCompleted = runsState.runs.some(r => r.status === 'COMPLETED');
+  // ── Detail view ──
+  if (detailId) {
+    const wf = allWorkflows.find(w => w.id === detailId);
+    if (!wf) { setDetailId(null); return null; }
+    const wfRuns = runsState.runs.filter(r => r.workflowNames?.includes(wf.name) || r.workflowName === wf.name);
+    return <WorkflowDetailView wf={wf} runs={wfRuns} onBack={() => setDetailId(null)} onRun={() => { toggleWorkflow(wf.id); setShowBulkModal(true); }} />;
+  }
 
+  // ── List view ──
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col h-full">
       {/* Header */}
-      <div>
-        <h3 className="text-[15px] font-bold text-text mb-0.5">Workflows</h3>
-        <p className="text-[12px] text-text-muted">Select or build workflows for this automation project, then run them using the Workflow Library bulk execution flow.</p>
+      <div className="pb-4">
+        <div className="font-mono text-[11px] text-text-muted mb-1 tracking-tight">Workflow Library</div>
+        <h2 className="text-[22px] font-semibold text-text tracking-tight leading-tight">Workflows</h2>
+        <p className="text-[13px] text-text-muted mt-1">Browse the workflow catalog and add the ones relevant to your project.</p>
       </div>
 
-      {/* Context */}
-      <div className="rounded-lg border border-border-light p-3">
-        <div className="grid grid-cols-4 gap-3 text-[11px]">
-          <div><span className="text-gray-400 block text-[10px]">Selected Workflows</span><span className="text-text font-medium">{hasWorkflows ? `${wfIds.length} selected` : 'None selected'}</span></div>
-          <div><span className="text-gray-400 block text-[10px]">Created Workflows</span><span className="text-text font-medium">{createdWorkflows.filter(w => w.status === 'SAVED').length}</span></div>
-          <div><span className="text-gray-400 block text-[10px]">Total Runs</span><span className="text-text font-medium">{summary.total}</span></div>
-          <div><span className="text-gray-400 block text-[10px]">Run Type</span><span className="text-text font-medium">{cfg.runType.replace(/_/g, ' ')}{cfg.frequency ? ` (${cfg.frequency})` : ''}</span></div>
+      {/* Search + Actions */}
+      <div className="pb-4 flex items-center gap-3">
+        {wfIds.length > 0 && <span className="text-[13px] text-text-muted"><span className="font-semibold text-text">{wfIds.length}</span> selected</span>}
+        <div className="relative w-[320px]">
+          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted" />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search workflow.."
+            className="w-full pl-10 pr-4 h-10 rounded-md border border-border bg-white text-[13px] outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/10 transition-all" />
         </div>
-      </div>
-
-      {/* Workflow selection */}
-      <div className="rounded-lg border border-border-light p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <h4 className="text-[12px] font-bold text-text">Available Workflows <span className="font-normal text-gray-400 ml-1">({allWorkflows.length})</span></h4>
-          <div className="flex items-center gap-2">
-            {hasWorkflows && <span className="text-[10px] font-semibold text-primary">{wfIds.length} selected</span>}
-          </div>
-        </div>
-        <div className="space-y-1.5">
-          {allWorkflows.map(wf => {
-            const isSelected = wfIds.includes(wf.id);
-            return (
-              <button key={wf.id} onClick={() => toggleWorkflow(wf.id)}
-                className={`w-full text-left rounded-lg border-2 p-3 transition-all cursor-pointer ${isSelected ? 'border-primary bg-primary/5' : 'border-border-light hover:border-primary/30'}`}>
-                <div className="flex items-center gap-2 mb-0.5">
-                  <input type="checkbox" checked={isSelected} readOnly className="w-3.5 h-3.5 rounded border-border accent-[#6a12cd] cursor-pointer shrink-0" />
-                  <Workflow size={12} className={isSelected ? 'text-primary' : 'text-gray-400'} />
-                  <span className="text-[12px] font-semibold text-text">{wf.name}</span>
-                  <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold ${wf.status === 'Active' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}>{wf.status}</span>
-                  {wf.isCreated && <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-purple-50 text-purple-700">Created in this Project</span>}
-                </div>
-                <p className="text-[10px] text-gray-500 ml-7">{wf.description}</p>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Run CTA */}
-      <div className="rounded-lg border-2 border-dashed border-primary/20 bg-primary/5 p-4 space-y-2">
-        <div className="flex items-center justify-between">
-          <h4 className="text-[12px] font-bold text-text">Execute Workflows</h4>
-          {isBulk && <span className="px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 text-[9px] font-bold">{wfNames.length} workflows selected</span>}
-        </div>
-        <p className="text-[10px] text-gray-500">Data source configuration happens inside the bulk execution flow before running.</p>
-        {isBulk && (
-          <div className="flex flex-wrap gap-1">
-            {wfNames.map((n, i) => <span key={i} className="px-1.5 py-0.5 rounded bg-gray-100 text-[9px] text-gray-600">{n}</span>)}
-          </div>
-        )}
-        <div className="flex items-center gap-3">
-          <input value={runName} onChange={e => setRunName(e.target.value)} placeholder={defaultRunName} className="flex-1 px-3 py-2 border border-border rounded-lg text-[12px] text-text bg-white outline-none focus:border-primary/40" />
-          <button onClick={() => setShowBulkModal(true)} disabled={!hasWorkflows}
-            className="px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white text-[12px] font-semibold cursor-pointer transition-colors shrink-0 flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed">
-            <Play size={12} />{isBulk ? 'Run Selected Workflows' : hasWorkflows ? 'Run Workflow' : 'Select Workflows First'}
+        <div className="ml-auto flex items-center gap-3">
+          <button className="flex items-center gap-2 px-4 h-10 rounded-md bg-primary-xlight text-primary border border-primary/15 text-[13px] font-semibold hover:bg-primary/10 transition-colors cursor-pointer">
+            <Sparkles size={14} />Create Workflow
+          </button>
+          <button onClick={() => { if (wfIds.length > 0) setShowBulkModal(true); }} disabled={wfIds.length === 0}
+            className="flex items-center gap-2 px-4 h-10 rounded-md bg-primary text-white text-[13px] font-semibold hover:bg-primary-hover transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
+            <Play size={14} />Run Selected
           </button>
         </div>
       </div>
 
-      {/* Run summary */}
-      {summary.total > 0 && (
-        <div className="grid grid-cols-5 gap-2">
-          {[
-            { label: 'Total Runs', value: summary.total },
-            { label: 'Completed', value: summary.completed, cls: 'text-emerald-600' },
-            { label: 'Open Exc.', value: summary.openExceptions, cls: summary.openExceptions > 0 ? 'text-amber-600' : '' },
-            { label: 'Outputs', value: summary.outputs },
-            { label: 'Last Status', value: summary.total > 0 ? summary.lastStatus : '—', cls: summary.lastStatus === 'COMPLETED' ? 'text-emerald-600' : '' },
-          ].map(s => (
-            <div key={s.label} className="rounded-lg border border-border-light p-2.5 text-center">
-              <div className={`text-[16px] font-bold tabular-nums ${s.cls || 'text-text'}`}>{s.value}</div>
-              <div className="text-[9px] text-gray-400 font-medium">{s.label}</div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Run history */}
-      {runsState.runs.length > 0 && (
-        <div className="rounded-lg border border-border-light overflow-hidden">
-          <div className="px-4 py-2 bg-surface-2/20 border-b border-border-light"><h4 className="text-[11px] font-bold text-text">Run History ({runsState.runs.length})</h4></div>
-          <table className="w-full text-[11px]">
-            <thead><tr className="border-b border-border-light bg-surface-2/30 text-[9px] font-semibold text-gray-400 uppercase">
-              <th className="px-3 py-1.5 text-left w-5"></th><th className="px-3 py-1.5 text-left">Run</th><th className="px-3 py-1.5 text-center">Type</th><th className="px-3 py-1.5 text-center">Status</th><th className="px-3 py-1.5 text-center">Exceptions</th><th className="px-3 py-1.5 text-center">Outputs</th>
-            </tr></thead>
-            <tbody>{runsState.runs.map(run => {
-              const isExp = expandedRunId === run.id;
+      {/* Table */}
+      <div className="flex-1 overflow-auto border-t border-border-light">
+        <table className="w-full border-collapse">
+          <thead className="bg-white sticky top-0 z-10 border-b border-border-light">
+            <tr>
+              <th className="pl-4 pr-2 py-3 w-[40px]">
+                <Checkbox checked={allVisibleSelected} indeterminate={!allVisibleSelected && someVisibleSelected} onChange={toggleSelectAll} ariaLabel="Select all" />
+              </th>
+              <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-text-muted w-[320px]">Workflow Name</th>
+              <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-text-muted">Description</th>
+              <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-text-muted w-[120px]">Business Process</th>
+              <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-text-muted w-[140px]">Tags</th>
+              <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-text-muted w-[80px]"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.length === 0 ? (
+              <tr><td colSpan={6} className="px-6 py-16 text-center text-[13px] text-text-muted">No workflows match "{search}"</td></tr>
+            ) : filtered.map(wf => {
+              const isSelected = wfIds.includes(wf.id);
               return (
-                <React.Fragment key={run.id}>
-                  <tr className={`border-b border-border-light/50 cursor-pointer hover:bg-surface-2/20 ${isExp ? 'bg-surface-2/20' : ''}`} onClick={() => setExpandedRunId(isExp ? null : run.id)}>
-                    <td className="px-3 py-2 text-gray-400">{isExp ? <ChevronDown size={11} /> : <ChevronRight size={11} />}</td>
-                    <td className="px-3 py-2"><div className="font-medium text-text">{run.runName}</div><div className="text-[9px] text-gray-400">{run.completedAt || 'Pending'}</div></td>
-                    <td className="px-3 py-2 text-center text-[10px] text-gray-500">{run.bulkRun ? `Bulk (${run.workflowNames?.length || 0})` : 'Workflow'}</td>
-                    <td className="px-3 py-2 text-center"><span className={`px-2 py-0.5 rounded-full text-[8px] font-bold ${RUN_STATUS_CLS[run.status]}`}>{run.status}</span></td>
-                    <td className="px-3 py-2 text-center"><span className={`tabular-nums ${run.exceptionCount > 0 ? 'text-amber-600 font-medium' : 'text-gray-400'}`}>{run.exceptionCount}</span></td>
-                    <td className="px-3 py-2 text-center tabular-nums text-gray-500">{run.outputCount}</td>
-                  </tr>
-                  {isExp && run.status === 'COMPLETED' && (
-                    <tr><td colSpan={6} className="p-0">
-                      <div className="bg-surface-2/15 border-b border-border-light px-6 py-3 text-[10px] text-text">{run.summary}</div>
-                    </td></tr>
-                  )}
-                </React.Fragment>
+                <tr key={wf.id} onClick={() => toggleWorkflow(wf.id)}
+                  className={`border-t border-border-light transition-colors cursor-pointer ${isSelected ? 'bg-primary-xlight/50 hover:bg-primary-xlight/70' : 'hover:bg-surface-2/40'}`}>
+                  <td className="pl-4 pr-2 py-4 align-top">
+                    <Checkbox checked={isSelected} onChange={() => toggleWorkflow(wf.id)} ariaLabel={`Select ${wf.name}`} />
+                  </td>
+                  <td className="px-4 py-4 align-top w-[320px]">
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-start gap-2">
+                        <span className="group inline cursor-pointer text-[13px] text-text font-medium hover:text-primary hover:underline line-clamp-2"
+                          onClick={e => { e.stopPropagation(); setDetailId(wf.id); }}>
+                          {wf.name}
+                          <ExternalLink size={12} className="inline ml-1 opacity-0 group-hover:opacity-100 align-middle text-primary" />
+                        </span>
+                        {wf.live && (
+                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium shrink-0 mt-0.5" style={{ backgroundColor: '#ECFEF3', color: '#047A48' }}>
+                            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#047A48' }} />Live
+                          </span>
+                        )}
+                        {wf.isCreated && <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-purple-50 text-purple-700 shrink-0 mt-0.5">Project</span>}
+                      </div>
+                      <span className="text-[11px] font-mono text-text-muted/70 tracking-tight">{wf.controlId}</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-4 align-top text-[13px] text-text-muted max-w-[400px]"><span className="line-clamp-2">{wf.description}</span></td>
+                  <td className="px-4 py-4 align-top text-[13px] text-text-muted">{wf.businessProcess}</td>
+                  <td className="px-4 py-4 align-top">
+                    <div className="flex flex-wrap gap-1.5">
+                      {wf.tags.map(t => <span key={t} className="inline-flex items-center px-2 py-0.5 rounded-md bg-surface-2 border border-border-light text-text-muted text-[11px] font-medium">{t}</span>)}
+                    </div>
+                  </td>
+                  <td className="px-4 py-4 align-top text-right">
+                    <button onClick={e => { e.stopPropagation(); setDetailId(wf.id); }}
+                      className="px-2 py-1 rounded text-[11px] font-medium text-primary hover:bg-primary/10 cursor-pointer transition-colors">View</button>
+                  </td>
+                </tr>
               );
-            })}</tbody>
-          </table>
-        </div>
-      )}
+            })}
+          </tbody>
+        </table>
+      </div>
 
-      {/* Continue to Output Review */}
-      {hasCompleted && (
-        <div className="rounded-lg border border-border-light p-4 space-y-2">
-          <div className="flex items-center justify-between">
-            <h4 className="text-[11px] font-bold text-text">Next Step</h4>
-            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-50 text-emerald-700">Run Completed</span>
+      {/* Run history strip */}
+      {summary.total > 0 && (
+        <div className="flex items-center justify-between py-3 px-4 border-t border-border-light bg-white">
+          <div className="flex items-center gap-4 text-[12px] text-text-muted">
+            <span><span className="font-semibold text-text">{summary.total}</span> run{summary.total !== 1 ? 's' : ''}</span>
+            <span><span className="font-semibold text-emerald-600">{summary.completed}</span> completed</span>
+            {summary.openExceptions > 0 && <span><span className="font-semibold text-amber-600">{summary.openExceptions}</span> open exceptions</span>}
           </div>
-          <p className="text-[10px] text-gray-500">Review generated outputs and exceptions before managing cases.</p>
           <button onClick={() => onNavigateTab?.('output-review')}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-primary hover:bg-primary/90 text-white text-[11px] font-semibold cursor-pointer transition-colors">
-            Continue to Output Review <ChevronRight size={11} />
+            className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-primary hover:bg-primary-hover text-white text-[12px] font-semibold cursor-pointer transition-colors">
+            Output Review <ChevronRight size={12} />
           </button>
         </div>
       )}
@@ -239,13 +246,132 @@ export default function AutomationWorkflowsTab({ engagement, inputData, setup, r
       {/* BulkExecuteModal */}
       <AnimatePresence>
         {showBulkModal && (
-          <BulkExecuteModal
-            selectedWorkflows={libraryWorkflows}
-            onClose={() => setShowBulkModal(false)}
-            onContinue={() => handleBulkModalComplete()}
-          />
+          <BulkExecuteModal selectedWorkflows={libraryWorkflows} onClose={() => setShowBulkModal(false)} onContinue={() => handleBulkModalComplete()} />
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+// ─── Workflow Detail View ────────────────────────────────────────────────
+
+function WorkflowDetailView({ wf, runs, onBack, onRun }: { wf: ProjectWorkflow; runs: AutomationRun[]; onBack: () => void; onRun: () => void }) {
+  const [tab, setTab] = useState<'overview' | 'runs' | 'configuration'>('overview');
+  const lastRun = runs.length > 0 ? runs[runs.length - 1] : null;
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Top */}
+      <div className="pb-4">
+        <button onClick={onBack} className="flex items-center gap-1.5 text-[12px] text-text-muted hover:text-primary transition-colors cursor-pointer mb-3">
+          <ArrowLeft size={14} />Back to Workflows
+        </button>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium" style={{ backgroundColor: '#ECFEF3', color: '#047A48' }}>
+                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#047A48' }} />ACTIVE
+              </span>
+              <span className="text-[11px] font-mono text-text-muted">{wf.controlId}</span>
+              {wf.isCreated && <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-purple-50 text-purple-700">Created in Project</span>}
+            </div>
+            <h2 className="text-[22px] font-semibold text-text tracking-tight leading-tight mb-1">{wf.name}</h2>
+            {lastRun && <div className="flex items-center gap-1.5 text-[12px] text-text-muted"><Clock size={12} />Last run: {lastRun.completedAt || 'Pending'}</div>}
+          </div>
+          <button onClick={onRun}
+            className="flex items-center gap-2 px-4 h-10 rounded-md bg-primary text-white text-[13px] font-semibold hover:bg-primary-hover transition-colors cursor-pointer shrink-0">
+            <Sparkles size={14} />Open Executor
+          </button>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex items-center gap-0 border-b border-border-light mb-4">
+        {(['overview', 'runs', 'configuration'] as const).map(t => (
+          <button key={t} onClick={() => setTab(t)}
+            className={`px-4 h-10 text-[13px] font-medium cursor-pointer transition-colors relative ${tab === t ? 'text-primary' : 'text-text-muted hover:text-text'}`}>
+            {t === 'overview' ? 'Overview' : t === 'runs' ? `Runs ${runs.length}` : 'Configuration'}
+            {tab === t && <div className="absolute left-0 right-0 -bottom-px h-[2px] bg-primary" />}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab content */}
+      <div className="flex-1 overflow-auto">
+        {tab === 'overview' && (
+          <div className="space-y-5 max-w-[800px]">
+            <div>
+              <h3 className="text-[13px] font-semibold text-text mb-2">Description</h3>
+              <p className="text-[13px] text-text-muted leading-relaxed">{wf.description}</p>
+            </div>
+            {wf.steps && wf.steps.length > 0 && (
+              <div>
+                <h3 className="text-[13px] font-semibold text-text mb-3">Steps</h3>
+                <div className="space-y-3">
+                  {wf.steps.map((step, i) => (
+                    <div key={i} className="flex items-start gap-3">
+                      <div className="w-7 h-7 rounded-full bg-primary/10 text-primary text-[12px] font-bold flex items-center justify-center shrink-0 mt-0.5">{i + 1}</div>
+                      <div>
+                        <div className="text-[13px] font-medium text-text">{step}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div>
+              <h3 className="text-[13px] font-semibold text-text mb-2">Tags</h3>
+              <div className="flex flex-wrap gap-1.5">
+                {wf.tags.map(t => <span key={t} className="inline-flex items-center px-2.5 py-1 rounded-md bg-surface-2 border border-border-light text-text-muted text-[12px] font-medium">{t}</span>)}
+              </div>
+            </div>
+          </div>
+        )}
+        {tab === 'runs' && (
+          <div>
+            {runs.length === 0 ? (
+              <div className="text-center py-12 text-[13px] text-text-muted">No runs for this workflow yet.</div>
+            ) : (
+              <table className="w-full text-[12px] border-collapse">
+                <thead><tr className="border-b border-border-light text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+                  <th className="px-4 py-2.5 text-left">Run Name</th>
+                  <th className="px-4 py-2.5 text-center">Status</th>
+                  <th className="px-4 py-2.5 text-center">Records</th>
+                  <th className="px-4 py-2.5 text-center">Exceptions</th>
+                  <th className="px-4 py-2.5 text-center">Outputs</th>
+                  <th className="px-4 py-2.5 text-left">Completed</th>
+                </tr></thead>
+                <tbody>{runs.map(r => (
+                  <tr key={r.id} className="border-b border-border-light/60 hover:bg-surface-2/40">
+                    <td className="px-4 py-3 font-medium text-text">{r.runName}</td>
+                    <td className="px-4 py-3 text-center"><span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${RUN_STATUS_CLS[r.status]}`}>{r.status}</span></td>
+                    <td className="px-4 py-3 text-center tabular-nums text-text-muted">{r.processedRecords || '—'}</td>
+                    <td className="px-4 py-3 text-center"><span className={r.exceptionCount > 0 ? 'text-amber-600 font-medium' : 'text-text-muted'}>{r.exceptionCount}</span></td>
+                    <td className="px-4 py-3 text-center tabular-nums text-text-muted">{r.outputCount}</td>
+                    <td className="px-4 py-3 text-text-muted">{r.completedAt || '—'}</td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            )}
+          </div>
+        )}
+        {tab === 'configuration' && (
+          <div className="space-y-4 max-w-[600px]">
+            {[
+              { label: 'Business Process', value: wf.businessProcess },
+              { label: 'Control ID', value: wf.controlId },
+              { label: 'Status', value: wf.status },
+              { label: 'Source', value: wf.isCreated ? 'Created in this Project' : 'Workflow Library' },
+              { label: 'Tags', value: wf.tags.join(', ') || '—' },
+            ].map(item => (
+              <div key={item.label} className="flex items-start gap-4 py-2 border-b border-border-light/60">
+                <span className="text-[12px] text-text-muted w-[160px] shrink-0">{item.label}</span>
+                <span className="text-[13px] text-text font-medium">{item.value}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

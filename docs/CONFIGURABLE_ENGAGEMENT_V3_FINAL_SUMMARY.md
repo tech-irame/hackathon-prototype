@@ -68,7 +68,7 @@ User-facing label: **Project**
 | Tab | Status | System Reuse |
 |-----|--------|-------------|
 | Overview | Implemented | — |
-| Workflows | Implemented — workflow selection, build workflow, run via BulkExecuteModal, run history | **Reuses Workflow Library BulkExecuteModal** |
+| Workflows | Implemented — Workflow Library-style table with search/select-all/detail view, Create Workflow CTA, Run Selected CTA via BulkExecuteModal, in-tab workflow detail (Overview/Runs/Configuration), run history | **Reuses Workflow Library BulkExecuteModal** |
 | Output Review | Implemented — bulk exception triage, deficiency classification | — |
 | Cases / Exceptions | Implemented — embedded ManageExceptionsView | **Reuses ManageExceptionsView** |
 | Reports | Implemented — draft generation, finalize, deficiency/remediation summary | — |
