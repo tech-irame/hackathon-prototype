@@ -1,0 +1,120 @@
+/**
+ * Engagement-scoped exceptions seed.
+ *
+ * Each exception originates from a workflow run and belongs to one engagement.
+ * The Exception Management tab groups these by workflow; the per-exception
+ * drawer opens the full case-management surface for one row.
+ */
+
+export type Severity = 'Critical' | 'High' | 'Medium' | 'Low';
+export type ExceptionStatus = 'Open' | 'Triaging' | 'Resolved';
+export type Classification = 'Control Deficiency' | 'Process Gap' | 'False Positive' | 'Other';
+
+export interface EngagementException {
+  id: string;
+  ref: string;
+  engagementId: string;
+  workflowId: string;
+  workflowName: string;
+  title: string;
+  detail?: string;
+  severity: Severity;
+  status: ExceptionStatus;
+  /** Human-readable "X ago" for the demo. */
+  opened: string;
+  assignee: string;
+  /** Optional classification chosen by the risk owner. */
+  classification?: Classification;
+  /** Optional money amount surfaced inline in the title (display-only). */
+  amount?: string;
+}
+
+export const ENGAGEMENT_EXCEPTIONS: EngagementException[] = [
+  // ─── Automation — AP Duplicate Invoice Monitor (eng-3) ─────────────────────
+  { id: 'ex-1248', ref: 'EX-1248', engagementId: 'eng-3', workflowId: 'wf2', workflowName: 'Duplicate Invoice Detector',
+    title: 'Duplicate invoice posted — vendor V-3344', detail: 'Invoice INV-2026-4423 matches INV-2026-4399 on PAN/amount/date.',
+    severity: 'High', status: 'Open', opened: '4h ago', assignee: 'Priya Singh', amount: '₹2.4L' },
+  { id: 'ex-1247', ref: 'EX-1247', engagementId: 'eng-3', workflowId: 'wf2', workflowName: 'Duplicate Invoice Detector',
+    title: 'Duplicate invoice posted — vendor V-2155',
+    severity: 'Medium', status: 'Triaging', opened: '4h ago', assignee: 'Priya Singh', amount: '₹86K' },
+  { id: 'ex-1240', ref: 'EX-1240', engagementId: 'eng-3', workflowId: 'wf2', workflowName: 'Duplicate Invoice Detector',
+    title: 'Duplicate invoice posted — vendor V-0044',
+    severity: 'Medium', status: 'Open', opened: '1d ago', assignee: 'Priya Singh' },
+  { id: 'ex-1220', ref: 'EX-1220', engagementId: 'eng-3', workflowId: 'wf2', workflowName: 'Duplicate Invoice Detector',
+    title: 'Duplicate invoice — high-value', detail: 'Multiple postings against the same PO line over 48 hours.',
+    severity: 'Critical', status: 'Resolved', opened: '5d ago', assignee: 'Priya Singh', classification: 'Control Deficiency', amount: '₹4.8L' },
+
+  // ─── Automation — IT General Controls Monitoring (eng-6) ───────────────────
+  { id: 'ex-2401', ref: 'EX-2401', engagementId: 'eng-6', workflowId: 'wf4', workflowName: 'Vendor Master Change Monitor',
+    title: 'Privileged access granted outside change-management window',
+    severity: 'Critical', status: 'Open', opened: '1h ago', assignee: 'Deepak Bansal' },
+  { id: 'ex-2398', ref: 'EX-2398', engagementId: 'eng-6', workflowId: 'wf4', workflowName: 'Vendor Master Change Monitor',
+    title: 'User added to SAP_ADMIN group without ticket',
+    severity: 'High', status: 'Triaging', opened: '6h ago', assignee: 'Deepak Bansal' },
+  { id: 'ex-2390', ref: 'EX-2390', engagementId: 'eng-6', workflowId: 'wf3', workflowName: 'PO Approval Threshold Scan',
+    title: 'Threshold override used without justification',
+    severity: 'Medium', status: 'Open', opened: '1d ago', assignee: 'Tushar Goel' },
+  { id: 'ex-2380', ref: 'EX-2380', engagementId: 'eng-6', workflowId: 'wf3', workflowName: 'PO Approval Threshold Scan',
+    title: 'Backup verification missed for primary AP database',
+    severity: 'High', status: 'Triaging', opened: '2d ago', assignee: 'Deepak Bansal' },
+
+  // ─── Automation — O2C Revenue Recognition Monitor (eng-8) ──────────────────
+  { id: 'ex-1900', ref: 'EX-1900', engagementId: 'eng-8', workflowId: 'wf2', workflowName: 'Duplicate Invoice Detector',
+    title: 'Revenue recognized in wrong period — cutoff anomaly',
+    severity: 'High', status: 'Open', opened: '15m ago', assignee: 'Neha Joshi' },
+  { id: 'ex-1888', ref: 'EX-1888', engagementId: 'eng-8', workflowId: 'wf2', workflowName: 'Duplicate Invoice Detector',
+    title: 'Deferred revenue not recognized at delivery',
+    severity: 'Medium', status: 'Triaging', opened: '3h ago', assignee: 'Neha Joshi' },
+
+  // ─── Automation — Vendor Reconciliation Air India (eng-9) ──────────────────
+  { id: 'ex-2410', ref: 'EX-2410', engagementId: 'eng-9', workflowId: 'wf1', workflowName: 'Three-Way Match (PO · GRN · Invoice)',
+    title: 'Invoice/GRN amount mismatch — vendor V-7711', detail: 'Invoiced amount exceeds GRN by ₹1.2L. PO indicates correct unit price.',
+    severity: 'High', status: 'Resolved', opened: '3d ago', assignee: 'Rohan Patel', classification: 'Process Gap', amount: '₹1.2L diff' },
+  { id: 'ex-2411', ref: 'EX-2411', engagementId: 'eng-9', workflowId: 'wf1', workflowName: 'Three-Way Match (PO · GRN · Invoice)',
+    title: 'PO/Invoice quantity mismatch — line item 4',
+    severity: 'Medium', status: 'Open', opened: '3d ago', assignee: 'Rohan Patel' },
+  { id: 'ex-2398b', ref: 'EX-2398', engagementId: 'eng-9', workflowId: 'wf1', workflowName: 'Three-Way Match (PO · GRN · Invoice)',
+    title: 'Bank statement mismatch — payment reversal not posted',
+    severity: 'Critical', status: 'Triaging', opened: '10d ago', assignee: 'Rohan Patel' },
+
+  // ─── Compliance — P2P SOX Audit (eng-1) ────────────────────────────────────
+  { id: 'ex-1245', ref: 'EX-1245', engagementId: 'eng-1', workflowId: 'wf2', workflowName: 'Duplicate Invoice Detector',
+    title: 'Duplicate invoice in SOX testing sample',
+    severity: 'Medium', status: 'Open', opened: '3d ago', assignee: 'Tushar Goel' },
+  { id: 'ex-1242', ref: 'EX-1242', engagementId: 'eng-1', workflowId: 'wf4', workflowName: 'Vendor Master Change Monitor',
+    title: 'Vendor onboarded without KYC completion',
+    severity: 'High', status: 'Triaging', opened: '14d ago', assignee: 'Sneha Desai', classification: 'Control Deficiency' },
+  { id: 'ex-1198', ref: 'EX-1198', engagementId: 'eng-1', workflowId: 'wf2', workflowName: 'Duplicate Invoice Detector',
+    title: 'Segregation of duties violation — same user created and approved PO',
+    severity: 'Critical', status: 'Open', opened: '20d ago', assignee: 'Tushar Goel' },
+];
+
+/** All exceptions tied to one engagement. */
+export function exceptionsForEngagement(engagementId: string): EngagementException[] {
+  return ENGAGEMENT_EXCEPTIONS.filter(e => e.engagementId === engagementId);
+}
+
+/** Group exceptions by workflow → returns ordered groups for rendering. */
+export function groupByWorkflow(exceptions: EngagementException[]): {
+  workflowId: string;
+  workflowName: string;
+  exceptions: EngagementException[];
+  severityCounts: Record<Severity, number>;
+}[] {
+  const map = new Map<string, EngagementException[]>();
+  exceptions.forEach(ex => {
+    const arr = map.get(ex.workflowId) ?? [];
+    arr.push(ex);
+    map.set(ex.workflowId, arr);
+  });
+  return Array.from(map.entries()).map(([workflowId, exs]) => {
+    const counts: Record<Severity, number> = { Critical: 0, High: 0, Medium: 0, Low: 0 };
+    exs.forEach(e => { counts[e.severity] += 1; });
+    return {
+      workflowId,
+      workflowName: exs[0].workflowName,
+      exceptions: exs,
+      severityCounts: counts,
+    };
+  });
+}

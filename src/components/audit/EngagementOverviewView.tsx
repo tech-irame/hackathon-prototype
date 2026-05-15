@@ -25,6 +25,13 @@ import {
   type ActivityEvent,
   type ActivityType,
 } from '../../data/engagement-activity';
+import {
+  exceptionsForEngagement,
+  groupByWorkflow,
+  type EngagementException,
+  type Severity,
+} from '../../data/engagement-exceptions';
+import EngagementExceptionDrawer from './EngagementExceptionDrawer';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -99,13 +106,6 @@ const INPUT_BADGE_CLS: Record<InputSource, string> = {
   SQL:   'bg-evidence-50 text-evidence-700 border-evidence-100',
 };
 
-const MOCK_EXCEPTIONS: { id: string; ref: string; title: string; severity: 'Critical' | 'High' | 'Medium' | 'Low'; assignee: string; opened: string; status: 'Open' | 'Triaging' | 'Resolved' }[] = [
-  { id: 'ex1', ref: 'EX-1248', title: 'Duplicate invoice posted — vendor V-3344 (₹2.4L)', severity: 'High', assignee: 'Priya Singh', opened: '4h ago', status: 'Open' },
-  { id: 'ex2', ref: 'EX-1247', title: 'PO threshold override used without justification', severity: 'Medium', assignee: 'Tushar Goel', opened: '8h ago', status: 'Triaging' },
-  { id: 'ex3', ref: 'EX-1246', title: 'Payment release missing dual sign-off (₹14.5L)', severity: 'Critical', assignee: 'Neha Joshi', opened: '1d ago', status: 'Triaging' },
-  { id: 'ex4', ref: 'EX-1242', title: 'Vendor onboarded without KYC completion', severity: 'High', assignee: 'Sneha Desai', opened: '2d ago', status: 'Resolved' },
-];
-
 const MOCK_EVIDENCE: { id: string; name: string; kind: 'PDF' | 'XLSX' | 'CSV' | 'IMG'; size: string; uploaded: string; uploader: string }[] = [
   { id: 'e1', name: 'Walkthrough notes — P2P FY26.pdf', kind: 'PDF', size: '1.4 MB', uploaded: '2d ago', uploader: 'Tushar Goel' },
   { id: 'e2', name: 'Control testing sample — Q4.xlsx', kind: 'XLSX', size: '320 KB', uploaded: '4d ago', uploader: 'Neha Joshi' },
@@ -141,12 +141,6 @@ const STATUS_CLS: Record<Engagement['status'], string> = {
   Draft: 'bg-draft-50 text-draft-700',
   Closed: 'bg-gray-100 text-gray-600',
 };
-const SEV_CLS: Record<string, string> = {
-  Critical: 'bg-risk-50 text-risk-700',
-  High: 'bg-high-50 text-high-700',
-  Medium: 'bg-mitigated-50 text-mitigated-700',
-  Low: 'bg-compliant-50 text-compliant-700',
-};
 const CONTROL_STATUS_CLS: Record<string, string> = {
   Effective: 'bg-compliant-50 text-compliant-700',
   'In Test': 'bg-evidence-50 text-evidence-700',
@@ -169,6 +163,7 @@ export default function EngagementDetailView({ engagementId, onBack, onOpenExecu
   // Default the tab to overview; pick the first tab for the type once we know the engagement.
   const tabs = useMemo(() => engagement ? tabsForType(engagement.type) : [], [engagement]);
   const [activeTab, setActiveTab] = useState<TabId>('overview');
+  const [selectedException, setSelectedException] = useState<EngagementException | null>(null);
 
   if (!engagement) {
     return (
@@ -610,50 +605,9 @@ export default function EngagementDetailView({ engagementId, onBack, onOpenExecu
               </div>
             )}
 
-            {/* ═══ EXCEPTION MANAGEMENT (CCM) ═══ */}
+            {/* ═══ EXCEPTION MANAGEMENT (Automation) ═══ */}
             {activeTab === 'exceptions' && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-[13px] font-semibold text-text">Exceptions <span className="text-text-muted font-normal">({MOCK_EXCEPTIONS.length})</span></h3>
-                  <div className="flex items-center gap-2 text-[11px] text-text-muted">
-                    <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-risk" />Open {MOCK_EXCEPTIONS.filter(e => e.status === 'Open').length}</span>
-                    <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-mitigated-500" />Triaging {MOCK_EXCEPTIONS.filter(e => e.status === 'Triaging').length}</span>
-                    <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-compliant" />Resolved {MOCK_EXCEPTIONS.filter(e => e.status === 'Resolved').length}</span>
-                  </div>
-                </div>
-                <div className="glass-card rounded-xl overflow-hidden">
-                  <table className="w-full text-[12.5px]">
-                    <thead>
-                      <tr className="border-b border-border bg-surface-2/50">
-                        <th className="px-4 py-2.5 text-left text-[10px] font-semibold text-text-muted uppercase tracking-wide">Ref</th>
-                        <th className="px-4 py-2.5 text-left text-[10px] font-semibold text-text-muted uppercase tracking-wide">Exception</th>
-                        <th className="px-4 py-2.5 text-left text-[10px] font-semibold text-text-muted uppercase tracking-wide">Severity</th>
-                        <th className="px-4 py-2.5 text-left text-[10px] font-semibold text-text-muted uppercase tracking-wide">Assignee</th>
-                        <th className="px-4 py-2.5 text-left text-[10px] font-semibold text-text-muted uppercase tracking-wide">Opened</th>
-                        <th className="px-4 py-2.5 text-left text-[10px] font-semibold text-text-muted uppercase tracking-wide">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {MOCK_EXCEPTIONS.map(ex => (
-                        <tr key={ex.id} className="border-b border-border/40 last:border-0 hover:bg-surface-2/30 transition-colors cursor-pointer">
-                          <td className="px-4 py-3 text-[11.5px] font-mono text-text-secondary tabular-nums">{ex.ref}</td>
-                          <td className="px-4 py-3 text-text">{ex.title}</td>
-                          <td className="px-4 py-3"><span className={`px-2 h-5 rounded-full text-[10px] font-bold uppercase inline-flex items-center ${SEV_CLS[ex.severity]}`}>{ex.severity}</span></td>
-                          <td className="px-4 py-3 text-text-secondary">{ex.assignee}</td>
-                          <td className="px-4 py-3 text-text-muted">{ex.opened}</td>
-                          <td className="px-4 py-3">
-                            <span className={`px-2 h-5 rounded-full text-[10px] font-semibold inline-flex items-center ${
-                              ex.status === 'Open' ? 'bg-risk-50 text-risk-700'
-                              : ex.status === 'Triaging' ? 'bg-mitigated-50 text-mitigated-700'
-                              : 'bg-compliant-50 text-compliant-700'
-                            }`}>{ex.status}</span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+              <ExceptionManagementTab eng={eng} onOpenException={setSelectedException} />
             )}
             {/* ═══ ACTION TRAIL (all types) ═══ */}
             {activeTab === 'trail' && (
@@ -662,7 +616,212 @@ export default function EngagementDetailView({ engagementId, onBack, onOpenExecu
           </motion.div>
         </AnimatePresence>
       </div>
+
+      {/* Per-exception case+ATR drawer */}
+      <AnimatePresence>
+        {selectedException && (
+          <EngagementExceptionDrawer
+            exception={selectedException}
+            onClose={() => setSelectedException(null)}
+            onOpenWorkflowRun={(wfId) => {
+              addToast({ message: `Open workflow run for ${wfId} — coming soon`, type: 'info' });
+            }}
+          />
+        )}
+      </AnimatePresence>
     </div>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Exception Management Tab — workflow-grouped sections + flat-list toggle
+// ═════════════════════════════════════════════════════════════════════════════
+
+const STATUS_PILL_CLS: Record<EngagementException['status'], string> = {
+  Open: 'bg-risk-50 text-risk-700',
+  Triaging: 'bg-mitigated-50 text-mitigated-700',
+  Resolved: 'bg-compliant-50 text-compliant-700',
+};
+
+const SEV_BADGE_CLS: Record<Severity, string> = {
+  Critical: 'bg-risk-50 text-risk-700 border-risk-100',
+  High: 'bg-high-50 text-high-700 border-high-100',
+  Medium: 'bg-mitigated-50 text-mitigated-700 border-mitigated-100',
+  Low: 'bg-compliant-50 text-compliant-700 border-compliant-100',
+};
+
+type ExceptionViewMode = 'workflow' | 'all';
+
+function ExceptionManagementTab({ eng, onOpenException }: { eng: Engagement; onOpenException: (ex: EngagementException) => void }) {
+  const allExceptions = useMemo(() => exceptionsForEngagement(eng.id), [eng.id]);
+  const groups = useMemo(() => groupByWorkflow(allExceptions), [allExceptions]);
+
+  const [viewMode, setViewMode] = useState<ExceptionViewMode>('workflow');
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+
+  const totals = useMemo(() => {
+    const t = { open: 0, triaging: 0, resolved: 0 };
+    allExceptions.forEach(e => {
+      if (e.status === 'Open') t.open++;
+      else if (e.status === 'Triaging') t.triaging++;
+      else t.resolved++;
+    });
+    return t;
+  }, [allExceptions]);
+
+  const toggleGroup = (id: string) => {
+    setCollapsedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  if (allExceptions.length === 0) {
+    return (
+      <div className="border border-border-light rounded-xl p-14 text-center bg-white">
+        <AlertTriangle size={28} className="text-text-muted mx-auto mb-3" />
+        <p className="text-[14px] font-semibold text-text mb-1">No exceptions yet</p>
+        <p className="text-[12px] text-text-muted">Exceptions flagged by linked workflows will appear here.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Header with totals + view toggle */}
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-4 text-[11px]">
+          <h3 className="text-[13px] font-semibold text-text">Exceptions <span className="text-text-muted font-normal">({allExceptions.length})</span></h3>
+          <div className="flex items-center gap-3 text-text-muted">
+            <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-risk" />{totals.open} open</span>
+            <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-mitigated-500" />{totals.triaging} triaging</span>
+            <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-compliant" />{totals.resolved} resolved</span>
+          </div>
+        </div>
+        {/* View mode toggle */}
+        <div className="inline-flex items-center rounded-lg border border-border-light bg-white p-0.5 text-[11px]">
+          {(['workflow', 'all'] as ExceptionViewMode[]).map(m => (
+            <button
+              key={m}
+              onClick={() => setViewMode(m)}
+              className={`px-3 py-1.5 rounded-md font-semibold transition-colors cursor-pointer ${
+                viewMode === m
+                  ? 'bg-primary text-white'
+                  : 'text-text-muted hover:text-primary'
+              }`}
+            >
+              {m === 'workflow' ? 'By Workflow' : 'All Exceptions'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* By-workflow grouped view */}
+      {viewMode === 'workflow' && (
+        <div className="space-y-3">
+          {groups.map(group => {
+            const isCollapsed = collapsedGroups.has(group.workflowId);
+            const total = group.exceptions.length;
+            const openCount = group.exceptions.filter(e => e.status !== 'Resolved').length;
+            const lastOpened = group.exceptions[0]?.opened ?? '—';
+            return (
+              <div key={group.workflowId} className="glass-card rounded-xl overflow-hidden">
+                <button
+                  onClick={() => toggleGroup(group.workflowId)}
+                  className="w-full flex items-center gap-4 px-4 py-3 hover:bg-surface-2/40 transition-colors cursor-pointer text-left"
+                >
+                  <div className="p-2 rounded-lg bg-brand-50 shrink-0"><Workflow size={14} className="text-brand-600" /></div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[13px] font-semibold text-text">{group.workflowName}</span>
+                      <span className="text-[11px] text-text-muted">{total} total · {openCount} open</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                      {(['Critical', 'High', 'Medium', 'Low'] as Severity[]).map(sev => (
+                        group.severityCounts[sev] > 0 && (
+                          <span key={sev} className={`inline-flex items-center px-1.5 h-4 rounded text-[10px] font-bold uppercase tracking-wide border ${SEV_BADGE_CLS[sev]}`}>
+                            {group.severityCounts[sev]} {sev}
+                          </span>
+                        )
+                      ))}
+                    </div>
+                  </div>
+                  <div className="text-[11px] text-text-muted shrink-0 hidden md:block">
+                    Last fired {lastOpened}
+                  </div>
+                  <ChevronRight size={14} className={`text-text-muted transition-transform shrink-0 ${isCollapsed ? '' : 'rotate-90'}`} />
+                </button>
+                <AnimatePresence initial={false}>
+                  {!isCollapsed && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.15 }}
+                      className="overflow-hidden border-t border-border-light"
+                    >
+                      <div className="divide-y divide-border-light/60">
+                        {group.exceptions.map(ex => (
+                          <ExceptionRow key={ex.id} ex={ex} onClick={() => onOpenException(ex)} />
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Flat "All Exceptions" view */}
+      {viewMode === 'all' && (
+        <div className="glass-card rounded-xl overflow-hidden divide-y divide-border-light/60">
+          {allExceptions.map(ex => (
+            <ExceptionRow key={ex.id} ex={ex} onClick={() => onOpenException(ex)} showWorkflow />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ExceptionRow({ ex, onClick, showWorkflow }: { ex: EngagementException; onClick: () => void; showWorkflow?: boolean }) {
+  return (
+    <button
+      onClick={onClick}
+      className="w-full flex items-center gap-4 px-4 py-3 hover:bg-surface-2/30 transition-colors cursor-pointer text-left"
+    >
+      <span className={`inline-flex items-center px-1.5 h-5 rounded text-[10px] font-bold uppercase tracking-wide border ${SEV_BADGE_CLS[ex.severity]} shrink-0`}>
+        {ex.severity}
+      </span>
+      <span className="font-mono text-[11.5px] text-text-secondary tabular-nums shrink-0 w-20">{ex.ref}</span>
+      <div className="flex-1 min-w-0">
+        <div className="text-[13px] text-text truncate">{ex.title}</div>
+        <div className="text-[11px] text-text-muted mt-0.5 flex items-center gap-2 flex-wrap">
+          <span>{ex.assignee}</span>
+          <span className="text-border">·</span>
+          <span>{ex.opened}</span>
+          {showWorkflow && (
+            <>
+              <span className="text-border">·</span>
+              <span className="inline-flex items-center gap-1"><Workflow size={10} />{ex.workflowName}</span>
+            </>
+          )}
+          {ex.amount && (
+            <>
+              <span className="text-border">·</span>
+              <span className="font-medium text-text-secondary">{ex.amount}</span>
+            </>
+          )}
+        </div>
+      </div>
+      <span className={`px-2 h-5 rounded-full text-[10px] font-semibold inline-flex items-center shrink-0 ${STATUS_PILL_CLS[ex.status]}`}>
+        {ex.status}
+      </span>
+      <ChevronRight size={14} className="text-text-muted shrink-0" />
+    </button>
   );
 }
 
