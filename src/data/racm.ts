@@ -29,6 +29,14 @@ export interface ControlAttribute {
   id: string;
   description: string;
   testProcedure: string;
+  /** Evidence types the auditor must collect to validate this attribute
+   *  (e.g. "Vendor invoice", "KYC PAN copy"). Drives the Evidence tab. */
+  requiredEvidence: string[];
+  /** Approximate population size for the engagement period — drives the sample
+   *  count + the "Upload population" affordance. */
+  populationSize: number;
+  /** Default sampling target. */
+  defaultSampleSize: number;
 }
 
 export interface RACMRow {
@@ -57,9 +65,12 @@ export const RACM_LIBRARY: RACMRow[] = [
     riskId: 'RSK-VO-01', riskDescription: 'Vendor onboarded without KYC / due diligence — fictitious vendor risk',
     controlId: 'P2P-C-01', controlDescription: 'Vendor master add/change requires dual approval with KYC pack attached',
     attributes: [
-      { id: 'P2P-C-01.1', description: 'KYC documents collected (PAN, GST, bank cancelled cheque)', testProcedure: 'Inspect KYC pack in vendor master record for completeness.' },
-      { id: 'P2P-C-01.2', description: 'Dual approval recorded in ERP audit log',                       testProcedure: 'Sample 25 new vendors; verify two distinct approvers in ERP log.' },
-      { id: 'P2P-C-01.3', description: 'Vendor screened against sanctions list',                        testProcedure: 'Run vendor list against sanctions DB; verify timestamp ≤ 24h before activation.' },
+      { id: 'P2P-C-01.1', description: 'KYC documents collected (PAN, GST, bank cancelled cheque)', testProcedure: 'Inspect KYC pack in vendor master record for completeness.',
+        requiredEvidence: ['KYC PAN copy', 'KYC GST certificate', 'Bank cancelled cheque'], populationSize: 487, defaultSampleSize: 25 },
+      { id: 'P2P-C-01.2', description: 'Dual approval recorded in ERP audit log',                       testProcedure: 'Sample 25 new vendors; verify two distinct approvers in ERP log.',
+        requiredEvidence: ['ERP audit log screenshot', 'Approval workflow trail'], populationSize: 487, defaultSampleSize: 25 },
+      { id: 'P2P-C-01.3', description: 'Vendor screened against sanctions list',                        testProcedure: 'Run vendor list against sanctions DB; verify timestamp ≤ 24h before activation.',
+        requiredEvidence: ['Sanctions screening result', 'Screening timestamp evidence'], populationSize: 487, defaultSampleSize: 25 },
     ],
     assertion: 'Existence', frequency: 'Event-driven', controlType: 'Preventive', automation: 'IT-dependent', isKey: true,
   },
@@ -68,8 +79,10 @@ export const RACM_LIBRARY: RACMRow[] = [
     riskId: 'RSK-VO-02', riskDescription: 'Vendor master changes made without authorization',
     controlId: 'P2P-C-02', controlDescription: 'Vendor master change log reviewed monthly; unauthorized changes investigated',
     attributes: [
-      { id: 'P2P-C-02.1', description: 'Monthly change-log report generated from ERP',     testProcedure: 'Inspect report timestamps for past 12 months — confirm monthly cadence.' },
-      { id: 'P2P-C-02.2', description: 'Review evidence (sign-off) by AP Lead',             testProcedure: 'Sample 3 months; verify reviewer sign-off captured.' },
+      { id: 'P2P-C-02.1', description: 'Monthly change-log report generated from ERP',     testProcedure: 'Inspect report timestamps for past 12 months — confirm monthly cadence.',
+        requiredEvidence: ['Monthly change-log report PDF'], populationSize: 12, defaultSampleSize: 3 },
+      { id: 'P2P-C-02.2', description: 'Review evidence (sign-off) by AP Lead',             testProcedure: 'Sample 3 months; verify reviewer sign-off captured.',
+        requiredEvidence: ['Reviewer sign-off email', 'Reviewed change-log copy'], populationSize: 12, defaultSampleSize: 3 },
     ],
     assertion: 'Accuracy', frequency: 'Monthly', controlType: 'Detective', automation: 'Manual', isKey: false,
   },
@@ -80,9 +93,12 @@ export const RACM_LIBRARY: RACMRow[] = [
     riskId: 'RSK-PO-01', riskDescription: 'Unauthorized purchases above approval threshold',
     controlId: 'P2P-C-03', controlDescription: 'PO approval threshold enforced by amount tier (DOA matrix)',
     attributes: [
-      { id: 'P2P-C-03.1', description: 'DOA matrix configured in ERP per latest policy version',   testProcedure: 'Inspect ERP configuration vs current DOA policy — match approvers to amount tiers.' },
-      { id: 'P2P-C-03.2', description: 'Threshold-override events require justification + 2-up approval', testProcedure: 'Sample all overrides; verify justification text + escalation approver.' },
-      { id: 'P2P-C-03.3', description: 'POs > ₹10L require CFO approval',                          testProcedure: 'Sample 15 POs > ₹10L; verify CFO approval in workflow.' },
+      { id: 'P2P-C-03.1', description: 'DOA matrix configured in ERP per latest policy version',   testProcedure: 'Inspect ERP configuration vs current DOA policy — match approvers to amount tiers.',
+        requiredEvidence: ['DOA policy document', 'ERP config screenshot'], populationSize: 1, defaultSampleSize: 1 },
+      { id: 'P2P-C-03.2', description: 'Threshold-override events require justification + 2-up approval', testProcedure: 'Sample all overrides; verify justification text + escalation approver.',
+        requiredEvidence: ['Override justification document', 'Escalation approval email'], populationSize: 34, defaultSampleSize: 30 },
+      { id: 'P2P-C-03.3', description: 'POs > ₹10L require CFO approval',                          testProcedure: 'Sample 15 POs > ₹10L; verify CFO approval in workflow.',
+        requiredEvidence: ['PO document', 'CFO approval email/workflow trail'], populationSize: 62, defaultSampleSize: 15 },
     ],
     assertion: 'Existence', frequency: 'Daily', controlType: 'Preventive', automation: 'Automated', isKey: true,
   },
@@ -91,8 +107,10 @@ export const RACM_LIBRARY: RACMRow[] = [
     riskId: 'RSK-PO-02', riskDescription: 'PO created and approved by the same user (SoD violation)',
     controlId: 'P2P-C-04', controlDescription: 'Segregation of duties — PO creator cannot approve own PO',
     attributes: [
-      { id: 'P2P-C-04.1', description: 'ERP role configuration prevents create + approve by same user', testProcedure: 'Inspect role-permission matrix; attempt to approve self-created PO — must fail.' },
-      { id: 'P2P-C-04.2', description: 'Quarterly SoD review by IT Audit',                              testProcedure: 'Inspect Q1-Q4 review reports + sign-off.' },
+      { id: 'P2P-C-04.1', description: 'ERP role configuration prevents create + approve by same user', testProcedure: 'Inspect role-permission matrix; attempt to approve self-created PO — must fail.',
+        requiredEvidence: ['Role-permission matrix export', 'Failed override attempt screenshot'], populationSize: 1, defaultSampleSize: 1 },
+      { id: 'P2P-C-04.2', description: 'Quarterly SoD review by IT Audit',                              testProcedure: 'Inspect Q1-Q4 review reports + sign-off.',
+        requiredEvidence: ['Quarterly SoD review report', 'IT Audit sign-off'], populationSize: 4, defaultSampleSize: 4 },
     ],
     assertion: 'Rights & Obligations', frequency: 'Quarterly', controlType: 'Preventive', automation: 'IT-dependent', isKey: true,
   },
@@ -103,8 +121,10 @@ export const RACM_LIBRARY: RACMRow[] = [
     riskId: 'RSK-GR-01', riskDescription: 'GRN raised without physical receipt verification',
     controlId: 'P2P-C-05', controlDescription: 'GRN requires warehouse + receiver signatures with timestamp',
     attributes: [
-      { id: 'P2P-C-05.1', description: 'GRN form captures both signatures',          testProcedure: 'Sample 25 GRNs; inspect for two signatures + receipt timestamp.' },
-      { id: 'P2P-C-05.2', description: 'Quantity received matches PO within tolerance', testProcedure: 'Compare GRN qty to PO qty; verify within ±2% tolerance.' },
+      { id: 'P2P-C-05.1', description: 'GRN form captures both signatures',          testProcedure: 'Sample 25 GRNs; inspect for two signatures + receipt timestamp.',
+        requiredEvidence: ['Signed GRN form', 'Receipt timestamp photo'], populationSize: 1240, defaultSampleSize: 25 },
+      { id: 'P2P-C-05.2', description: 'Quantity received matches PO within tolerance', testProcedure: 'Compare GRN qty to PO qty; verify within ±2% tolerance.',
+        requiredEvidence: ['GRN-PO quantity comparison sheet', 'Tolerance calculation'], populationSize: 1240, defaultSampleSize: 25 },
     ],
     assertion: 'Existence', frequency: 'Daily', controlType: 'Preventive', automation: 'Manual', isKey: false,
   },
@@ -115,9 +135,12 @@ export const RACM_LIBRARY: RACMRow[] = [
     riskId: 'RSK-IP-01', riskDescription: 'Invoice posted without matching PO and GRN — three-way match bypass',
     controlId: 'P2P-C-06', controlDescription: 'Three-way match enforced (PO · GRN · Invoice) before AP posting',
     attributes: [
-      { id: 'P2P-C-06.1', description: 'Invoice qty ≤ GRN qty AND GRN qty ≤ PO qty',                  testProcedure: 'Sample 50 invoices; recompute the three-way match — must pass for all.' },
-      { id: 'P2P-C-06.2', description: 'Unit price on invoice matches PO unit price (within tolerance)', testProcedure: 'Sample 50 invoices; verify unit-price tolerance ≤ 2%.' },
-      { id: 'P2P-C-06.3', description: 'Tolerance break requires AP Manager approval',                testProcedure: 'Inspect all tolerance-breaks for the period; verify AP Manager approval.' },
+      { id: 'P2P-C-06.1', description: 'Invoice qty ≤ GRN qty AND GRN qty ≤ PO qty',                  testProcedure: 'Sample 50 invoices; recompute the three-way match — must pass for all.',
+        requiredEvidence: ['Vendor invoice', 'GRN copy', 'PO copy', '3-way match calculation'], populationSize: 8412, defaultSampleSize: 50 },
+      { id: 'P2P-C-06.2', description: 'Unit price on invoice matches PO unit price (within tolerance)', testProcedure: 'Sample 50 invoices; verify unit-price tolerance ≤ 2%.',
+        requiredEvidence: ['Vendor invoice', 'PO copy', 'Price comparison sheet'], populationSize: 8412, defaultSampleSize: 50 },
+      { id: 'P2P-C-06.3', description: 'Tolerance break requires AP Manager approval',                testProcedure: 'Inspect all tolerance-breaks for the period; verify AP Manager approval.',
+        requiredEvidence: ['Tolerance break log entry', 'AP Manager approval email'], populationSize: 78, defaultSampleSize: 78 },
     ],
     assertion: 'Completeness', frequency: 'Daily', controlType: 'Preventive', automation: 'Automated', isKey: true,
   },
@@ -126,8 +149,10 @@ export const RACM_LIBRARY: RACMRow[] = [
     riskId: 'RSK-IP-02', riskDescription: 'Duplicate invoice posted from same vendor',
     controlId: 'P2P-C-07', controlDescription: 'Duplicate-invoice detection on PAN + invoice-number + amount + date',
     attributes: [
-      { id: 'P2P-C-07.1', description: 'ERP duplicate-check rule active (PAN + invoice number)', testProcedure: 'Inspect ERP rule config; attempt duplicate posting — must block.' },
-      { id: 'P2P-C-07.2', description: 'Fuzzy match catches near-duplicates (amount ± 1%)',     testProcedure: 'Inspect detection threshold + last 90 days of detections.' },
+      { id: 'P2P-C-07.1', description: 'ERP duplicate-check rule active (PAN + invoice number)', testProcedure: 'Inspect ERP rule config; attempt duplicate posting — must block.',
+        requiredEvidence: ['ERP rule configuration screenshot', 'Test posting result'], populationSize: 1, defaultSampleSize: 1 },
+      { id: 'P2P-C-07.2', description: 'Fuzzy match catches near-duplicates (amount ± 1%)',     testProcedure: 'Inspect detection threshold + last 90 days of detections.',
+        requiredEvidence: ['Detection threshold config', '90-day detection log'], populationSize: 1, defaultSampleSize: 1 },
     ],
     assertion: 'Existence', frequency: 'Daily', controlType: 'Preventive', automation: 'Automated', isKey: true,
   },
@@ -136,8 +161,10 @@ export const RACM_LIBRARY: RACMRow[] = [
     riskId: 'RSK-IP-03', riskDescription: 'Invoice amount tampered after approval',
     controlId: 'P2P-C-08', controlDescription: 'Post-approval edits to invoice fields trigger re-approval workflow',
     attributes: [
-      { id: 'P2P-C-08.1', description: 'ERP locks amount/vendor/date fields after approval', testProcedure: 'Attempt edit of approved invoice; system must require re-approval.' },
-      { id: 'P2P-C-08.2', description: 'Audit log captures all post-approval edits',         testProcedure: 'Inspect audit log for 60 days; spot-check 10 entries.' },
+      { id: 'P2P-C-08.1', description: 'ERP locks amount/vendor/date fields after approval', testProcedure: 'Attempt edit of approved invoice; system must require re-approval.',
+        requiredEvidence: ['ERP field-lock configuration', 'Attempted edit log'], populationSize: 1, defaultSampleSize: 1 },
+      { id: 'P2P-C-08.2', description: 'Audit log captures all post-approval edits',         testProcedure: 'Inspect audit log for 60 days; spot-check 10 entries.',
+        requiredEvidence: ['Audit log export', 'Sample edit entry detail'], populationSize: 60, defaultSampleSize: 10 },
     ],
     assertion: 'Accuracy', frequency: 'Daily', controlType: 'Detective', automation: 'IT-dependent', isKey: false,
   },
@@ -148,9 +175,12 @@ export const RACM_LIBRARY: RACMRow[] = [
     riskId: 'RSK-PR-01', riskDescription: 'Payment released without dual sign-off above threshold',
     controlId: 'P2P-C-09', controlDescription: 'Payments > ₹10L require dual sign-off (Treasury + CFO)',
     attributes: [
-      { id: 'P2P-C-09.1', description: 'Treasury sign-off recorded in payment-run log',  testProcedure: 'Sample all > ₹10L payments; verify Treasury sign-off in log.' },
-      { id: 'P2P-C-09.2', description: 'CFO sign-off recorded in payment-run log',       testProcedure: 'Same sample — verify CFO sign-off.' },
-      { id: 'P2P-C-09.3', description: 'Payment-run report reviewed weekly by Controller', testProcedure: 'Inspect weekly review evidence for the engagement period.' },
+      { id: 'P2P-C-09.1', description: 'Treasury sign-off recorded in payment-run log',  testProcedure: 'Sample all > ₹10L payments; verify Treasury sign-off in log.',
+        requiredEvidence: ['Payment run log', 'Treasury sign-off email/system entry'], populationSize: 47, defaultSampleSize: 47 },
+      { id: 'P2P-C-09.2', description: 'CFO sign-off recorded in payment-run log',       testProcedure: 'Same sample — verify CFO sign-off.',
+        requiredEvidence: ['Payment run log', 'CFO sign-off email/system entry'], populationSize: 47, defaultSampleSize: 47 },
+      { id: 'P2P-C-09.3', description: 'Payment-run report reviewed weekly by Controller', testProcedure: 'Inspect weekly review evidence for the engagement period.',
+        requiredEvidence: ['Weekly payment-run review report', 'Controller sign-off'], populationSize: 52, defaultSampleSize: 12 },
     ],
     assertion: 'Existence', frequency: 'Daily', controlType: 'Preventive', automation: 'Manual', isKey: true,
   },
@@ -159,8 +189,10 @@ export const RACM_LIBRARY: RACMRow[] = [
     riskId: 'RSK-PR-02', riskDescription: 'Payment made to unauthorized bank account',
     controlId: 'P2P-C-10', controlDescription: 'Vendor bank account on file matches payment instruction; changes require dual approval',
     attributes: [
-      { id: 'P2P-C-10.1', description: 'Bank-account match validation in payment run',         testProcedure: 'Sample 30 payments; verify bank account on payment matches vendor master.' },
-      { id: 'P2P-C-10.2', description: 'Bank-account change events require dual approval log', testProcedure: 'Inspect all bank-account change events; verify dual approval.' },
+      { id: 'P2P-C-10.1', description: 'Bank-account match validation in payment run',         testProcedure: 'Sample 30 payments; verify bank account on payment matches vendor master.',
+        requiredEvidence: ['Payment-run entry with bank acct', 'Vendor master bank acct extract'], populationSize: 4280, defaultSampleSize: 30 },
+      { id: 'P2P-C-10.2', description: 'Bank-account change events require dual approval log', testProcedure: 'Inspect all bank-account change events; verify dual approval.',
+        requiredEvidence: ['Bank account change log entry', 'Dual approval evidence'], populationSize: 28, defaultSampleSize: 28 },
     ],
     assertion: 'Rights & Obligations', frequency: 'Daily', controlType: 'Preventive', automation: 'IT-dependent', isKey: true,
   },

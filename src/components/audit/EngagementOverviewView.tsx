@@ -35,6 +35,7 @@ import {
 import EngagementExceptionDrawer from './EngagementExceptionDrawer';
 import RACMTab from './RACMTab';
 import ControlsTab from './ControlsTab';
+import EvidenceTab from './EvidenceTab';
 import WorkingPaperTab from './WorkingPaperTab';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -395,32 +396,7 @@ export default function EngagementDetailView({ engagementId, onBack, onOpenExecu
 
             {/* ═══ EVIDENCE (Compliance / IA) ═══ */}
             {activeTab === 'evidence' && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-[13px] font-semibold text-text">Evidence & working papers <span className="text-text-muted font-normal">({MOCK_EVIDENCE.length})</span></h3>
-                  <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-white text-[12px] font-semibold transition-colors cursor-pointer">
-                    <Upload size={12} />Upload
-                  </button>
-                </div>
-                <div className="space-y-2.5">
-                  {MOCK_EVIDENCE.map((doc, i) => (
-                    <motion.div
-                      key={doc.id}
-                      initial={{ opacity: 0, y: 4 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.03 }}
-                      className="glass-card rounded-xl p-4 flex items-center gap-4 hover:border-primary/20 transition-colors cursor-pointer"
-                    >
-                      <div className="p-2 rounded-lg bg-brand-50 shrink-0"><FileText size={15} className="text-brand-600" /></div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-[13px] font-semibold text-text truncate">{doc.name}</div>
-                        <div className="text-[11px] text-text-muted mt-0.5">{doc.kind} · {doc.size} · Uploaded by {doc.uploader} · {doc.uploaded}</div>
-                      </div>
-                      <button className="text-[11px] font-semibold text-primary hover:underline cursor-pointer">Open</button>
-                    </motion.div>
-                  ))}
-                </div>
-              </div>
+              <EvidenceTab engagement={eng} />
             )}
 
             {/* ═══ EXCEPTION MANAGEMENT (Automation) — slim summary; full workspace lives at /case-management ═══ */}

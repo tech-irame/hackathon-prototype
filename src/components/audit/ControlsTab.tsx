@@ -1,12 +1,7 @@
 /**
- * Controls tab — Compliance / Internal Audit engagement detail page.
- *
- * Renders one row per unique control for this engagement's process, with:
- *  • KPI strip (7 tiles)
- *  • Filter bar (status pills, key toggle, sub-process chips, frequency, search)
- *  • Expandable control rows with per-attribute Workflows / Evidence / Sample cards
- *
- * All side-effects are local state + toasts — no external store, no new deps.
+ * Controls tab — one row per unique control for this engagement's process.
+ * KPI strip + filter row + expandable control rows with per-attribute
+ * Workflows / Evidence / Sample cards. All side-effects are local + toasts.
  */
 
 import { useMemo, useState, useRef, type JSX } from 'react';
@@ -14,24 +9,17 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   Shield, ChevronRight, Sparkles, Search, Upload, X, Plus,
   FileText, Image as ImageIcon, FileSpreadsheet, Check, AlertCircle,
-  Link2, Workflow as WorkflowIcon, ClipboardList, MinusCircle,
+  Link2, Workflow as WorkflowIcon, ClipboardList,
   CheckCircle2, Circle,
 } from 'lucide-react';
 import { useToast } from '../shared/Toast';
 import type { Engagement } from '../../data/engagements';
-import {
-  RACM_LIBRARY,
-  racmRowsForProcess,
-  type RACMRow,
-  type ControlAttribute,
-} from '../../data/racm';
+import { RACM_LIBRARY, racmRowsForProcess, type RACMRow, type ControlAttribute } from '../../data/racm';
 import { OWNER_NAMES, PEOPLE } from '../../data/grc-domain';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface Props {
-  engagement: Engagement;
-}
+interface Props { engagement: Engagement }
 
 type ControlStatus = 'Effective' | 'In Test' | 'Failed' | 'Pending';
 type StatusFilter = 'All' | ControlStatus;
@@ -42,38 +30,11 @@ type SampleMethod = 'Random' | 'Statistical' | 'Business-rule' | 'Manual upload'
 type SampleResult = 'Pass' | 'Fail' | 'Pending';
 type WorkingPaperStatus = 'Draft' | 'Reviewed' | 'Signed-off';
 
-interface LinkedWorkflow {
-  id: string;
-  name: string;
-  status: WorkflowStatus;
-}
-
-interface EvidenceFile {
-  id: string;
-  name: string;
-  kind: EvidenceKind;
-  size: string;
-  uploader: string;
-}
-
-interface Sample {
-  id: string;
-  ref: string;
-  result: SampleResult;
-  remark: string;
-}
-
-interface AiSuggestion {
-  id: string;
-  name: string;
-  confidence: number;
-}
-
-interface ManualWorkflowOption {
-  id: string;
-  name: string;
-  status: WorkflowStatus;
-}
+interface LinkedWorkflow { id: string; name: string; status: WorkflowStatus }
+interface EvidenceFile { id: string; name: string; kind: EvidenceKind; size: string; uploader: string }
+interface Sample { id: string; ref: string; result: SampleResult; remark: string }
+interface AiSuggestion { id: string; name: string; confidence: number }
+interface ManualWorkflowOption { id: string; name: string; status: WorkflowStatus }
 
 // ─── Static lookups ───────────────────────────────────────────────────────────
 
@@ -88,41 +49,22 @@ const CONTROL_STATUS_CLS: Record<ControlStatus, string> = {
   Failed:    'bg-risk-50 text-risk-700 border-risk-50',
   Pending:   'bg-draft-50 text-draft-700 border-canvas-border',
 };
-
 const CONTROL_STATUS_DOT: Record<ControlStatus, string> = {
-  Effective: 'bg-compliant',
-  'In Test': 'bg-evidence-600',
-  Failed:    'bg-risk',
-  Pending:   'bg-draft',
+  Effective: 'bg-compliant', 'In Test': 'bg-evidence-600', Failed: 'bg-risk', Pending: 'bg-draft',
 };
-
 const WORKFLOW_STATUS_DOT: Record<WorkflowStatus, string> = {
-  Active: 'bg-compliant',
-  Draft:  'bg-draft',
-  Paused: 'bg-mitigated-500',
+  Active: 'bg-compliant', Draft: 'bg-draft', Paused: 'bg-mitigated-500',
 };
-
 const WORKING_PAPER_CLS: Record<WorkingPaperStatus, string> = {
   Draft:        'bg-draft-50 text-draft-700 border-canvas-border',
   Reviewed:     'bg-evidence-50 text-evidence-700 border-evidence-100',
   'Signed-off': 'bg-compliant-50 text-compliant-700 border-compliant-50',
 };
-
 const SAMPLE_RESULT_CLS: Record<SampleResult, { active: string; idle: string }> = {
-  Pass: {
-    active: 'bg-compliant-50 text-compliant-700 border-compliant-50 ring-2 ring-compliant/15',
-    idle:   'border-canvas-border text-ink-500 hover:bg-compliant-50/40 hover:text-compliant-700',
-  },
-  Fail: {
-    active: 'bg-risk-50 text-risk-700 border-risk-50 ring-2 ring-risk/15',
-    idle:   'border-canvas-border text-ink-500 hover:bg-risk-50/40 hover:text-risk-700',
-  },
-  Pending: {
-    active: 'bg-draft-50 text-draft-700 border-canvas-border ring-2 ring-draft/15',
-    idle:   'border-canvas-border text-ink-500 hover:bg-draft-50/40',
-  },
+  Pass:    { active: 'bg-compliant-50 text-compliant-700 border-compliant-50 ring-2 ring-compliant/15', idle: 'border-canvas-border text-ink-500 hover:bg-compliant-50/40 hover:text-compliant-700' },
+  Fail:    { active: 'bg-risk-50 text-risk-700 border-risk-50 ring-2 ring-risk/15',                     idle: 'border-canvas-border text-ink-500 hover:bg-risk-50/40 hover:text-risk-700' },
+  Pending: { active: 'bg-draft-50 text-draft-700 border-canvas-border ring-2 ring-draft/15',            idle: 'border-canvas-border text-ink-500 hover:bg-draft-50/40' },
 };
-
 const EVIDENCE_ICON: Record<EvidenceKind, { Icon: typeof FileText; cls: string }> = {
   PDF:  { Icon: FileText,        cls: 'text-risk-700 bg-risk-50' },
   IMG:  { Icon: ImageIcon,       cls: 'text-evidence-700 bg-evidence-50' },
@@ -175,16 +117,15 @@ const AI_SUGGESTIONS: AiSuggestion[] = [
   { id: 'ai-wf-2', name: 'Duplicate Invoice Detector',           confidence: 78 },
   { id: 'ai-wf-3', name: 'PO Approval Threshold Scan',           confidence: 64 },
 ];
-
 const MANUAL_WORKFLOW_LIBRARY: ManualWorkflowOption[] = [
-  { id: 'wf-l-1', name: 'Vendor Master Change Monitor',         status: 'Active' },
-  { id: 'wf-l-2', name: 'Sanctions List Screening',              status: 'Active' },
-  { id: 'wf-l-3', name: 'GRN Quantity Tolerance Check',          status: 'Active' },
-  { id: 'wf-l-4', name: 'Bank Account Change Verification',      status: 'Paused' },
-  { id: 'wf-l-5', name: 'SoD Conflict Scan — P2P Roles',         status: 'Active' },
-  { id: 'wf-l-6', name: 'Payment Run Dual Sign-off Audit',       status: 'Active' },
-  { id: 'wf-l-7', name: 'Vendor Bank Account Mismatch Alert',    status: 'Draft' },
-  { id: 'wf-l-8', name: 'Tolerance Break Approver Validation',   status: 'Active' },
+  { id: 'wf-l-1', name: 'Vendor Master Change Monitor',       status: 'Active' },
+  { id: 'wf-l-2', name: 'Sanctions List Screening',           status: 'Active' },
+  { id: 'wf-l-3', name: 'GRN Quantity Tolerance Check',       status: 'Active' },
+  { id: 'wf-l-4', name: 'Bank Account Change Verification',   status: 'Paused' },
+  { id: 'wf-l-5', name: 'SoD Conflict Scan — P2P Roles',      status: 'Active' },
+  { id: 'wf-l-6', name: 'Payment Run Dual Sign-off Audit',    status: 'Active' },
+  { id: 'wf-l-7', name: 'Vendor Bank Account Mismatch Alert', status: 'Draft' },
+  { id: 'wf-l-8', name: 'Tolerance Break Approver Validation',status: 'Active' },
 ];
 
 function ownerForControl(controlId: string): string {
@@ -329,14 +270,11 @@ export default function ControlsTab({ engagement }: Props): JSX.Element {
   }, [controls, engagement.health, engagement.openIssues, evidence, samples]);
 
   // ── Mutators
-  const toggleExpand = (controlId: string) => {
-    setExpandedControlIds(prev => {
-      const next = new Set(prev);
-      if (next.has(controlId)) next.delete(controlId);
-      else next.add(controlId);
-      return next;
-    });
-  };
+  const toggleExpand = (controlId: string) => setExpandedControlIds(prev => {
+    const next = new Set(prev);
+    if (next.has(controlId)) next.delete(controlId); else next.add(controlId);
+    return next;
+  });
 
   const acceptSuggestion = (attributeId: string, suggestion: AiSuggestion) => {
     setLinkedWorkflows(prev => {
@@ -347,9 +285,8 @@ export default function ControlsTab({ engagement }: Props): JSX.Element {
     addToast({ type: 'success', message: `Linked "${suggestion.name}"` });
   };
 
-  const declineSuggestion = (suggestion: AiSuggestion) => {
+  const declineSuggestion = (suggestion: AiSuggestion) =>
     addToast({ type: 'info', message: `Declined "${suggestion.name}"` });
-  };
 
   const linkManualWorkflow = (attributeId: string, opt: ManualWorkflowOption) => {
     setLinkedWorkflows(prev => {
@@ -361,10 +298,7 @@ export default function ControlsTab({ engagement }: Props): JSX.Element {
   };
 
   const unlinkWorkflow = (attributeId: string, workflowId: string) => {
-    setLinkedWorkflows(prev => ({
-      ...prev,
-      [attributeId]: (prev[attributeId] ?? []).filter(w => w.id !== workflowId),
-    }));
+    setLinkedWorkflows(prev => ({ ...prev, [attributeId]: (prev[attributeId] ?? []).filter(w => w.id !== workflowId) }));
     addToast({ type: 'info', message: 'Workflow unlinked' });
   };
 
@@ -372,20 +306,14 @@ export default function ControlsTab({ engagement }: Props): JSX.Element {
     const uploader = PEOPLE[hash(attributeId) % PEOPLE.length]?.name ?? OWNER_NAMES[0];
     const entry: EvidenceFile = {
       id: `ev-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      name: file.name,
-      kind: kindForFile(file.name),
-      size: formatBytes(file.size),
-      uploader,
+      name: file.name, kind: kindForFile(file.name), size: formatBytes(file.size), uploader,
     };
     setEvidence(prev => ({ ...prev, [attributeId]: [...(prev[attributeId] ?? []), entry] }));
     addToast({ type: 'success', message: `Uploaded "${file.name}"` });
   };
 
   const removeEvidence = (attributeId: string, fileId: string) => {
-    setEvidence(prev => ({
-      ...prev,
-      [attributeId]: (prev[attributeId] ?? []).filter(e => e.id !== fileId),
-    }));
+    setEvidence(prev => ({ ...prev, [attributeId]: (prev[attributeId] ?? []).filter(e => e.id !== fileId) }));
     addToast({ type: 'info', message: 'Evidence removed' });
   };
 
@@ -394,51 +322,34 @@ export default function ControlsTab({ engagement }: Props): JSX.Element {
     const batch: Sample[] = Array.from({ length: 25 }).map((_, i) => ({
       id: `s-${attributeId}-${seedIndex}-${i}`,
       ref: `${attributeId.split('-').slice(-1)[0] ?? 'S'}-${String(seedIndex * 25 - 24 + i).padStart(3, '0')}`,
-      result: 'Pending',
-      remark: '',
+      result: 'Pending', remark: '',
     }));
     setSamples(prev => ({ ...prev, [attributeId]: [...(prev[attributeId] ?? []), ...batch] }));
     addToast({ type: 'success', message: `Generated 25 ${method.toLowerCase()} samples` });
   };
 
-  const setSampleResult = (attributeId: string, sampleId: string, result: SampleResult) => {
-    setSamples(prev => ({
-      ...prev,
-      [attributeId]: (prev[attributeId] ?? []).map(s => (s.id === sampleId ? { ...s, result } : s)),
-    }));
-  };
+  const setSampleResult = (attributeId: string, sampleId: string, result: SampleResult) =>
+    setSamples(prev => ({ ...prev, [attributeId]: (prev[attributeId] ?? []).map(s => (s.id === sampleId ? { ...s, result } : s)) }));
 
-  const setSampleRemark = (attributeId: string, sampleId: string, remark: string) => {
-    setSamples(prev => ({
-      ...prev,
-      [attributeId]: (prev[attributeId] ?? []).map(s => (s.id === sampleId ? { ...s, remark } : s)),
-    }));
-  };
+  const setSampleRemark = (attributeId: string, sampleId: string, remark: string) =>
+    setSamples(prev => ({ ...prev, [attributeId]: (prev[attributeId] ?? []).map(s => (s.id === sampleId ? { ...s, remark } : s)) }));
 
-  const removeSample = (attributeId: string, sampleId: string) => {
-    setSamples(prev => ({
-      ...prev,
-      [attributeId]: (prev[attributeId] ?? []).filter(s => s.id !== sampleId),
-    }));
-  };
+  const removeSample = (attributeId: string, sampleId: string) =>
+    setSamples(prev => ({ ...prev, [attributeId]: (prev[attributeId] ?? []).filter(s => s.id !== sampleId) }));
 
   const addManualSampleFile = (attributeId: string, file: File) => {
     const entry: Sample = {
       id: `s-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       ref: file.name.replace(/\.[^.]+$/, '').slice(0, 24),
-      result: 'Pending',
-      remark: '',
+      result: 'Pending', remark: '',
     };
     setSamples(prev => ({ ...prev, [attributeId]: [...(prev[attributeId] ?? []), entry] }));
     addToast({ type: 'success', message: `Uploaded sample file "${file.name}"` });
   };
 
-  const getSampleMethod = (attributeId: string): SampleMethod =>
-    sampleMethods[attributeId] ?? 'Random';
-
-  const setSampleMethod = (attributeId: string, method: SampleMethod) => {
+  const getSampleMethod = (attributeId: string): SampleMethod => sampleMethods[attributeId] ?? 'Random';
+  const setSampleMethod = (attributeId: string, method: SampleMethod) =>
     setSampleMethods(prev => ({ ...prev, [attributeId]: method }));
-  };
 
   // ─── Empty state ───────────────────────────────────────────────────────────
   if (controls.length === 0) {
@@ -457,15 +368,13 @@ export default function ControlsTab({ engagement }: Props): JSX.Element {
 
   return (
     <div className="space-y-5">
-      {/* ─── KPI strip (7 tiles) ─── */}
-      <div className="grid grid-cols-7 gap-3">
-        <KpiTile label="Total Controls"    value={kpis.total}                tone="text-ink-800" />
-        <KpiTile label="Tested"            value={kpis.tested}               tone="text-ink-800" />
-        <KpiTile label="Effective"         value={kpis.effective}            tone="text-compliant-700" />
-        <KpiTile label="Failed"            value={kpis.failed}               tone="text-risk-700" />
-        <KpiTile label="Pending"           value={kpis.pending}              tone="text-mitigated-700" />
-        <KpiTile label="Evidence Coverage" value={`${kpis.evidenceCoverage}%`} tone="text-ink-800" />
-        <KpiTile label="Sample Coverage"   value={`${kpis.sampleCoverage}%`}   tone="text-ink-800" />
+      {/* ─── KPI strip (5 tiles) — evidence/sample KPIs moved to the Evidence tab ─── */}
+      <div className="grid grid-cols-5 gap-3">
+        <KpiTile label="Total Controls" value={kpis.total}     tone="text-ink-800" />
+        <KpiTile label="Tested"         value={kpis.tested}    tone="text-ink-800" />
+        <KpiTile label="Effective"      value={kpis.effective} tone="text-compliant-700" />
+        <KpiTile label="Failed"         value={kpis.failed}    tone="text-risk-700" />
+        <KpiTile label="Pending"        value={kpis.pending}   tone="text-mitigated-700" />
       </div>
 
       {/* ─── Filter row ─── */}
@@ -477,16 +386,9 @@ export default function ControlsTab({ engagement }: Props): JSX.Element {
               const active = selectedStatus === s;
               return (
                 <button
-                  key={s}
-                  onClick={() => setSelectedStatus(s)}
-                  className={`px-2.5 h-7 rounded-md text-[12px] font-medium transition-colors cursor-pointer ${
-                    active
-                      ? 'bg-brand-50 text-brand-700 border border-brand-100'
-                      : 'border border-canvas-border bg-white text-ink-600 hover:bg-canvas'
-                  }`}
-                >
-                  {s}
-                </button>
+                  key={s} onClick={() => setSelectedStatus(s)}
+                  className={`px-2.5 h-7 rounded-md text-[12px] font-medium transition-colors cursor-pointer ${active ? 'bg-brand-50 text-brand-700 border border-brand-100' : 'border border-canvas-border bg-white text-ink-600 hover:bg-canvas'}`}
+                >{s}</button>
               );
             })}
           </div>
@@ -494,15 +396,10 @@ export default function ControlsTab({ engagement }: Props): JSX.Element {
           {/* Key toggle */}
           <button
             onClick={() => setKeyOnly(v => !v)}
-            className={`flex items-center gap-1.5 px-2.5 h-7 rounded-md text-[12px] font-medium transition-colors cursor-pointer ${
-              keyOnly
-                ? 'bg-brand-50 text-brand-700 border border-brand-100'
-                : 'border border-canvas-border bg-white text-ink-600 hover:bg-canvas'
-            }`}
             aria-pressed={keyOnly}
+            className={`flex items-center gap-1.5 px-2.5 h-7 rounded-md text-[12px] font-medium transition-colors cursor-pointer ${keyOnly ? 'bg-brand-50 text-brand-700 border border-brand-100' : 'border border-canvas-border bg-white text-ink-600 hover:bg-canvas'}`}
           >
-            <KeyDot active={keyOnly} />
-            Key only
+            <KeyDot active={keyOnly} />Key only
           </button>
 
           {/* Sub-process chips */}
@@ -512,16 +409,9 @@ export default function ControlsTab({ engagement }: Props): JSX.Element {
               const active = subProcessFilter === sp;
               return (
                 <button
-                  key={sp}
-                  onClick={() => setSubProcessFilter(sp)}
-                  className={`px-2.5 h-7 rounded-full text-[11.5px] font-medium transition-colors cursor-pointer ${
-                    active
-                      ? 'bg-ink-800 text-white border border-ink-800'
-                      : 'border border-canvas-border bg-white text-ink-600 hover:bg-canvas'
-                  }`}
-                >
-                  {sp}
-                </button>
+                  key={sp} onClick={() => setSubProcessFilter(sp)}
+                  className={`px-2.5 h-7 rounded-full text-[11.5px] font-medium transition-colors cursor-pointer ${active ? 'bg-ink-800 text-white border border-ink-800' : 'border border-canvas-border bg-white text-ink-600 hover:bg-canvas'}`}
+                >{sp}</button>
               );
             })}
           </div>
@@ -530,8 +420,7 @@ export default function ControlsTab({ engagement }: Props): JSX.Element {
           <div className="flex items-center gap-1.5 ml-auto">
             <span className="text-[10.5px] uppercase tracking-wider font-semibold text-ink-500">Frequency</span>
             <select
-              value={frequencyFilter}
-              onChange={e => setFrequencyFilter(e.target.value as FrequencyFilter)}
+              value={frequencyFilter} onChange={e => setFrequencyFilter(e.target.value as FrequencyFilter)}
               className="px-2.5 h-7 border border-canvas-border rounded-md text-[12px] text-ink-700 bg-white outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-500/15 cursor-pointer"
             >
               {FREQ_OPTIONS.map(f => <option key={f} value={f}>{f}</option>)}
@@ -542,9 +431,7 @@ export default function ControlsTab({ engagement }: Props): JSX.Element {
           <div className="relative w-[300px] max-w-full">
             <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-400 pointer-events-none" />
             <input
-              type="text"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
+              type="text" value={search} onChange={e => setSearch(e.target.value)}
               placeholder="Search control ID, name, or attribute…"
               className="w-full pl-7 pr-2.5 h-7 border border-canvas-border rounded-md text-[12px] text-ink-800 bg-white outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-500/15 placeholder:text-ink-400"
             />
@@ -570,31 +457,18 @@ export default function ControlsTab({ engagement }: Props): JSX.Element {
               className="glass-card rounded-xl overflow-hidden"
             >
               <button
-                onClick={() => toggleExpand(c.controlId)}
+                onClick={() => toggleExpand(c.controlId)} aria-expanded={expanded}
                 className="w-full px-4 py-3.5 flex items-center gap-3 hover:bg-canvas/50 transition-colors cursor-pointer text-left"
-                aria-expanded={expanded}
               >
-                <ChevronRight
-                  size={15}
-                  className={`text-ink-400 shrink-0 transition-transform duration-200 ${expanded ? 'rotate-90' : ''}`}
-                />
+                <ChevronRight size={15} className={`text-ink-400 shrink-0 transition-transform duration-200 ${expanded ? 'rotate-90' : ''}`} />
                 <span className="font-mono text-[12px] font-semibold text-brand-700 shrink-0">{c.controlId}</span>
                 <span className="text-[13px] font-medium text-ink-800 truncate flex-1 min-w-0">{c.description}</span>
-                {c.isKey && (
-                  <span className="px-1.5 h-5 rounded text-[10px] font-bold uppercase tracking-wide bg-brand-50 text-brand-700 border border-brand-100 inline-flex items-center shrink-0">
-                    Key
-                  </span>
-                )}
+                {c.isKey && <span className="px-1.5 h-5 rounded text-[10px] font-bold uppercase tracking-wide bg-brand-50 text-brand-700 border border-brand-100 inline-flex items-center shrink-0">Key</span>}
                 <span className={`px-2 h-6 rounded-full text-[11px] font-semibold border inline-flex items-center gap-1.5 shrink-0 ${CONTROL_STATUS_CLS[status]}`}>
-                  <span className={`w-1.5 h-1.5 rounded-full ${CONTROL_STATUS_DOT[status]}`} />
-                  {status}
+                  <span className={`w-1.5 h-1.5 rounded-full ${CONTROL_STATUS_DOT[status]}`} />{status}
                 </span>
-                <span className="text-[11px] text-ink-500 shrink-0 tabular-nums">
-                  {c.attributes.length} attr
-                </span>
-                <span className="text-[11px] text-ink-400 shrink-0 hidden md:inline">
-                  {lastTestedFor(c.controlId)}
-                </span>
+                <span className="text-[11px] text-ink-500 shrink-0 tabular-nums">{c.attributes.length} attr</span>
+                <span className="text-[11px] text-ink-400 shrink-0 hidden md:inline">{lastTestedFor(c.controlId)}</span>
               </button>
 
               <AnimatePresence initial={false}>
@@ -623,16 +497,9 @@ export default function ControlsTab({ engagement }: Props): JSX.Element {
                           aiOpen={aiPopover.attributeId === attr.id}
                           linkOpen={linkPopover.attributeId === attr.id}
                           linkSearch={linkSearch}
-                          onOpenAi={() => {
-                            setLinkPopover({ attributeId: null });
-                            setAiPopover({ attributeId: aiPopover.attributeId === attr.id ? null : attr.id });
-                          }}
+                          onOpenAi={() => { setLinkPopover({ attributeId: null }); setAiPopover({ attributeId: aiPopover.attributeId === attr.id ? null : attr.id }); }}
                           onCloseAi={() => setAiPopover({ attributeId: null })}
-                          onOpenLink={() => {
-                            setAiPopover({ attributeId: null });
-                            setLinkPopover({ attributeId: linkPopover.attributeId === attr.id ? null : attr.id });
-                            setLinkSearch('');
-                          }}
+                          onOpenLink={() => { setAiPopover({ attributeId: null }); setLinkPopover({ attributeId: linkPopover.attributeId === attr.id ? null : attr.id }); setLinkSearch(''); }}
                           onCloseLink={() => { setLinkPopover({ attributeId: null }); setLinkSearch(''); }}
                           onLinkSearchChange={setLinkSearch}
                           onAccept={(s) => acceptSuggestion(attr.id, s)}
@@ -660,9 +527,7 @@ export default function ControlsTab({ engagement }: Props): JSX.Element {
   );
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
-// KPI tile
-// ═════════════════════════════════════════════════════════════════════════════
+// ─── KPI tile ────────────────────────────────────────────────────────────────
 
 function KpiTile({ label, value, tone }: { label: string; value: number | string; tone: string }): JSX.Element {
   return (
@@ -679,31 +544,20 @@ function KeyDot({ active }: { active: boolean }): JSX.Element {
   );
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
-// AttributeBlock — header + 3-column (Workflows / Evidence / Sample) + footer
-// ═════════════════════════════════════════════════════════════════════════════
+// ─── AttributeBlock: header strip + 3-col cards + footer ────────────────────
 
 interface AttributeBlockProps {
   attribute: ControlAttribute;
-  linkedWorkflows: LinkedWorkflow[];
-  evidence: EvidenceFile[];
-  samples: Sample[];
-  method: SampleMethod;
-  onSetMethod: (m: SampleMethod) => void;
-  aiOpen: boolean;
-  linkOpen: boolean;
-  linkSearch: string;
-  onOpenAi: () => void;
-  onCloseAi: () => void;
-  onOpenLink: () => void;
-  onCloseLink: () => void;
+  linkedWorkflows: LinkedWorkflow[]; evidence: EvidenceFile[]; samples: Sample[];
+  method: SampleMethod; onSetMethod: (m: SampleMethod) => void;
+  aiOpen: boolean; linkOpen: boolean; linkSearch: string;
+  onOpenAi: () => void; onCloseAi: () => void;
+  onOpenLink: () => void; onCloseLink: () => void;
   onLinkSearchChange: (v: string) => void;
-  onAccept: (s: AiSuggestion) => void;
-  onDecline: (s: AiSuggestion) => void;
+  onAccept: (s: AiSuggestion) => void; onDecline: (s: AiSuggestion) => void;
   onLinkManual: (opt: ManualWorkflowOption) => void;
   onUnlink: (workflowId: string) => void;
-  onAddEvidence: (f: File) => void;
-  onRemoveEvidence: (fileId: string) => void;
+  onAddEvidence: (f: File) => void; onRemoveEvidence: (fileId: string) => void;
   onGenerate: (method: SampleMethod) => void;
   onAddManualSample: (f: File) => void;
   onSetResult: (sampleId: string, r: SampleResult) => void;
@@ -726,39 +580,16 @@ function AttributeBlock(p: AttributeBlockProps): JSX.Element {
         </div>
       </div>
 
-      {/* Three columns */}
-      <div className="grid grid-cols-3 gap-3 p-4">
+      {/* Single column — Workflows mapping; Evidence + sampling live in the Evidence tab. */}
+      <div className="p-4">
         <WorkflowsCard
           linked={p.linkedWorkflows}
-          aiOpen={p.aiOpen}
-          linkOpen={p.linkOpen}
-          linkSearch={p.linkSearch}
-          onOpenAi={p.onOpenAi}
-          onCloseAi={p.onCloseAi}
-          onOpenLink={p.onOpenLink}
-          onCloseLink={p.onCloseLink}
+          aiOpen={p.aiOpen} linkOpen={p.linkOpen} linkSearch={p.linkSearch}
+          onOpenAi={p.onOpenAi} onCloseAi={p.onCloseAi}
+          onOpenLink={p.onOpenLink} onCloseLink={p.onCloseLink}
           onLinkSearchChange={p.onLinkSearchChange}
-          onAccept={p.onAccept}
-          onDecline={p.onDecline}
-          onLinkManual={p.onLinkManual}
-          onUnlink={p.onUnlink}
-        />
-
-        <EvidenceCard
-          files={p.evidence}
-          onAdd={p.onAddEvidence}
-          onRemove={p.onRemoveEvidence}
-        />
-
-        <SampleCard
-          method={p.method}
-          onSetMethod={p.onSetMethod}
-          samples={p.samples}
-          onGenerate={p.onGenerate}
-          onAddManualSample={p.onAddManualSample}
-          onSetResult={p.onSetResult}
-          onSetRemark={p.onSetRemark}
-          onRemove={p.onRemoveSample}
+          onAccept={p.onAccept} onDecline={p.onDecline}
+          onLinkManual={p.onLinkManual} onUnlink={p.onUnlink}
         />
       </div>
 
@@ -776,22 +607,15 @@ function AttributeBlock(p: AttributeBlockProps): JSX.Element {
   );
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
-// Workflows card (with AI Map + manual link popovers)
-// ═════════════════════════════════════════════════════════════════════════════
+// ─── Workflows card (AI Map + manual link popovers) ─────────────────────────
 
 interface WorkflowsCardProps {
   linked: LinkedWorkflow[];
-  aiOpen: boolean;
-  linkOpen: boolean;
-  linkSearch: string;
-  onOpenAi: () => void;
-  onCloseAi: () => void;
-  onOpenLink: () => void;
-  onCloseLink: () => void;
+  aiOpen: boolean; linkOpen: boolean; linkSearch: string;
+  onOpenAi: () => void; onCloseAi: () => void;
+  onOpenLink: () => void; onCloseLink: () => void;
   onLinkSearchChange: (v: string) => void;
-  onAccept: (s: AiSuggestion) => void;
-  onDecline: (s: AiSuggestion) => void;
+  onAccept: (s: AiSuggestion) => void; onDecline: (s: AiSuggestion) => void;
   onLinkManual: (opt: ManualWorkflowOption) => void;
   onUnlink: (workflowId: string) => void;
 }
@@ -867,39 +691,30 @@ function WorkflowsCard(p: WorkflowsCardProps): JSX.Element {
                 const tone = confidenceTone(s.confidence);
                 const already = isLinked(s.id);
                 return (
-                  <li key={s.id} className="px-3 py-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[12px] font-medium text-ink-800 leading-tight">{s.name}</p>
-                        <div className="mt-1.5 flex items-center gap-2">
-                          <div className="h-1 flex-1 bg-surface-3 rounded-full overflow-hidden">
-                            <div className={`h-full rounded-full ${tone.bar}`} style={{ width: `${s.confidence}%` }} />
-                          </div>
-                          <span className={`text-[10.5px] font-semibold tabular-nums ${tone.text}`}>{s.confidence}%</span>
+                  <li key={s.id} className="px-3 py-2 flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[12px] font-medium text-ink-800 leading-tight">{s.name}</p>
+                      <div className="mt-1.5 flex items-center gap-2">
+                        <div className="h-1 flex-1 bg-surface-3 rounded-full overflow-hidden">
+                          <div className={`h-full rounded-full ${tone.bar}`} style={{ width: `${s.confidence}%` }} />
                         </div>
+                        <span className={`text-[10.5px] font-semibold tabular-nums ${tone.text}`}>{s.confidence}%</span>
                       </div>
-                      <div className="flex items-center gap-1 shrink-0">
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={() => p.onAccept(s)}
+                        disabled={already}
+                        className={`inline-flex items-center gap-0.5 px-1.5 h-5 rounded text-[10px] font-semibold border transition-colors ${already ? 'bg-compliant-50 text-compliant-700 border-compliant-50 cursor-default' : 'bg-brand-600 text-white border-brand-600 hover:bg-brand-500 cursor-pointer'}`}
+                      >
+                        <Check size={9} />{already ? 'Linked' : 'Accept'}
+                      </button>
+                      {!already && (
                         <button
-                          onClick={() => p.onAccept(s)}
-                          disabled={already}
-                          className={`inline-flex items-center gap-0.5 px-1.5 h-5 rounded text-[10px] font-semibold border transition-colors ${
-                            already
-                              ? 'bg-compliant-50 text-compliant-700 border-compliant-50 cursor-default'
-                              : 'bg-brand-600 text-white border-brand-600 hover:bg-brand-500 cursor-pointer'
-                          }`}
-                        >
-                          {already ? <Check size={9} /> : <Check size={9} />}
-                          {already ? 'Linked' : 'Accept'}
-                        </button>
-                        {!already && (
-                          <button
-                            onClick={() => p.onDecline(s)}
-                            className="inline-flex items-center px-1.5 h-5 rounded text-[10px] font-medium border border-canvas-border bg-white text-ink-500 hover:bg-canvas cursor-pointer"
-                          >
-                            Decline
-                          </button>
-                        )}
-                      </div>
+                          onClick={() => p.onDecline(s)}
+                          className="inline-flex items-center px-1.5 h-5 rounded text-[10px] font-medium border border-canvas-border bg-white text-ink-500 hover:bg-canvas cursor-pointer"
+                        >Decline</button>
+                      )}
                     </div>
                   </li>
                 );
@@ -949,14 +764,9 @@ function WorkflowsCard(p: WorkflowsCardProps): JSX.Element {
                     <button
                       onClick={() => p.onLinkManual(opt)}
                       disabled={already}
-                      className={`inline-flex items-center gap-0.5 px-1.5 h-5 rounded text-[10px] font-semibold border transition-colors ${
-                        already
-                          ? 'bg-compliant-50 text-compliant-700 border-compliant-50 cursor-default'
-                          : 'bg-white text-brand-700 border-brand-100 hover:bg-brand-50 cursor-pointer'
-                      }`}
+                      className={`inline-flex items-center gap-0.5 px-1.5 h-5 rounded text-[10px] font-semibold border transition-colors ${already ? 'bg-compliant-50 text-compliant-700 border-compliant-50 cursor-default' : 'bg-white text-brand-700 border-brand-100 hover:bg-brand-50 cursor-pointer'}`}
                     >
-                      {already ? <Check size={9} /> : <Plus size={9} />}
-                      {already ? 'Added' : 'Add'}
+                      {already ? <Check size={9} /> : <Plus size={9} />}{already ? 'Added' : 'Add'}
                     </button>
                   </li>
                 );
@@ -994,14 +804,10 @@ function WorkflowsCard(p: WorkflowsCardProps): JSX.Element {
   );
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
-// Evidence card
-// ═════════════════════════════════════════════════════════════════════════════
+// ─── Evidence card ──────────────────────────────────────────────────────────
 
 interface EvidenceCardProps {
-  files: EvidenceFile[];
-  onAdd: (f: File) => void;
-  onRemove: (fileId: string) => void;
+  files: EvidenceFile[]; onAdd: (f: File) => void; onRemove: (fileId: string) => void;
 }
 
 function EvidenceCard({ files, onAdd, onRemove }: EvidenceCardProps): JSX.Element {
@@ -1022,28 +828,12 @@ function EvidenceCard({ files, onAdd, onRemove }: EvidenceCardProps): JSX.Elemen
         onDragEnter={(e) => { e.preventDefault(); setDragOver(true); }}
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}
-        onDrop={(e) => {
-          e.preventDefault();
-          setDragOver(false);
-          const f = e.dataTransfer.files?.[0];
-          if (f) onAdd(f);
-        }}
-        className={`block cursor-pointer rounded-lg border border-dashed px-3 py-4 text-center transition-colors ${
-          dragOver
-            ? 'border-brand-400 bg-brand-50/50'
-            : 'border-canvas-border bg-white hover:border-brand-300 hover:bg-brand-50/30'
-        }`}
+        onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files?.[0]; if (f) onAdd(f); }}
+        className={`block cursor-pointer rounded-lg border border-dashed px-3 py-4 text-center transition-colors ${dragOver ? 'border-brand-400 bg-brand-50/50' : 'border-canvas-border bg-white hover:border-brand-300 hover:bg-brand-50/30'}`}
       >
         <input
-          ref={inputRef}
-          type="file"
-          accept=".pdf,.png,.jpg,.jpeg,.xlsx,.xls,.csv"
-          className="sr-only"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) onAdd(f);
-            if (inputRef.current) inputRef.current.value = '';
-          }}
+          ref={inputRef} type="file" accept=".pdf,.png,.jpg,.jpeg,.xlsx,.xls,.csv" className="sr-only"
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) onAdd(f); if (inputRef.current) inputRef.current.value = ''; }}
         />
         <Upload size={14} className="mx-auto text-ink-400 mb-1" />
         <p className="text-[11.5px] font-medium text-ink-700 leading-tight">Drop PDF or image, or click to browse</p>
@@ -1089,13 +879,10 @@ function EvidenceCard({ files, onAdd, onRemove }: EvidenceCardProps): JSX.Elemen
   );
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
-// Sample card
-// ═════════════════════════════════════════════════════════════════════════════
+// ─── Sample card ────────────────────────────────────────────────────────────
 
 interface SampleCardProps {
-  method: SampleMethod;
-  onSetMethod: (m: SampleMethod) => void;
+  method: SampleMethod; onSetMethod: (m: SampleMethod) => void;
   samples: Sample[];
   onGenerate: (m: SampleMethod) => void;
   onAddManualSample: (f: File) => void;
@@ -1134,14 +921,8 @@ function SampleCard(p: SampleCardProps): JSX.Element {
             <button
               key={m}
               onClick={() => p.onSetMethod(m)}
-              className={`px-2 h-6 rounded-md text-[11px] font-medium border transition-colors cursor-pointer ${
-                active
-                  ? 'bg-brand-50 text-brand-700 border-brand-100'
-                  : 'bg-white text-ink-600 border-canvas-border hover:bg-canvas'
-              }`}
-            >
-              {m}
-            </button>
+              className={`px-2 h-6 rounded-md text-[11px] font-medium border transition-colors cursor-pointer ${active ? 'bg-brand-50 text-brand-700 border-brand-100' : 'bg-white text-ink-600 border-canvas-border hover:bg-canvas'}`}
+            >{m}</button>
           );
         })}
       </div>
@@ -1149,15 +930,8 @@ function SampleCard(p: SampleCardProps): JSX.Element {
       {p.method === 'Manual upload' ? (
         <label className="block cursor-pointer rounded-lg border border-dashed border-canvas-border bg-white px-3 py-3 text-center hover:border-brand-300 hover:bg-brand-50/30 transition-colors">
           <input
-            ref={inputRef}
-            type="file"
-            accept=".pdf,.xlsx,.xls,.csv"
-            className="sr-only"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) p.onAddManualSample(f);
-              if (inputRef.current) inputRef.current.value = '';
-            }}
+            ref={inputRef} type="file" accept=".pdf,.xlsx,.xls,.csv" className="sr-only"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) p.onAddManualSample(f); if (inputRef.current) inputRef.current.value = ''; }}
           />
           <Upload size={13} className="mx-auto text-ink-400 mb-1" />
           <p className="text-[11px] font-medium text-ink-700 leading-tight">Drop sample file or click to upload</p>
@@ -1185,36 +959,24 @@ function SampleCard(p: SampleCardProps): JSX.Element {
                 {SAMPLE_RESULTS.map(r => {
                   const cls = SAMPLE_RESULT_CLS[r];
                   const active = s.result === r;
-                  const Icon = r === 'Pass' ? CheckCircle2 : r === 'Fail' ? AlertCircle : r === 'Pending' ? Circle : MinusCircle;
+                  const Icon = r === 'Pass' ? CheckCircle2 : r === 'Fail' ? AlertCircle : Circle;
                   return (
                     <button
-                      key={r}
-                      onClick={() => p.onSetResult(s.id, r)}
-                      title={r}
-                      className={`w-5 h-5 inline-flex items-center justify-center rounded border text-[10px] font-semibold cursor-pointer transition-colors ${
-                        active ? cls.active : cls.idle
-                      }`}
-                      aria-pressed={active}
-                      aria-label={`${s.ref} ${r}`}
-                    >
-                      <Icon size={10} />
-                    </button>
+                      key={r} onClick={() => p.onSetResult(s.id, r)} title={r}
+                      className={`w-5 h-5 inline-flex items-center justify-center rounded border text-[10px] font-semibold cursor-pointer transition-colors ${active ? cls.active : cls.idle}`}
+                      aria-pressed={active} aria-label={`${s.ref} ${r}`}
+                    ><Icon size={10} /></button>
                   );
                 })}
                 <button
-                  onClick={() => p.onRemove(s.id)}
+                  onClick={() => p.onRemove(s.id)} aria-label={`Remove sample ${s.ref}`}
                   className="w-5 h-5 inline-flex items-center justify-center rounded text-ink-400 hover:text-risk-700 hover:bg-risk-50/60 cursor-pointer"
-                  aria-label={`Remove sample ${s.ref}`}
-                >
-                  <X size={10} />
-                </button>
+                ><X size={10} /></button>
               </div>
             </div>
             <input
-              type="text"
-              value={s.remark}
+              type="text" value={s.remark} placeholder="Remark…"
               onChange={(e) => p.onSetRemark(s.id, e.target.value)}
-              placeholder="Remark…"
               className="mt-1 w-full px-1.5 h-5 border border-transparent rounded text-[10.5px] text-ink-700 bg-canvas/60 outline-none focus:border-brand-300 focus:bg-white focus:ring-1 focus:ring-brand-500/15 placeholder:text-ink-400 transition-colors"
             />
           </li>

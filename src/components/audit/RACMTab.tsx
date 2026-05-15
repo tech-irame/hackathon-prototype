@@ -10,7 +10,8 @@ import { useMemo, useRef, useState, type JSX } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   ChevronRight, ChevronDown, Download, Upload, Filter, FileText, Layers,
-  AlertTriangle, Shield, Key, ListTree, Library,
+  AlertTriangle, Shield, Key, ListTree, Library, Eye, X, Workflow, Calendar,
+  CheckCircle2, User, ArrowUpRight,
 } from 'lucide-react';
 import { useToast } from '../shared/Toast';
 import type { Engagement } from '../../data/engagements';
@@ -53,6 +54,7 @@ export default function RACMTab(props: Props): JSX.Element {
   const [keyOnly, setKeyOnly] = useState<boolean>(false);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const [detailRow, setDetailRow] = useState<RACMRow | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const filteredRows = useMemo(
@@ -351,6 +353,7 @@ export default function RACMTab(props: Props): JSX.Element {
                         expandedRow={expandedRow}
                         onToggleRow={toggleRow}
                         onIdClick={onClickRiskOrControl}
+                        onOpenDetail={setDetailRow}
                       />
                     </motion.div>
                   )}
@@ -360,6 +363,13 @@ export default function RACMTab(props: Props): JSX.Element {
           })}
         </div>
       )}
+
+      {/* Per-row detail drawer */}
+      <AnimatePresence>
+        {detailRow && (
+          <RACMDetailDrawer row={detailRow} onClose={() => setDetailRow(null)} />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -395,18 +405,20 @@ function RACMTable({
   expandedRow,
   onToggleRow,
   onIdClick,
+  onOpenDetail,
 }: {
   rows: RACMRow[];
   expandedRow: string | null;
   onToggleRow: (id: string) => void;
   onIdClick: () => void;
+  onOpenDetail: (row: RACMRow) => void;
 }) {
   return (
     <div className="text-[12px]">
       {/* Column header */}
       <div
         className="grid items-center gap-3 px-4 py-2 bg-surface-2/40 border-b border-border-light text-[10px] uppercase tracking-wider font-semibold text-text-muted/80"
-        style={{ gridTemplateColumns: '24% 30% 11% 9% 10% 11% 5% 32px' }}
+        style={{ gridTemplateColumns: '22% 28% 10% 9% 9% 10% 5% 76px' }}
       >
         <div>Risk</div>
         <div>Control</div>
@@ -415,7 +427,7 @@ function RACMTable({
         <div>Type</div>
         <div>Automation</div>
         <div>Key</div>
-        <div></div>
+        <div className="text-right">Actions</div>
       </div>
 
       {/* Rows */}
@@ -426,7 +438,7 @@ function RACMTable({
             <div key={row.id} className="bg-white">
               <div
                 className="grid items-start gap-3 px-4 py-3 hover:bg-surface-2/30 transition-colors"
-                style={{ gridTemplateColumns: '24% 30% 11% 9% 10% 11% 5% 32px' }}
+                style={{ gridTemplateColumns: '22% 28% 10% 9% 9% 10% 5% 76px' }}
               >
                 {/* Risk */}
                 <div className="min-w-0">
@@ -494,8 +506,16 @@ function RACMTable({
                   )}
                 </div>
 
-                {/* Expand */}
-                <div className="flex justify-end">
+                {/* Actions */}
+                <div className="flex items-center justify-end gap-1">
+                  <button
+                    onClick={() => onOpenDetail(row)}
+                    className="p-1 rounded-md text-text-muted hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer"
+                    aria-label="View details"
+                    title="View detailed risk-control mapping"
+                  >
+                    <Eye size={13} />
+                  </button>
                   <button
                     onClick={() => onToggleRow(row.id)}
                     className="p-1 rounded-md text-text-muted hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer"
@@ -564,6 +584,212 @@ function AttributesList({ attributes }: { attributes: ControlAttribute[] }) {
           ))}
         </ul>
       </div>
+    </div>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// RACM Detail Drawer — full risk-control mapping for one RACM row
+// ═════════════════════════════════════════════════════════════════════════════
+
+function RACMDetailDrawer({ row, onClose }: { row: RACMRow; onClose: () => void }) {
+  const { addToast } = useToast();
+
+  // Mock linked workflows + test history for the demo. In a real system these
+  // would be authored data tied to the control id.
+  const linkedWorkflows = [
+    { code: 'WF-P2P-001', name: 'Three-Way Match (PO · GRN · Invoice)', confidence: 92 },
+    { code: 'WF-P2P-002', name: 'Duplicate Invoice Detector',           confidence: 78 },
+    { code: 'WF-P2P-003', name: 'PO Approval Threshold Scan',           confidence: 64 },
+  ];
+  const testHistory = [
+    { period: 'FY25 Q4', conclusion: 'Effective', tester: 'Tushar Goel', date: 'Mar 28, 2026' },
+    { period: 'FY25 Q3', conclusion: 'Effective', tester: 'Neha Joshi',  date: 'Dec 18, 2025' },
+    { period: 'FY25 Q2', conclusion: 'Inconclusive', tester: 'Tushar Goel', date: 'Sep 22, 2025' },
+  ];
+  const totalEvidence = row.attributes.reduce((s, a) => s + a.requiredEvidence.length, 0);
+
+  return (
+    <>
+      <motion.div
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        transition={{ duration: 0.15 }}
+        className="fixed inset-0 bg-ink-900/40 backdrop-blur-[2px] z-40"
+        onClick={onClose}
+      />
+      <motion.aside
+        initial={{ x: 24, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 24, opacity: 0 }}
+        transition={{ duration: 0.2, ease: [0.2, 0, 0, 1] }}
+        className="fixed top-0 right-0 bottom-0 w-full max-w-[640px] bg-canvas-elevated shadow-xl border-l border-canvas-border flex flex-col z-50"
+        role="dialog"
+        aria-label="RACM row detail"
+      >
+        {/* Header */}
+        <header className="shrink-0 px-6 pt-5 pb-4 border-b border-canvas-border flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 mb-1.5">
+              <div className="p-1.5 rounded-lg bg-brand-50"><Library size={14} className="text-brand-600" /></div>
+              <span className="text-[10.5px] font-bold uppercase tracking-wider text-text-muted">RACM row · {row.subProcess}</span>
+              {row.isKey && (
+                <span className="inline-flex items-center px-1.5 h-4 rounded text-[9.5px] font-bold bg-mitigated-50 text-mitigated-700 border border-mitigated-100/70">KEY</span>
+              )}
+            </div>
+            <h2 className="font-display text-[18px] font-semibold text-ink-900 leading-snug">
+              <span className="font-mono text-brand-600">{row.riskId}</span>
+              <span className="text-text-muted mx-2">→</span>
+              <span className="font-mono text-brand-600">{row.controlId}</span>
+            </h2>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-full text-ink-500 hover:bg-[#F4F2F7] flex items-center justify-center cursor-pointer shrink-0">
+            <X size={16} />
+          </button>
+        </header>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+          {/* Risk + Control mapped */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-xl border border-risk-100/60 bg-risk-50/30 p-4">
+              <div className="flex items-center gap-1.5 mb-2">
+                <AlertTriangle size={12} className="text-risk-700" />
+                <span className="text-[10.5px] uppercase tracking-wider font-bold text-risk-700">Risk</span>
+              </div>
+              <div className="font-mono text-[11px] text-text-secondary mb-1.5">{row.riskId}</div>
+              <p className="text-[12.5px] text-text leading-relaxed">{row.riskDescription}</p>
+            </div>
+            <div className="rounded-xl border border-compliant-100/60 bg-compliant-50/30 p-4">
+              <div className="flex items-center gap-1.5 mb-2">
+                <Shield size={12} className="text-compliant-700" />
+                <span className="text-[10.5px] uppercase tracking-wider font-bold text-compliant-700">Control</span>
+              </div>
+              <div className="font-mono text-[11px] text-text-secondary mb-1.5">{row.controlId}</div>
+              <p className="text-[12.5px] text-text leading-relaxed">{row.controlDescription}</p>
+            </div>
+          </div>
+
+          {/* Metadata chips */}
+          <div className="flex items-center gap-2 flex-wrap text-[11px]">
+            <Pill label="Assertion" value={row.assertion} />
+            <Pill label="Frequency" value={row.frequency} />
+            <Pill label="Type" value={row.controlType} />
+            <Pill label="Automation" value={row.automation} />
+          </div>
+
+          {/* Attributes */}
+          <section>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-[12px] font-bold uppercase tracking-wider text-text-muted">Attributes · sub-controls</h3>
+              <span className="text-[11px] text-text-muted">{row.attributes.length} · {totalEvidence} evidence types required</span>
+            </div>
+            <div className="space-y-2.5">
+              {row.attributes.map(a => (
+                <div key={a.id} className="rounded-lg border border-border-light p-3 bg-white">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className="px-1.5 h-4 rounded text-[10px] font-bold bg-brand-50 text-brand-700 font-mono">{a.id}</span>
+                    <span className="text-[12.5px] font-semibold text-text">{a.description}</span>
+                  </div>
+                  <p className="text-[11.5px] italic text-text-muted mb-2">{a.testProcedure}</p>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">Required evidence:</span>
+                    {a.requiredEvidence.map(ev => (
+                      <span key={ev} className="inline-flex items-center gap-1 px-1.5 h-4 rounded text-[10px] font-medium bg-surface-2 text-text-secondary border border-border-light">
+                        <FileText size={9} />{ev}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="text-[10.5px] text-text-muted mt-1.5">
+                    Population: <span className="font-medium tabular-nums">{a.populationSize.toLocaleString()}</span> · Default sample: <span className="font-medium tabular-nums">{a.defaultSampleSize}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Linked workflows */}
+          <section>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-[12px] font-bold uppercase tracking-wider text-text-muted">Linked workflows</h3>
+              <button
+                onClick={() => addToast({ message: 'Manage workflow links in the Controls tab', type: 'info' })}
+                className="text-[11px] font-semibold text-primary hover:underline cursor-pointer flex items-center gap-1"
+              >
+                Manage in Controls <ArrowUpRight size={10} />
+              </button>
+            </div>
+            <div className="space-y-1.5">
+              {linkedWorkflows.map(wf => (
+                <div key={wf.code} className="flex items-center gap-3 px-3 py-2 rounded-lg border border-border-light">
+                  <Workflow size={13} className="text-brand-600 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[12.5px] font-medium text-text truncate">{wf.name}</div>
+                    <div className="text-[10.5px] text-text-muted font-mono">{wf.code}</div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <div className="w-16 h-1.5 bg-surface-3 rounded-full overflow-hidden">
+                      <div className={`h-full ${wf.confidence >= 85 ? 'bg-compliant' : wf.confidence >= 65 ? 'bg-mitigated-500' : 'bg-text-muted'}`} style={{ width: `${wf.confidence}%` }} />
+                    </div>
+                    <span className="text-[10.5px] font-bold text-text tabular-nums w-8 text-right">{wf.confidence}%</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Test history */}
+          <section>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-[12px] font-bold uppercase tracking-wider text-text-muted">Test history</h3>
+              <span className="text-[11px] text-text-muted">last 3 periods</span>
+            </div>
+            <div className="space-y-1.5">
+              {testHistory.map(h => (
+                <div key={h.period} className="flex items-center gap-3 px-3 py-2 rounded-lg border border-border-light">
+                  <Calendar size={12} className="text-text-muted shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[12.5px] font-medium text-text">{h.period}</div>
+                    <div className="text-[10.5px] text-text-muted flex items-center gap-1.5">
+                      <User size={9} />{h.tester}
+                      <span className="text-border">·</span>
+                      <span>{h.date}</span>
+                    </div>
+                  </div>
+                  <span className={`inline-flex items-center gap-1 px-2 h-5 rounded text-[10px] font-bold ${
+                    h.conclusion === 'Effective' ? 'bg-compliant-50 text-compliant-700'
+                    : h.conclusion === 'Deficient' ? 'bg-risk-50 text-risk-700'
+                    : 'bg-mitigated-50 text-mitigated-700'
+                  }`}>
+                    <CheckCircle2 size={10} />
+                    {h.conclusion}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+
+        {/* Footer */}
+        <footer className="shrink-0 px-6 py-3 border-t border-canvas-border bg-canvas flex items-center justify-end gap-2">
+          <button onClick={onClose} className="px-4 py-2 rounded-lg border border-canvas-border text-[12.5px] font-medium text-ink-600 hover:bg-canvas transition-colors cursor-pointer">
+            Close
+          </button>
+          <button
+            onClick={() => addToast({ message: 'Opening test workspace in Controls tab…', type: 'info' })}
+            className="px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-white text-[12.5px] font-semibold transition-colors cursor-pointer flex items-center gap-1.5"
+          >
+            <Eye size={12} />
+            Open in Controls
+          </button>
+        </footer>
+      </motion.aside>
+    </>
+  );
+}
+
+function Pill({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="inline-flex items-center gap-1.5 px-2 h-6 rounded-md bg-surface-2 text-text-secondary border border-border-light">
+      <span className="text-[10px] uppercase tracking-wider font-bold text-text-muted">{label}</span>
+      <span className="text-[11px] font-semibold text-text">{value}</span>
     </div>
   );
 }
