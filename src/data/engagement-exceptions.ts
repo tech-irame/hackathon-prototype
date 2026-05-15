@@ -77,6 +77,32 @@ export const ENGAGEMENT_EXCEPTIONS: EngagementException[] = [
     title: 'Bank statement mismatch — payment reversal not posted',
     severity: 'Critical', status: 'Triaging', opened: '10d ago', assignee: 'Rohan Patel' },
 
+  // ─── Internal Audit — S2C Contract Review (eng-4) ──────────────────────────
+  { id: 'ex-3101', ref: 'EX-3101', engagementId: 'eng-4', workflowId: 'wf3', workflowName: 'PO Approval Threshold Scan',
+    title: 'Contract awarded without competitive RFQ — three vendor process bypassed',
+    detail: 'Single-source justification missing; contract value ₹18L crossed threshold for three-quote requirement.',
+    severity: 'High', status: 'Open', opened: '2d ago', assignee: 'Rohan Patel' },
+  { id: 'ex-3102', ref: 'EX-3102', engagementId: 'eng-4', workflowId: 'wf1', workflowName: 'Three-Way Match (PO · GRN · Invoice)',
+    title: 'Master Service Agreement expired but invoices still being processed',
+    severity: 'Medium', status: 'Triaging', opened: '4d ago', assignee: 'Rohan Patel' },
+  { id: 'ex-3103', ref: 'EX-3103', engagementId: 'eng-4', workflowId: 'wf4', workflowName: 'Vendor Master Change Monitor',
+    title: 'Contract authority matrix violation — sub-VP signed at VP-tier value',
+    severity: 'Critical', status: 'Open', opened: '1d ago', assignee: 'Priya Singh' },
+  { id: 'ex-3104', ref: 'EX-3104', engagementId: 'eng-4', workflowId: 'wf3', workflowName: 'PO Approval Threshold Scan',
+    title: 'Service contract missing obligations register entry', detail: 'No tracker entry for SLA / liquidated damages clause.',
+    severity: 'Medium', status: 'Resolved', opened: '12d ago', assignee: 'Rohan Patel', classification: 'Process Gap' },
+
+  // ─── Internal Audit — Vendor Risk Assessment (eng-7) ──────────────────────
+  { id: 'ex-3201', ref: 'EX-3201', engagementId: 'eng-7', workflowId: 'wf4', workflowName: 'Vendor Master Change Monitor',
+    title: 'Vendor onboarded without sanctions screening',
+    severity: 'High', status: 'Open', opened: '6h ago', assignee: 'Priya Singh' },
+  { id: 'ex-3202', ref: 'EX-3202', engagementId: 'eng-7', workflowId: 'wf4', workflowName: 'Vendor Master Change Monitor',
+    title: 'KYC documents missing for 4 active vendors',
+    severity: 'Medium', status: 'Triaging', opened: '2d ago', assignee: 'Priya Singh' },
+  { id: 'ex-3203', ref: 'EX-3203', engagementId: 'eng-7', workflowId: 'wf2', workflowName: 'Duplicate Invoice Detector',
+    title: 'High-risk-rated vendor not flagged in payment workflow', detail: 'Vendor V-9912 scored Critical risk in Q1 but no escalation flag set.',
+    severity: 'Critical', status: 'Open', opened: '1d ago', assignee: 'Neha Joshi' },
+
   // ─── Compliance — P2P SOX Audit (eng-1) ────────────────────────────────────
   { id: 'ex-1245', ref: 'EX-1245', engagementId: 'eng-1', workflowId: 'wf2', workflowName: 'Duplicate Invoice Detector',
     title: 'Duplicate invoice in SOX testing sample',

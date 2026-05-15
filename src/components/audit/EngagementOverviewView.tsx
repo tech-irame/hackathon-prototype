@@ -76,7 +76,7 @@ function tabsForType(type: EngType): { id: TabId; label: string; icon: React.Ele
         { id: 'racm', label: 'RACM', icon: FileText },
         { id: 'controls', label: 'Controls', icon: Shield },
         { id: 'workflows', label: 'Workflows', icon: Workflow },
-        { id: 'evidence', label: 'Evidence', icon: FolderOpen },
+        { id: 'exceptions', label: 'Exception Management', icon: AlertTriangle },
         { id: 'working-paper', label: 'Audit Report', icon: BookOpen },
         { id: 'trail', label: 'Action Trail', icon: Activity },
       ];
