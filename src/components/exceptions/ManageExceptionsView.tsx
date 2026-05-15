@@ -281,14 +281,18 @@ export default function ManageExceptionsView({ role, setRole, onBack, embedded =
 
       {/* Page header — title + subtitle + tabs (Knowledge Hub pattern) */}
       <div className="border-b border-canvas-border bg-canvas-elevated">
-        <div className="max-w-[1600px] mx-auto px-8 pt-8 pb-0">
+        <div className={`max-w-[1600px] mx-auto px-8 ${embedded ? 'pt-4 pb-0' : 'pt-8 pb-0'}`}>
           <div className="flex items-start justify-between gap-6">
             <div className="min-w-0">
               <div className="font-mono text-[11px] text-ink-500 mb-2 tracking-tight">
                 {contextLabel ? `${contextLabel} · ` : ''}Exceptions · {activeNav === 'action-hub' ? 'Action Hub' : 'Manage'}
               </div>
-              <h1 className="font-display text-[34px] font-[420] tracking-tight text-ink-900 leading-[1.15]">Manage Exceptions</h1>
-              <p className="text-[14px] text-ink-500 mt-1 mb-6">Triage and resolve exceptions surfaced from audit queries.</p>
+              {!embedded && <h1 className="font-display text-[34px] font-[420] tracking-tight text-ink-900 leading-[1.15]">Manage Exceptions</h1>}
+              {embedded ? (
+                <h2 className="text-[16px] font-semibold text-ink-900 mb-3">Exceptions & Cases</h2>
+              ) : (
+                <p className="text-[14px] text-ink-500 mt-1 mb-6">Triage and resolve exceptions surfaced from audit queries.</p>
+              )}
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <button
