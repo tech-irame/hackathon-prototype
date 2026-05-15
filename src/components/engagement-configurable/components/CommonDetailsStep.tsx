@@ -25,6 +25,7 @@ const labelCls = 'text-[11px] font-semibold text-text-muted block mb-1';
 
 export default function CommonDetailsStep({ patternType, details, onChange, reviewerRequired }: Props) {
   const label = PATTERN_DISPLAY_LABELS[patternType];
+  const ownerLabel = patternType === 'workflow_automation_project' ? 'Project Owner' : patternType === 'internal_audit_assignment' ? 'Assignment Owner' : 'Engagement Owner';
   const update = (field: keyof CommonDetails, value: string) => onChange({ ...details, [field]: value });
 
   return (
@@ -48,8 +49,8 @@ export default function CommonDetailsStep({ patternType, details, onChange, revi
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className={labelCls}>Owner <span className="text-red-400">*</span></label>
-            <input value={details.owner} onChange={e => update('owner', e.target.value)} placeholder="Assign owner" className={inputCls} />
+            <label className={labelCls}>{ownerLabel} <span className="text-red-400">*</span></label>
+            <input value={details.owner} onChange={e => update('owner', e.target.value)} placeholder={`Assign ${ownerLabel.toLowerCase()}`} className={inputCls} />
           </div>
           <div>
             <label className={labelCls}>Reviewer {reviewerRequired && <span className="text-red-400">*</span>}</label>
