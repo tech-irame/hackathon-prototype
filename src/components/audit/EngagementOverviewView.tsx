@@ -1,12 +1,13 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   ArrowLeft, ArrowUpRight, AlertTriangle, Calendar,
   CheckCircle2, Clock, FileText, FolderOpen, Layers, Play,
   Shield, ShieldCheck, Sparkles, User, Workflow, Zap, Upload,
   ChevronRight, Plus, Activity, MessageSquare, ListChecks,
-  RefreshCw,
+  RefreshCw, X, Settings, Database,
 } from 'lucide-react';
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
 import Orb from '../shared/Orb';
 import { useToast } from '../shared/Toast';
 import {
@@ -164,6 +165,10 @@ export default function EngagementDetailView({ engagementId, onBack, onOpenExecu
   const tabs = useMemo(() => engagement ? tabsForType(engagement.type) : [], [engagement]);
   const [activeTab, setActiveTab] = useState<TabId>('overview');
   const [selectedException, setSelectedException] = useState<EngagementException | null>(null);
+  /** Drill-down filter for the Exception Management tab — set when user clicks
+   *  a chart slice / bar / heatmap cell on the Automation Overview tab. */
+  const [exceptionFilter, setExceptionFilter] = useState<{ severity?: Severity; workflowId?: string; status?: EngagementException['status'] }>({});
+  const [configWorkflow, setConfigWorkflow] = useState<string | null>(null);
 
   if (!engagement) {
     return (
@@ -342,8 +347,18 @@ export default function EngagementDetailView({ engagementId, onBack, onOpenExecu
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.15 }}
           >
-            {/* ═══ OVERVIEW (all types) ═══ */}
-            {activeTab === 'overview' && (
+            {/* ═══ OVERVIEW — Automation gets the rich command-center; Compliance / IA keep checklist ═══ */}
+            {activeTab === 'overview' && eng.type === 'Automation' && (
+              <AutomationOverviewTab
+                eng={eng}
+                onDrillToExceptions={(filter) => {
+                  setExceptionFilter(filter);
+                  setActiveTab('exceptions');
+                }}
+                onConfigureWorkflow={(wfId) => setConfigWorkflow(wfId)}
+              />
+            )}
+            {activeTab === 'overview' && eng.type !== 'Automation' && (
               <div className="space-y-6">
                 <div className="glass-card rounded-2xl p-6">
                   <div className="flex items-center gap-3 mb-4">
@@ -351,9 +366,7 @@ export default function EngagementDetailView({ engagementId, onBack, onOpenExecu
                       <Sparkles size={16} className="text-white" />
                     </div>
                     <div>
-                      <h3 className="text-[14px] font-bold text-text">
-                        {eng.type === 'Automation' ? 'Set up this automation' : 'Set up this engagement'}
-                      </h3>
+                      <h3 className="text-[14px] font-bold text-text">Set up this engagement</h3>
                       <p className="text-[12px] text-text-muted mt-0.5">{completedCount} of {checklist.length} steps complete</p>
                     </div>
                     <div className="ml-auto">
@@ -397,7 +410,7 @@ export default function EngagementDetailView({ engagementId, onBack, onOpenExecu
                   <div className="glass-card rounded-xl p-5">
                     <h3 className="text-[12px] font-bold text-ink-500 uppercase tracking-wider mb-3">Engagement at a glance</h3>
                     <dl className="space-y-2.5 text-[12.5px]">
-                      <div className="flex items-center justify-between"><dt className="text-text-muted">Type</dt><dd className="text-text font-medium">{TYPE_LABEL[eng.type]}{eng.type === 'Automation' && eng.subtype ? ` · ${SUBTYPE_LABEL[eng.subtype]}` : ''}</dd></div>
+                      <div className="flex items-center justify-between"><dt className="text-text-muted">Type</dt><dd className="text-text font-medium">{TYPE_LABEL[eng.type]}</dd></div>
                       <div className="flex items-center justify-between"><dt className="text-text-muted">Process</dt><dd className="text-text font-medium">{eng.process}</dd></div>
                       <div className="flex items-center justify-between"><dt className="text-text-muted">Framework</dt><dd className="text-text font-medium">{eng.framework}</dd></div>
                       <div className="flex items-center justify-between"><dt className="text-text-muted">Period</dt><dd className="text-text font-medium">{eng.periodStart} – {eng.periodEnd}</dd></div>
@@ -411,21 +424,21 @@ export default function EngagementDetailView({ engagementId, onBack, onOpenExecu
                       <li className="flex items-start gap-2.5">
                         <div className="mt-0.5 w-1.5 h-1.5 rounded-full bg-compliant shrink-0" />
                         <div>
-                          <div className="text-text">{eng.type === 'Automation' ? `Workflow run completed — ${eng.lastActivity}` : `Control test completed — ${eng.lastActivity}`}</div>
+                          <div className="text-text">Control test completed — {eng.lastActivity}</div>
                           <div className="text-[11px] text-text-muted">{eng.owner}</div>
                         </div>
                       </li>
                       <li className="flex items-start gap-2.5">
                         <div className="mt-0.5 w-1.5 h-1.5 rounded-full bg-evidence-500 shrink-0" />
                         <div>
-                          <div className="text-text">{eng.openIssues > 0 ? `${eng.openIssues} ${eng.type === 'Automation' ? 'open exception(s)' : 'open issue(s)'} need attention` : 'No open issues'}</div>
+                          <div className="text-text">{eng.openIssues > 0 ? `${eng.openIssues} open issue(s) need attention` : 'No open issues'}</div>
                           <div className="text-[11px] text-text-muted">Updated {eng.lastActivity}</div>
                         </div>
                       </li>
                       <li className="flex items-start gap-2.5">
                         <div className="mt-0.5 w-1.5 h-1.5 rounded-full bg-mitigated-500 shrink-0" />
                         <div>
-                          <div className="text-text">{eng.type === 'Automation' ? `Next run: ${eng.nextScheduled}` : `Next milestone: ${eng.nextScheduled}`}</div>
+                          <div className="text-text">Next milestone: {eng.nextScheduled}</div>
                           <div className="text-[11px] text-text-muted">On schedule</div>
                         </div>
                       </li>
@@ -607,7 +620,12 @@ export default function EngagementDetailView({ engagementId, onBack, onOpenExecu
 
             {/* ═══ EXCEPTION MANAGEMENT (Automation) ═══ */}
             {activeTab === 'exceptions' && (
-              <ExceptionManagementTab eng={eng} onOpenException={setSelectedException} />
+              <ExceptionManagementTab
+                eng={eng}
+                onOpenException={setSelectedException}
+                initialFilter={exceptionFilter}
+                onClearFilter={() => setExceptionFilter({})}
+              />
             )}
             {/* ═══ ACTION TRAIL (all types) ═══ */}
             {activeTab === 'trail' && (
@@ -625,6 +643,20 @@ export default function EngagementDetailView({ engagementId, onBack, onOpenExecu
             onClose={() => setSelectedException(null)}
             onOpenWorkflowRun={(wfId) => {
               addToast({ message: `Open workflow run for ${wfId} — coming soon`, type: 'info' });
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Per-workflow configuration drawer */}
+      <AnimatePresence>
+        {configWorkflow && (
+          <WorkflowConfigDrawer
+            workflowId={configWorkflow}
+            onClose={() => setConfigWorkflow(null)}
+            onSaved={() => {
+              setConfigWorkflow(null);
+              addToast({ message: 'Workflow configuration saved', type: 'success' });
             }}
           />
         )}
@@ -652,12 +684,44 @@ const SEV_BADGE_CLS: Record<Severity, string> = {
 
 type ExceptionViewMode = 'workflow' | 'all';
 
-function ExceptionManagementTab({ eng, onOpenException }: { eng: Engagement; onOpenException: (ex: EngagementException) => void }) {
+function ExceptionManagementTab({
+  eng,
+  onOpenException,
+  initialFilter,
+  onClearFilter,
+}: {
+  eng: Engagement;
+  onOpenException: (ex: EngagementException) => void;
+  initialFilter?: { severity?: Severity; workflowId?: string; status?: EngagementException['status'] };
+  onClearFilter?: () => void;
+}) {
   const allExceptions = useMemo(() => exceptionsForEngagement(eng.id), [eng.id]);
-  const groups = useMemo(() => groupByWorkflow(allExceptions), [allExceptions]);
+
+  // Apply incoming drill-down filter (set when user clicks an Overview chart).
+  const filteredExceptions = useMemo(() => {
+    if (!initialFilter || (!initialFilter.severity && !initialFilter.workflowId && !initialFilter.status)) {
+      return allExceptions;
+    }
+    return allExceptions.filter(e => {
+      if (initialFilter.severity && e.severity !== initialFilter.severity) return false;
+      if (initialFilter.workflowId && e.workflowId !== initialFilter.workflowId) return false;
+      if (initialFilter.status && e.status !== initialFilter.status) return false;
+      return true;
+    });
+  }, [allExceptions, initialFilter]);
+
+  const groups = useMemo(() => groupByWorkflow(filteredExceptions), [filteredExceptions]);
 
   const [viewMode, setViewMode] = useState<ExceptionViewMode>('workflow');
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+
+  // When a drill-down filter is incoming, switch to flat view so the filtered
+  // result is scannable without expanding groups.
+  useEffect(() => {
+    if (initialFilter && (initialFilter.severity || initialFilter.workflowId || initialFilter.status)) {
+      setViewMode('all');
+    }
+  }, [initialFilter]);
 
   const totals = useMemo(() => {
     const t = { open: 0, triaging: 0, resolved: 0 };
@@ -689,6 +753,33 @@ function ExceptionManagementTab({ eng, onOpenException }: { eng: Engagement; onO
 
   return (
     <div className="space-y-4">
+      {/* Drill-down filter banner */}
+      {initialFilter && (initialFilter.severity || initialFilter.workflowId || initialFilter.status) && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/8 border border-primary/20 text-[12px]">
+          <Activity size={12} className="text-primary" />
+          <span className="text-text font-medium">Filtered from Overview:</span>
+          {initialFilter.severity && (
+            <span className={`inline-flex items-center px-1.5 h-4 rounded text-[10px] font-bold uppercase tracking-wide border ${SEV_BADGE_CLS[initialFilter.severity]}`}>
+              {initialFilter.severity}
+            </span>
+          )}
+          {initialFilter.workflowId && (
+            <span className="inline-flex items-center gap-1 text-text-secondary">
+              <Workflow size={11} />{filteredExceptions[0]?.workflowName ?? initialFilter.workflowId}
+            </span>
+          )}
+          {initialFilter.status && (
+            <span className="text-text-secondary">Status: {initialFilter.status}</span>
+          )}
+          <button
+            onClick={() => onClearFilter?.()}
+            className="ml-auto text-[11px] font-semibold text-primary hover:underline cursor-pointer"
+          >
+            Clear filter
+          </button>
+        </div>
+      )}
+
       {/* Header with totals + view toggle */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-4 text-[11px]">
@@ -777,11 +868,19 @@ function ExceptionManagementTab({ eng, onOpenException }: { eng: Engagement; onO
 
       {/* Flat "All Exceptions" view */}
       {viewMode === 'all' && (
-        <div className="glass-card rounded-xl overflow-hidden divide-y divide-border-light/60">
-          {allExceptions.map(ex => (
-            <ExceptionRow key={ex.id} ex={ex} onClick={() => onOpenException(ex)} showWorkflow />
-          ))}
-        </div>
+        filteredExceptions.length === 0 ? (
+          <div className="border border-border-light rounded-xl p-12 text-center bg-white">
+            <AlertTriangle size={28} className="text-text-muted mx-auto mb-3" />
+            <p className="text-[14px] font-semibold text-text mb-1">No exceptions match the active filter</p>
+            <p className="text-[12px] text-text-muted">Clear the drill-down to see all exceptions.</p>
+          </div>
+        ) : (
+          <div className="glass-card rounded-xl overflow-hidden divide-y divide-border-light/60">
+            {filteredExceptions.map(ex => (
+              <ExceptionRow key={ex.id} ex={ex} onClick={() => onOpenException(ex)} showWorkflow />
+            ))}
+          </div>
+        )
       )}
     </div>
   );
@@ -1075,5 +1174,646 @@ function ActionTrailTab({ eng }: { eng: Engagement }) {
         </div>
       )}
     </div>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Automation Overview Tab — KPIs + severity donut + workflow bar + heatmap +
+// per-workflow configuration list. Replaces the setup-checklist overview for
+// Automation engagements only; Compliance / Internal Audit keep the checklist.
+// ═════════════════════════════════════════════════════════════════════════════
+
+const SEVERITY_FILL: Record<Severity, string> = {
+  Critical: '#b91c1c',
+  High: '#ea580c',
+  Medium: '#d97706',
+  Low: '#16a34a',
+};
+
+function heatmapCellCls(count: number): string {
+  if (count === 0) return 'bg-surface-2/40 border-border-light/30';
+  if (count === 1) return 'bg-mitigated-50 border-mitigated-100';
+  if (count === 2) return 'bg-mitigated-100 border-mitigated-100/80';
+  if (count <= 4) return 'bg-high-50 border-high-100';
+  return 'bg-risk-100 border-risk-100/80';
+}
+
+function AutomationOverviewTab({
+  eng,
+  onDrillToExceptions,
+  onConfigureWorkflow,
+}: {
+  eng: Engagement;
+  onDrillToExceptions: (filter: { severity?: Severity; workflowId?: string; status?: EngagementException['status'] }) => void;
+  onConfigureWorkflow: (workflowId: string) => void;
+}) {
+  const exceptions = useMemo(() => exceptionsForEngagement(eng.id), [eng.id]);
+  const openExceptions = useMemo(() => exceptions.filter(e => e.status !== 'Resolved'), [exceptions]);
+
+  const totalCount = exceptions.length;
+  const openCount = exceptions.filter(e => e.status === 'Open').length;
+  const inProgressCount = exceptions.filter(e => e.status === 'Triaging').length;
+  const resolvedCount = exceptions.filter(e => e.status === 'Resolved').length;
+  const pct = (n: number) => totalCount === 0 ? 0 : Math.round((n / totalCount) * 100);
+
+  const liveCount = MOCK_WORKFLOWS.filter(wf => wf.cadence.kind === 'Frequency').length;
+  const adhocCount = MOCK_WORKFLOWS.filter(wf => wf.cadence.kind === 'Ad-hoc').length;
+
+  // Severity distribution of currently-open (non-resolved) exceptions.
+  const severityData = useMemo(() => {
+    const counts: Record<Severity, number> = { Critical: 0, High: 0, Medium: 0, Low: 0 };
+    openExceptions.forEach(e => { counts[e.severity] += 1; });
+    return (['Critical', 'High', 'Medium', 'Low'] as Severity[])
+      .map(sev => ({ name: sev, value: counts[sev], color: SEVERITY_FILL[sev] }))
+      .filter(d => d.value > 0);
+  }, [openExceptions]);
+  const totalOpenForDonut = severityData.reduce((s, d) => s + d.value, 0);
+
+  // Exceptions per workflow (open + triaging).
+  const workflowData = useMemo(() => {
+    const map = new Map<string, { workflowId: string; name: string; count: number }>();
+    openExceptions.forEach(e => {
+      const prev = map.get(e.workflowId);
+      map.set(e.workflowId, { workflowId: e.workflowId, name: e.workflowName, count: (prev?.count ?? 0) + 1 });
+    });
+    return Array.from(map.values()).sort((a, b) => b.count - a.count);
+  }, [openExceptions]);
+
+  // 14-day heatmap: workflows (rows) × dayOffset 13..0 (cols). Source: ENGAGEMENT_ACTIVITY.
+  const heatmapDays = 14;
+  const heatmapData = useMemo(() => {
+    const events = ENGAGEMENT_ACTIVITY[eng.id] || [];
+    type Row = { workflowId: string; name: string; counts: number[]; total: number };
+    const rows = new Map<string, Row>();
+    MOCK_WORKFLOWS.forEach(wf => {
+      rows.set(wf.id, { workflowId: wf.id, name: wf.name, counts: Array(heatmapDays).fill(0), total: 0 });
+    });
+    events.forEach(ev => {
+      if (ev.type !== 'exception_fired' || ev.dayOffset >= heatmapDays || !ev.workflowId) return;
+      const row = rows.get(ev.workflowId);
+      if (row) {
+        const idx = heatmapDays - 1 - ev.dayOffset;
+        row.counts[idx] += 1;
+        row.total += 1;
+      }
+    });
+    return Array.from(rows.values());
+  }, [eng.id]);
+  const heatmapHasData = heatmapData.some(r => r.total > 0);
+
+  // Per-workflow exception counts for the config list cards.
+  const exceptionsByWorkflow = useMemo(() => {
+    const map = new Map<string, number>();
+    openExceptions.forEach(e => map.set(e.workflowId, (map.get(e.workflowId) ?? 0) + 1));
+    return map;
+  }, [openExceptions]);
+
+  const tier = healthTier(eng.health);
+
+  return (
+    <div className="space-y-5">
+      {/* ─── KPI strip ─── */}
+      <div className="grid grid-cols-4 gap-3">
+        <KpiCard
+          label="Total Workflows"
+          value={MOCK_WORKFLOWS.length}
+          sub={`${liveCount} live · ${adhocCount} ad-hoc`}
+          icon={Workflow}
+          tone="text-text"
+          onClick={() => onDrillToExceptions({})}
+        />
+        <KpiCard
+          label="Open Exceptions"
+          value={openCount}
+          sub={totalCount > 0 ? `${pct(openCount)}% of ${totalCount}` : '—'}
+          icon={AlertTriangle}
+          tone="text-risk-700"
+          onClick={() => onDrillToExceptions({ status: 'Open' })}
+        />
+        <KpiCard
+          label="In Progress"
+          value={inProgressCount}
+          sub={totalCount > 0 ? `${pct(inProgressCount)}% of ${totalCount}` : '—'}
+          icon={Clock}
+          tone="text-mitigated-700"
+          onClick={() => onDrillToExceptions({ status: 'Triaging' })}
+        />
+        <KpiCard
+          label="Health"
+          value={`${eng.health}%`}
+          sub={`${resolvedCount} resolved · ${openCount + inProgressCount} active`}
+          icon={CheckCircle2}
+          tone={tier.text}
+          progress={eng.health}
+          progressCls={tier.bar}
+        />
+      </div>
+
+      {/* ─── Charts row ─── */}
+      <div className="grid grid-cols-2 gap-4">
+        {/* Severity donut */}
+        <div className="glass-card rounded-xl p-5">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h3 className="text-[13px] font-semibold text-text">Exceptions by severity</h3>
+              <p className="text-[11px] text-text-muted mt-0.5">Click a slice to drill into Exception Management.</p>
+            </div>
+            <span className="text-[11px] text-text-muted">{totalOpenForDonut} open</span>
+          </div>
+          {severityData.length === 0 ? (
+            <div className="h-[180px] flex items-center justify-center text-[12px] text-text-muted">No open exceptions</div>
+          ) : (
+            <div className="flex items-center gap-4">
+              <div className="w-[180px] h-[180px] shrink-0 relative">
+                <ResponsiveContainer>
+                  <PieChart>
+                    <Pie
+                      data={severityData}
+                      dataKey="value"
+                      cx="50%" cy="50%"
+                      innerRadius={50} outerRadius={75}
+                      paddingAngle={2}
+                      onClick={(data) => {
+                        const name = (data as { name?: string }).name;
+                        if (name) onDrillToExceptions({ severity: name as Severity });
+                      }}
+                    >
+                      {severityData.map((entry) => (
+                        <Cell key={entry.name} fill={entry.color} stroke="white" strokeWidth={2} className="cursor-pointer hover:opacity-80 transition-opacity" />
+                      ))}
+                    </Pie>
+                    <RechartsTooltip
+                      contentStyle={{ borderRadius: 8, border: '1px solid rgba(0,0,0,0.08)', fontSize: 12, padding: '6px 10px' }}
+                      formatter={(value, name) => [`${value as number} exception${value === 1 ? '' : 's'}`, name as string]}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <div className="text-[22px] font-bold text-text tabular-nums leading-none">{totalOpenForDonut}</div>
+                  <div className="text-[10px] text-text-muted uppercase tracking-wide mt-1">Open</div>
+                </div>
+              </div>
+              <div className="flex-1 space-y-1.5">
+                {severityData.map(d => (
+                  <button
+                    key={d.name}
+                    onClick={() => onDrillToExceptions({ severity: d.name as Severity })}
+                    className="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md hover:bg-surface-2/40 transition-colors cursor-pointer text-left"
+                  >
+                    <span className="flex items-center gap-2 text-[12px] text-text">
+                      <span className="w-2.5 h-2.5 rounded-sm" style={{ background: d.color }} />
+                      {d.name}
+                    </span>
+                    <span className="text-[12px] font-bold text-text tabular-nums">{d.value}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Workflow exception bar */}
+        <div className="glass-card rounded-xl p-5">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h3 className="text-[13px] font-semibold text-text">Exceptions by workflow</h3>
+              <p className="text-[11px] text-text-muted mt-0.5">Click a bar to filter the Exception Management tab.</p>
+            </div>
+          </div>
+          {workflowData.length === 0 ? (
+            <div className="h-[180px] flex items-center justify-center text-[12px] text-text-muted">No exception activity</div>
+          ) : (
+            <div className="h-[180px]">
+              <ResponsiveContainer>
+                <BarChart data={workflowData} layout="vertical" margin={{ top: 0, right: 16, bottom: 0, left: 0 }}>
+                  <XAxis type="number" hide allowDecimals={false} />
+                  <YAxis
+                    type="category"
+                    dataKey="name"
+                    width={160}
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{ fontSize: 11, fill: '#6b7280' }}
+                  />
+                  <RechartsTooltip
+                    contentStyle={{ borderRadius: 8, border: '1px solid rgba(0,0,0,0.08)', fontSize: 12, padding: '6px 10px' }}
+                    cursor={{ fill: 'rgba(106, 18, 205, 0.06)' }}
+                    formatter={(value) => [`${value as number} open`, 'Exceptions']}
+                  />
+                  <Bar
+                    dataKey="count"
+                    radius={[0, 4, 4, 0]}
+                    fill="#6a12cd"
+                    className="cursor-pointer"
+                    onClick={(data) => {
+                      const wfId = (data as { workflowId?: string }).workflowId;
+                      if (wfId) onDrillToExceptions({ workflowId: wfId });
+                    }}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ─── Heatmap ─── */}
+      <div className="glass-card rounded-xl p-5">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h3 className="text-[13px] font-semibold text-text">Exception heatmap — last {heatmapDays} days</h3>
+            <p className="text-[11px] text-text-muted mt-0.5">Rows are workflows; each cell is a day. Click a cell to drill into that workflow.</p>
+          </div>
+          <div className="flex items-center gap-2 text-[10.5px] text-text-muted">
+            <span className="flex items-center gap-1">
+              <span className="w-3 h-3 rounded-sm bg-surface-2/40 border border-border-light/30" />0
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-3 h-3 rounded-sm bg-mitigated-50 border border-mitigated-100" />1
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-3 h-3 rounded-sm bg-high-50 border border-high-100" />3+
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-3 h-3 rounded-sm bg-risk-100 border border-risk-100/80" />5+
+            </span>
+          </div>
+        </div>
+        {!heatmapHasData ? (
+          <div className="h-[120px] flex items-center justify-center text-[12px] text-text-muted">No exception activity in the last {heatmapDays} days</div>
+        ) : (
+          <div className="space-y-1.5">
+            {heatmapData.map(row => (
+              <div key={row.workflowId} className="flex items-center gap-3">
+                <button
+                  onClick={() => onDrillToExceptions({ workflowId: row.workflowId })}
+                  className="w-[180px] text-left text-[11.5px] text-text font-medium truncate hover:text-primary transition-colors cursor-pointer shrink-0"
+                  title={row.name}
+                >
+                  {row.name}
+                </button>
+                <div className="flex-1 grid gap-1" style={{ gridTemplateColumns: `repeat(${heatmapDays}, minmax(0, 1fr))` }}>
+                  {row.counts.map((c, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => onDrillToExceptions({ workflowId: row.workflowId })}
+                      title={`${formatChartDay(heatmapDays - 1 - idx)} — ${c} exception${c === 1 ? '' : 's'}`}
+                      className={`h-6 rounded-sm border transition-transform hover:scale-110 cursor-pointer ${heatmapCellCls(c)}`}
+                    >
+                      {c > 0 && <span className="text-[9px] font-bold text-text/70">{c}</span>}
+                    </button>
+                  ))}
+                </div>
+                <span className="text-[11px] font-bold text-text tabular-nums w-8 text-right shrink-0">{row.total}</span>
+              </div>
+            ))}
+            <div className="flex items-center gap-3 pt-1.5">
+              <div className="w-[180px] text-[10px] text-text-muted shrink-0" />
+              <div className="flex-1 grid gap-1 text-[9px] text-text-muted tabular-nums" style={{ gridTemplateColumns: `repeat(${heatmapDays}, minmax(0, 1fr))` }}>
+                {Array.from({ length: heatmapDays }).map((_, idx) => {
+                  const offset = heatmapDays - 1 - idx;
+                  // Label every 2nd day to avoid crowding.
+                  return (
+                    <div key={idx} className="text-center">
+                      {offset % 2 === 0 ? formatChartDay(offset).split(' ')[1] : ''}
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="w-8 shrink-0" />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ─── Workflow Configuration list ─── */}
+      <div className="glass-card rounded-xl p-5">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h3 className="text-[13px] font-semibold text-text">Workflow configuration</h3>
+            <p className="text-[11px] text-text-muted mt-0.5">Tune schedules, thresholds, and routing for each workflow on this automation.</p>
+          </div>
+        </div>
+        <div className="space-y-2.5">
+          {MOCK_WORKFLOWS.map(wf => {
+            const exCount = exceptionsByWorkflow.get(wf.id) ?? 0;
+            return (
+              <div key={wf.id} className="flex items-center gap-3 p-3 rounded-lg border border-border-light hover:border-primary/20 transition-colors">
+                <div className="p-2 rounded-lg bg-brand-50 shrink-0"><Workflow size={14} className="text-brand-600" /></div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[13px] font-semibold text-text">{wf.name}</span>
+                    <span className="px-1.5 h-4 rounded text-[9.5px] font-bold bg-surface-2 text-text-secondary font-mono">{wf.code}</span>
+                    {wf.inputs.map(src => (
+                      <span key={src} className={`inline-flex items-center gap-1 px-1.5 h-4 rounded text-[9.5px] font-bold uppercase tracking-wide border ${INPUT_BADGE_CLS[src]}`}>
+                        {src === 'SQL' && <span className="w-1 h-1 rounded-full bg-evidence-600" aria-hidden="true" />}
+                        {src}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="text-[11px] text-text-muted mt-1 flex items-center gap-1.5 flex-wrap">
+                    {wf.cadence.kind === 'Ad-hoc' ? (
+                      <span className="inline-flex items-center px-1.5 h-4 rounded text-[10px] font-semibold italic bg-mitigated-50/60 text-mitigated-700 border border-mitigated-100/60">Ad-hoc</span>
+                    ) : (
+                      <span className="text-text-secondary font-medium">{wf.cadence.label}</span>
+                    )}
+                    <span className="text-border">·</span>
+                    <span>Last run {wf.lastRun}</span>
+                    <span className="text-border">·</span>
+                    <span className={exCount > 0 ? 'text-risk-700 font-semibold' : 'text-text-muted'}>
+                      {exCount} open exception{exCount === 1 ? '' : 's'}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => onConfigureWorkflow(wf.id)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-white hover:bg-primary-xlight/40 hover:border-primary/30 text-[11px] font-semibold text-text-secondary hover:text-primary transition-colors cursor-pointer shrink-0"
+                >
+                  <Settings size={11} />
+                  Configure
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ─── Engagement at a glance + recent activity (kept) ─── */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="glass-card rounded-xl p-5">
+          <h3 className="text-[12px] font-bold text-ink-500 uppercase tracking-wider mb-3">Engagement at a glance</h3>
+          <dl className="space-y-2.5 text-[12.5px]">
+            <div className="flex items-center justify-between"><dt className="text-text-muted">Type</dt><dd className="text-text font-medium">Automation{eng.subtype ? ` · ${eng.subtype}` : ''}</dd></div>
+            <div className="flex items-center justify-between"><dt className="text-text-muted">Process</dt><dd className="text-text font-medium">{eng.process}</dd></div>
+            <div className="flex items-center justify-between"><dt className="text-text-muted">Framework</dt><dd className="text-text font-medium">{eng.framework}</dd></div>
+            <div className="flex items-center justify-between"><dt className="text-text-muted">Period</dt><dd className="text-text font-medium">{eng.periodStart} – {eng.periodEnd}</dd></div>
+            <div className="flex items-center justify-between"><dt className="text-text-muted">Owner</dt><dd className="text-text font-medium">{eng.owner}</dd></div>
+          </dl>
+        </div>
+        <div className="glass-card rounded-xl p-5">
+          <h3 className="text-[12px] font-bold text-ink-500 uppercase tracking-wider mb-3">Recent activity</h3>
+          <ul className="space-y-3 text-[12.5px]">
+            <li className="flex items-start gap-2.5">
+              <div className="mt-0.5 w-1.5 h-1.5 rounded-full bg-compliant shrink-0" />
+              <div>
+                <div className="text-text">Workflow run completed — {eng.lastActivity}</div>
+                <div className="text-[11px] text-text-muted">{eng.owner}</div>
+              </div>
+            </li>
+            <li className="flex items-start gap-2.5">
+              <div className="mt-0.5 w-1.5 h-1.5 rounded-full bg-evidence-500 shrink-0" />
+              <div>
+                <div className="text-text">
+                  {openCount + inProgressCount > 0
+                    ? `${openCount + inProgressCount} open / in-progress exception(s)`
+                    : 'No open exceptions'}
+                </div>
+                <div className="text-[11px] text-text-muted">Updated {eng.lastActivity}</div>
+              </div>
+            </li>
+            <li className="flex items-start gap-2.5">
+              <div className="mt-0.5 w-1.5 h-1.5 rounded-full bg-mitigated-500 shrink-0" />
+              <div>
+                <div className="text-text">Next run: {eng.nextScheduled}</div>
+                <div className="text-[11px] text-text-muted">On schedule</div>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function KpiCard({
+  label, value, sub, icon: Icon, tone, onClick, progress, progressCls,
+}: {
+  label: string;
+  value: number | string;
+  sub?: string;
+  icon: React.ElementType;
+  tone: string;
+  onClick?: () => void;
+  progress?: number;
+  progressCls?: string;
+}) {
+  const isClickable = !!onClick;
+  return (
+    <button
+      onClick={onClick}
+      disabled={!isClickable}
+      className={`text-left glass-card rounded-xl p-4 transition-all ${isClickable ? 'cursor-pointer hover:border-primary/30 hover:shadow-sm' : 'cursor-default'}`}
+    >
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-[10.5px] uppercase tracking-wide font-semibold text-text-muted">{label}</span>
+        <Icon size={13} className="text-text-muted" />
+      </div>
+      <div className={`text-[22px] font-bold tabular-nums leading-none ${tone}`}>{value}</div>
+      {sub && <div className="text-[11px] text-text-muted mt-1.5">{sub}</div>}
+      {progress !== undefined && (
+        <div className="mt-2 h-1 bg-surface-3 rounded-full overflow-hidden">
+          <div className={`h-full rounded-full transition-all duration-500 ${progressCls ?? 'bg-primary'}`} style={{ width: `${progress}%` }} />
+        </div>
+      )}
+    </button>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Per-workflow Configuration Drawer
+// ═════════════════════════════════════════════════════════════════════════════
+
+const OWNER_LIST = ['Tushar Goel', 'Neha Joshi', 'Karan Mehta', 'Sneha Desai', 'Rohan Patel', 'Priya Singh', 'Deepak Bansal'];
+const SCHEDULE_OPTIONS = ['Hourly', 'Daily 6 AM', 'Daily 9 AM', 'Weekly Mon 6 AM', 'Ad-hoc'] as const;
+const RETRY_OPTIONS = ['Off', '1x', '3x', '5x'] as const;
+const SEVERITY_MIN_OPTIONS: Severity[] = ['Critical', 'High', 'Medium', 'Low'];
+
+function WorkflowConfigDrawer({
+  workflowId,
+  onClose,
+  onSaved,
+}: {
+  workflowId: string;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const wf = MOCK_WORKFLOWS.find(w => w.id === workflowId);
+  const initialSchedule: string = wf?.cadence.kind === 'Ad-hoc' ? 'Ad-hoc' : wf?.cadence.label ?? 'Daily 6 AM';
+  const [schedule, setSchedule] = useState<string>(initialSchedule);
+  const [threshold, setThreshold] = useState<string>('0.85');
+  const [retry, setRetry] = useState<string>('3x');
+  const [owner, setOwner] = useState<string>(OWNER_LIST[0]);
+  const [minSeverity, setMinSeverity] = useState<Severity>('Medium');
+  const [exceptionRouting, setExceptionRouting] = useState<string>('Round-robin');
+
+  if (!wf) return null;
+
+  return (
+    <>
+      <motion.div
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        transition={{ duration: 0.15 }}
+        className="fixed inset-0 bg-ink-900/40 backdrop-blur-[2px] z-40"
+        onClick={onClose}
+      />
+      <motion.aside
+        initial={{ x: 24, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 24, opacity: 0 }}
+        transition={{ duration: 0.2, ease: [0.2, 0, 0, 1] }}
+        className="fixed top-0 right-0 bottom-0 w-full max-w-[480px] bg-canvas-elevated shadow-xl border-l border-canvas-border flex flex-col z-50"
+        role="dialog"
+        aria-label="Workflow configuration"
+      >
+        <header className="shrink-0 px-6 pt-5 pb-4 border-b border-canvas-border flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <Settings size={16} className="text-brand-600 shrink-0" />
+              <h2 className="font-display text-[18px] font-semibold text-ink-900 tracking-tight truncate">{wf.name}</h2>
+            </div>
+            <p className="text-[12px] text-ink-500">
+              <span className="font-mono">{wf.code}</span>
+              <span className="mx-1.5 text-ink-300">·</span>
+              {wf.type}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-full text-ink-500 hover:text-ink-800 hover:bg-[#F4F2F7] flex items-center justify-center cursor-pointer shrink-0"
+            aria-label="Close drawer"
+          >
+            <X size={16} />
+          </button>
+        </header>
+
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+          {/* Schedule */}
+          <div>
+            <label className="text-[11px] font-bold text-ink-500 uppercase tracking-wider mb-2 block">Schedule</label>
+            <div className="grid grid-cols-2 gap-2">
+              {SCHEDULE_OPTIONS.map(s => (
+                <button
+                  key={s}
+                  onClick={() => setSchedule(s)}
+                  className={`px-3 py-2 rounded-lg border text-[12px] font-medium transition-all cursor-pointer ${
+                    schedule === s
+                      ? 'border-brand-500 bg-brand-50 text-brand-700 ring-2 ring-brand-500/20'
+                      : 'border-canvas-border bg-white text-ink-600 hover:bg-canvas'
+                  }`}
+                >
+                  {s === 'Ad-hoc' ? <span className="italic">{s}</span> : s}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Detection threshold */}
+          <div>
+            <label className="text-[11px] font-bold text-ink-500 uppercase tracking-wider mb-2 block">Detection threshold</label>
+            <div className="flex items-center gap-3">
+              <input
+                type="range" min="0.5" max="1" step="0.01"
+                value={threshold}
+                onChange={(e) => setThreshold(e.target.value)}
+                className="flex-1 accent-brand-500"
+              />
+              <span className="w-12 text-right text-[14px] font-bold text-ink-900 tabular-nums">{(parseFloat(threshold) * 100).toFixed(0)}%</span>
+            </div>
+            <p className="text-[11px] text-ink-500 mt-1.5">Minimum confidence required to raise an exception. Higher = fewer false positives.</p>
+          </div>
+
+          {/* Retry */}
+          <div>
+            <label className="text-[11px] font-bold text-ink-500 uppercase tracking-wider mb-2 block">Retry policy</label>
+            <div className="flex gap-2">
+              {RETRY_OPTIONS.map(r => (
+                <button
+                  key={r}
+                  onClick={() => setRetry(r)}
+                  className={`flex-1 px-3 py-2 rounded-lg border text-[12px] font-medium transition-all cursor-pointer ${
+                    retry === r
+                      ? 'border-brand-500 bg-brand-50 text-brand-700 ring-2 ring-brand-500/20'
+                      : 'border-canvas-border bg-white text-ink-600 hover:bg-canvas'
+                  }`}
+                >
+                  {r}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Owner */}
+          <div>
+            <label className="text-[11px] font-bold text-ink-500 uppercase tracking-wider mb-2 block">Owner</label>
+            <select
+              value={owner}
+              onChange={(e) => setOwner(e.target.value)}
+              className="w-full px-3 py-2.5 border border-border rounded-lg text-[13px] text-text bg-white outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/10 cursor-pointer"
+            >
+              {OWNER_LIST.map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+          </div>
+
+          {/* Min severity to alert */}
+          <div>
+            <label className="text-[11px] font-bold text-ink-500 uppercase tracking-wider mb-2 block">Minimum severity to alert</label>
+            <div className="grid grid-cols-4 gap-2">
+              {SEVERITY_MIN_OPTIONS.map(s => (
+                <button
+                  key={s}
+                  onClick={() => setMinSeverity(s)}
+                  className={`px-2 py-2 rounded-lg border text-[11px] font-bold uppercase tracking-wide transition-all cursor-pointer ${
+                    minSeverity === s
+                      ? `${SEV_BADGE_CLS[s]} ring-2 ring-brand-500/20`
+                      : 'border-canvas-border bg-white text-ink-600 hover:bg-canvas'
+                  }`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Exception routing */}
+          <div>
+            <label className="text-[11px] font-bold text-ink-500 uppercase tracking-wider mb-2 block">Exception routing</label>
+            <select
+              value={exceptionRouting}
+              onChange={(e) => setExceptionRouting(e.target.value)}
+              className="w-full px-3 py-2.5 border border-border rounded-lg text-[13px] text-text bg-white outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/10 cursor-pointer"
+            >
+              <option value="Round-robin">Round-robin to team</option>
+              <option value="Owner">Always to owner</option>
+              <option value="Escalation">Escalation matrix (severity-based)</option>
+              <option value="Manual">Manual assignment</option>
+            </select>
+          </div>
+
+          {/* Data source preview */}
+          <div className="rounded-lg border border-border-light bg-canvas/60 p-3 flex items-start gap-2.5">
+            <Database size={13} className="text-text-muted mt-0.5 shrink-0" />
+            <div className="text-[11px] text-text-muted leading-relaxed">
+              <span className="font-semibold text-text">Inputs:</span> {wf.inputs.join(' · ')}
+              {wf.inputs.includes('SQL') && (
+                <div className="mt-1">SQL queries reuse the engagement's connected data source. Edit the source in Knowledge Hub.</div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <footer className="shrink-0 px-6 py-4 border-t border-canvas-border bg-canvas flex items-center justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2.5 rounded-lg border border-canvas-border text-[13px] font-medium text-ink-600 hover:bg-canvas transition-colors cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onSaved}
+            className="px-5 py-2.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-[13px] font-semibold transition-colors cursor-pointer"
+          >
+            Save configuration
+          </button>
+        </footer>
+      </motion.aside>
+    </>
   );
 }
