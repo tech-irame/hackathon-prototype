@@ -108,9 +108,7 @@ const WORKFLOW_AUTOMATION_PROJECT: EngagementPatternDefinition = {
   ],
   workspaceTabs: [
     { id: 'overview', label: 'Overview' },
-    { id: 'input-data', label: 'Input Data' },
-    { id: 'automation-setup', label: 'Automation Setup' },
-    { id: 'runs', label: 'Runs' },
+    { id: 'workflows', label: 'Workflows' },
     { id: 'output-review', label: 'Output Review' },
     { id: 'cases', label: 'Cases' },
     { id: 'reports', label: 'Reports' },

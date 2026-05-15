@@ -22,9 +22,7 @@ import type { AutomationOutputReviewState } from './patterns/automation/automati
 import type { AutomationCasesState } from './patterns/automation/automationCasesData';
 import type { AutomationReportsState } from './patterns/automation/automationReportsData';
 import type { AutomationScheduleState } from './patterns/automation/automationScheduleData';
-import AutomationInputDataTab from './patterns/automation/AutomationInputDataTab';
-import AutomationSetupTab from './patterns/automation/AutomationSetupTab';
-import AutomationRunsTab from './patterns/automation/AutomationRunsTab';
+import AutomationWorkflowsTab from './patterns/automation/AutomationWorkflowsTab';
 import AutomationOutputReviewTab from './patterns/automation/AutomationOutputReviewTab';
 import AutomationCasesTab from './patterns/automation/AutomationCasesTab';
 import AutomationReportsTab from './patterns/automation/AutomationReportsTab';
@@ -266,36 +264,16 @@ export default function PatternWorkspaceRenderer({ engagement, activeTabId, acti
 
   // Automation Project tabs
   if (engagement.patternType === EngagementPatternType.WORKFLOW_AUTOMATION_PROJECT) {
-    if (activeTabId === 'input-data' && automationState && onUpdateAutomationInputData) {
+    if (activeTabId === 'workflows' && automationState && onUpdateAutomationSetup && onUpdateAutomationRuns) {
       return (
-        <AutomationInputDataTab
-          engagement={engagement}
-          inputData={automationState.inputData}
-          onUpdateInputData={onUpdateAutomationInputData}
-          onNavigateTab={onNavigateTab}
-        />
-      );
-    }
-    if (activeTabId === 'automation-setup' && automationState && onUpdateAutomationSetup) {
-      return (
-        <AutomationSetupTab
-          engagement={engagement}
-          inputData={automationState.inputData}
-          setupState={automationState.setup}
-          onUpdateSetup={onUpdateAutomationSetup}
-          onUpdateInputData={onUpdateAutomationInputData}
-          onNavigateTab={onNavigateTab}
-        />
-      );
-    }
-    if (activeTabId === 'runs' && automationState && onUpdateAutomationRuns) {
-      return (
-        <AutomationRunsTab
+        <AutomationWorkflowsTab
           engagement={engagement}
           inputData={automationState.inputData}
           setup={automationState.setup}
           runsState={automationState.runs}
+          onUpdateSetup={onUpdateAutomationSetup}
           onUpdateRuns={onUpdateAutomationRuns}
+          onUpdateInputData={onUpdateAutomationInputData}
           onNavigateTab={onNavigateTab}
         />
       );

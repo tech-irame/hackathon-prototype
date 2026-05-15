@@ -68,15 +68,13 @@ User-facing label: **Project**
 | Tab | Status | System Reuse |
 |-----|--------|-------------|
 | Overview | Implemented | — |
-| Input Data | Implemented — 5 source types, preview, readiness | — |
-| Automation Setup | Implemented — 4 modes, multi-workflow select, build workflow, Q&A | — |
-| Runs | Implemented — BulkExecuteModal integration | **Reuses Workflow Library BulkExecuteModal** |
+| Workflows | Implemented — workflow selection, build workflow, run via BulkExecuteModal, run history | **Reuses Workflow Library BulkExecuteModal** |
 | Output Review | Implemented — bulk exception triage, deficiency classification | — |
 | Cases / Exceptions | Implemented — embedded ManageExceptionsView | **Reuses ManageExceptionsView** |
 | Reports | Implemented — draft generation, finalize, deficiency/remediation summary | — |
 | Schedule | Implemented — recurring config, activate/pause/resume/disable | — |
 
-**E2E QA**: Passed. Full input-data-to-schedule flow verified with reused system components.
+**E2E QA**: Passed. Full workflows-to-schedule flow verified with reused system components.
 
 ---
 
