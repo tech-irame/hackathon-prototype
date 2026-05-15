@@ -52,9 +52,6 @@ export function mapV3ExceptionToGrc(ex: AutomationRunException, runId: string): 
     lastUpdated: ex.caseCandidateMarkedAt || new Date().toISOString().slice(0, 10),
     title: ex.title,
     assignedTo: { name: ownerName, initials },
-    // Preserve V3 metadata as flags for round-trip
-    bulkId: undefined,
-    flags: ex.sourceWorkflowName ? undefined : undefined,
   };
 }
 
@@ -88,10 +85,13 @@ export function syncGrcToV3Exception(grc: GrcException, original: AutomationRunE
     }
   }
 
-  // Severity
+  // Severity — preserve CRITICAL if GRC maps it to High (GRC has no Critical level)
   const newSeverity = GRC_SEVERITY_TO_V3[grc.severity];
   if (newSeverity && newSeverity !== original.severity) {
-    updates.severity = newSeverity;
+    // Don't downgrade CRITICAL to HIGH just because GRC lacks a Critical level
+    if (!(original.severity === 'CRITICAL' && newSeverity === 'HIGH')) {
+      updates.severity = newSeverity;
+    }
   }
 
   // Owner
