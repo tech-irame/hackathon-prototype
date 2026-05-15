@@ -26,7 +26,7 @@ import ActionHubView, { CircularProgress } from './ActionHubView';
 import GenerateATRModal from './GenerateATRModal';
 import ExceptionsTable from './ExceptionsTable';
 import SampleDataModal, { type SampleDataPayload } from './SampleDataModal';
-import BulkClassifyModal from './BulkClassifyModal';
+import BulkClassifyModal, { type BulkClassifyPayload } from './BulkClassifyModal';
 import ActivityTimelineDrawer from './ActivityTimelineDrawer';
 import { useToast } from '../shared/Toast';
 
@@ -182,7 +182,24 @@ export default function ManageExceptionsView({ role, setRole, onBack, embedded =
     return REPORT_QUERIES_ATR[fromId] ? { id: fromId, ...REPORT_QUERIES_ATR[fromId] } : null;
   }, []);
 
-  const exceptions = propsExceptions || GRC_EXCEPTIONS;
+  // Local exception state — initialized from props or default mock data
+  const [localExceptions, setLocalExceptions] = useState<GrcException[]>(propsExceptions || GRC_EXCEPTIONS);
+  // Sync if props change (e.g. new run generates more exceptions)
+  const propsKey = propsExceptions?.map(e => e.id).join(',') || '';
+  const [prevPropsKey, setPrevPropsKey] = useState(propsKey);
+  if (propsKey !== prevPropsKey) {
+    setPrevPropsKey(propsKey);
+    if (propsExceptions) setLocalExceptions(propsExceptions);
+  }
+  const exceptions = localExceptions;
+
+  const updateExceptions = (updater: (prev: GrcException[]) => GrcException[]) => {
+    setLocalExceptions(prev => {
+      const next = updater(prev);
+      onExceptionsChange?.(next);
+      return next;
+    });
+  };
 
   const drawerException = useMemo(
     () => (drawer ? exceptions.find(e => e.id === drawer.exceptionId) ?? null : null),
@@ -289,10 +306,10 @@ export default function ManageExceptionsView({ role, setRole, onBack, embedded =
           {/* Tabs row — left: tab buttons; right (Action Hub only): Report Health + Generate ATR */}
           <div className="flex items-center justify-between gap-6 -mb-px">
             <div className="flex items-center gap-0 border-b border-transparent">
-              {[
+              {([
                 { id: 'exceptions' as const, label: 'Exceptions', icon: Layers },
-                { id: 'action-hub' as const, label: 'Action Hub', icon: FileBarChart },
-              ].map(t => {
+                ...(!embedded ? [{ id: 'action-hub' as const, label: 'Action Hub', icon: FileBarChart }] : []),
+              ] as const).map(t => {
                 const Icon = t.icon;
                 const isActive = activeNav === t.id;
                 return (
@@ -567,7 +584,12 @@ export default function ManageExceptionsView({ role, setRole, onBack, embedded =
             selectedCases={exceptions.filter(e => selected.has(e.id))}
             actionableId={`ACT${String(nextActionableNum).padStart(3, '0')}`}
             onClose={() => setBulkClassifyOpen(false)}
-            onApply={() => {
+            onApply={(payload: BulkClassifyPayload) => {
+              updateExceptions(prev => prev.map(e =>
+                payload.caseIds.includes(e.id)
+                  ? { ...e, severity: payload.severity, classification: payload.classification, classificationReview: 'Approved' as const, status: 'Under Review' as const, lastUpdated: new Date().toISOString().slice(0, 10) }
+                  : e
+              ));
               setNextActionableNum(n => n + 1);
               setSelected(new Set());
               setBulkClassifyOpen(false);

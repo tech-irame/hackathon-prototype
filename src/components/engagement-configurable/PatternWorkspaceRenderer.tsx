@@ -319,6 +319,7 @@ export default function PatternWorkspaceRenderer({ engagement, activeTabId, acti
           runsState={automationState.runs}
           casesState={automationState.cases}
           onUpdateCases={onUpdateAutomationCases}
+          onUpdateRunException={onUpdateAutoRunException}
           onNavigateTab={onNavigateTab}
         />
       );
