@@ -59,7 +59,6 @@ export default function ReviewCreateStep({ patternType, details, config, validat
     if (config.frequency) configEntries.push({ label: 'Frequency', value: config.frequency });
     configEntries.push(
       { label: 'Review', value: config.reviewRequired ? 'Required' : 'Not required' },
-      { label: 'Case Creation', value: config.caseCreationEnabled ? 'Enabled' : 'Disabled' },
     );
   }
 

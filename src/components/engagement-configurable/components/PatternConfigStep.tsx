@@ -267,10 +267,6 @@ function AutomationProjectSetup({ config, onChange }: { config: AutomationProjec
           <input type="checkbox" checked={config.reviewRequired} onChange={e => update('reviewRequired', e.target.checked)} className={checkCls} />
           Review required
         </label>
-        <label className="flex items-center gap-2 text-[11px] text-text cursor-pointer">
-          <input type="checkbox" checked={config.caseCreationEnabled} onChange={e => update('caseCreationEnabled', e.target.checked)} className={checkCls} />
-          Case creation enabled
-        </label>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
