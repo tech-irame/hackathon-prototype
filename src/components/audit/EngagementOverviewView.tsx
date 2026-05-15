@@ -357,104 +357,14 @@ export default function EngagementDetailView({ engagementId, onBack, onOpenExecu
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.15 }}
           >
-            {/* ═══ OVERVIEW — Automation gets the rich command-center; Compliance / IA keep checklist ═══ */}
-            {activeTab === 'overview' && eng.type === 'Automation' && (
-              <AutomationOverviewTab
+            {/* ═══ OVERVIEW — Health dashboard for all three engagement types ═══ */}
+            {activeTab === 'overview' && (
+              <HealthOverviewTab
                 eng={eng}
                 onDrillToExceptions={() => onOpenCaseManagement(eng.id)}
                 onConfigureWorkflow={(wfId) => setConfigWorkflow(wfId)}
               />
             )}
-            {activeTab === 'overview' && eng.type !== 'Automation' && (
-              <div className="space-y-6">
-                <div className="glass-card rounded-2xl p-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 rounded-xl bg-gradient-to-br from-primary to-primary-medium">
-                      <Sparkles size={16} className="text-white" />
-                    </div>
-                    <div>
-                      <h3 className="text-[14px] font-bold text-text">Set up this engagement</h3>
-                      <p className="text-[12px] text-text-muted mt-0.5">{completedCount} of {checklist.length} steps complete</p>
-                    </div>
-                    <div className="ml-auto">
-                      <div className="w-20 h-2 bg-surface-3 rounded-full overflow-hidden">
-                        <div className="h-full rounded-full bg-gradient-to-r from-primary to-primary-medium transition-all" style={{ width: `${completedPct}%` }} />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    {checklist.map((item, i) => (
-                      <motion.div
-                        key={item.key}
-                        initial={{ opacity: 0, x: -4 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: i * 0.04 }}
-                        className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-colors ${item.done ? 'border-compliant/20 bg-compliant-50/30' : 'border-border hover:border-primary/20 hover:bg-primary-xlight/30'}`}
-                      >
-                        <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${item.done ? 'bg-compliant text-white' : 'bg-surface-2 text-text-muted'}`}>
-                          {item.done ? <CheckCircle2 size={14} /> : <span className="text-[11px] font-bold">{i + 1}</span>}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className={`text-[13px] font-medium ${item.done ? 'text-compliant-700 line-through' : 'text-text'}`}>{item.label}</div>
-                          <div className="text-[11px] text-text-muted mt-0.5">{item.desc}</div>
-                        </div>
-                        {!item.done && (
-                          <button
-                            onClick={() => addToast({ message: `"${item.label}" — coming soon`, type: 'info' })}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-[11px] font-semibold hover:bg-primary/15 transition-colors cursor-pointer shrink-0"
-                          >
-                            <item.icon size={11} />
-                            Configure
-                          </button>
-                        )}
-                      </motion.div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Quick stats / recent activity rail */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="glass-card rounded-xl p-5">
-                    <h3 className="text-[12px] font-bold text-ink-500 uppercase tracking-wider mb-3">Engagement at a glance</h3>
-                    <dl className="space-y-2.5 text-[12.5px]">
-                      <div className="flex items-center justify-between"><dt className="text-text-muted">Type</dt><dd className="text-text font-medium">{TYPE_LABEL[eng.type]}</dd></div>
-                      <div className="flex items-center justify-between"><dt className="text-text-muted">Process</dt><dd className="text-text font-medium">{eng.process}</dd></div>
-                      <div className="flex items-center justify-between"><dt className="text-text-muted">Framework</dt><dd className="text-text font-medium">{eng.framework}</dd></div>
-                      <div className="flex items-center justify-between"><dt className="text-text-muted">Period</dt><dd className="text-text font-medium">{eng.periodStart} – {eng.periodEnd}</dd></div>
-                      <div className="flex items-center justify-between"><dt className="text-text-muted">Owner</dt><dd className="text-text font-medium">{eng.owner}</dd></div>
-                      <div className="flex items-center justify-between"><dt className="text-text-muted">Status</dt><dd><span className={`px-2 h-5 rounded-full text-[10px] font-semibold inline-flex items-center ${STATUS_CLS[eng.status]}`}>{eng.status}</span></dd></div>
-                    </dl>
-                  </div>
-                  <div className="glass-card rounded-xl p-5">
-                    <h3 className="text-[12px] font-bold text-ink-500 uppercase tracking-wider mb-3">Recent activity</h3>
-                    <ul className="space-y-3 text-[12.5px]">
-                      <li className="flex items-start gap-2.5">
-                        <div className="mt-0.5 w-1.5 h-1.5 rounded-full bg-compliant shrink-0" />
-                        <div>
-                          <div className="text-text">Control test completed — {eng.lastActivity}</div>
-                          <div className="text-[11px] text-text-muted">{eng.owner}</div>
-                        </div>
-                      </li>
-                      <li className="flex items-start gap-2.5">
-                        <div className="mt-0.5 w-1.5 h-1.5 rounded-full bg-evidence-500 shrink-0" />
-                        <div>
-                          <div className="text-text">{eng.openIssues > 0 ? `${eng.openIssues} open issue(s) need attention` : 'No open issues'}</div>
-                          <div className="text-[11px] text-text-muted">Updated {eng.lastActivity}</div>
-                        </div>
-                      </li>
-                      <li className="flex items-start gap-2.5">
-                        <div className="mt-0.5 w-1.5 h-1.5 rounded-full bg-mitigated-500 shrink-0" />
-                        <div>
-                          <div className="text-text">Next milestone: {eng.nextScheduled}</div>
-                          <div className="text-[11px] text-text-muted">On schedule</div>
-                        </div>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {/* ═══ RACM (Compliance / IA) ═══ */}
             {activeTab === 'racm' && (
               <div className="space-y-4">
@@ -1034,7 +944,7 @@ function heatmapCellCls(count: number): string {
   return 'bg-risk-100 border-risk-100/80';
 }
 
-function AutomationOverviewTab({
+function HealthOverviewTab({
   eng,
   onDrillToExceptions,
   onConfigureWorkflow,
@@ -1043,6 +953,37 @@ function AutomationOverviewTab({
   onDrillToExceptions: (filter: { severity?: Severity; workflowId?: string; status?: EngagementException['status'] }) => void;
   onConfigureWorkflow: (workflowId: string) => void;
 }) {
+  // ─── Type-aware copy + funnel stages ────────────────────────────────────
+  const isAutomation = eng.type === 'Automation';
+  const isCompliance = eng.type === 'Compliance';
+  const isIA = eng.type === 'Internal Audit';
+  const issueWord = isAutomation ? 'exception' : 'finding';
+  const issueWordCap = isAutomation ? 'Exceptions' : 'Findings';
+  const labels = {
+    kpi1Label: isAutomation ? 'Total Workflows' : 'Controls in Scope',
+    kpi1Sub: isAutomation
+      ? `${MOCK_WORKFLOWS.filter(wf => wf.cadence.kind === 'Frequency').length} live · ${MOCK_WORKFLOWS.filter(wf => wf.cadence.kind === 'Ad-hoc').length} ad-hoc`
+      : `${MOCK_WORKFLOWS.length} test workflows linked`,
+    kpi1Value: isAutomation ? MOCK_WORKFLOWS.length : eng.controls,
+    kpi2Label: `Open ${issueWordCap}`,
+    kpi3Label: isIA ? 'Action Plans Open' : 'In Progress',
+    kpi4Label: isAutomation ? 'Health' : (isCompliance ? 'Pass Rate' : 'Coverage'),
+    donutHeader: `${issueWordCap} by severity`,
+    barHeader: isAutomation ? 'Exceptions by workflow' : `${issueWordCap} by workflow`,
+    heatmapHeader: isAutomation ? 'Exception heatmap — last 14 days' : `${issueWordCap} activity — last 14 days`,
+    funnelHeader: isAutomation
+      ? 'Exception lifecycle funnel'
+      : isCompliance
+        ? 'Control testing pipeline'
+        : 'Internal audit pipeline',
+    effectivenessHeader: isAutomation ? 'Workflow effectiveness · 90d' : 'Linked workflow effectiveness · 90d',
+    workflowConfigHeader: isAutomation ? 'Workflow configuration' : 'Linked workflows',
+    workflowConfigSub: isAutomation
+      ? 'Tune schedules, thresholds, and routing for each workflow on this automation. Grouped by sub-process.'
+      : 'Test and supporting workflows linked to this engagement, grouped by sub-process.',
+    drillCtaPlural: isAutomation ? 'Manage Exceptions' : `Manage ${issueWordCap}`,
+  };
+
   const exceptions = useMemo(() => exceptionsForEngagement(eng.id), [eng.id]);
   const openExceptions = useMemo(() => exceptions.filter(e => e.status !== 'Resolved'), [exceptions]);
 
@@ -1052,8 +993,57 @@ function AutomationOverviewTab({
   const resolvedCount = exceptions.filter(e => e.status === 'Resolved').length;
   const pct = (n: number) => totalCount === 0 ? 0 : Math.round((n / totalCount) * 100);
 
-  const liveCount = MOCK_WORKFLOWS.filter(wf => wf.cadence.kind === 'Frequency').length;
-  const adhocCount = MOCK_WORKFLOWS.filter(wf => wf.cadence.kind === 'Ad-hoc').length;
+  // ─── Pipeline funnel stages per engagement type ─────────────────────────
+  const funnelSteps = useMemo(() => {
+    if (isAutomation) {
+      const fired = exceptions.length;
+      const triaged = exceptions.filter(e => e.status !== 'Open').length;
+      const classified = exceptions.filter(e => e.classification).length;
+      const closed = exceptions.filter(e => e.status === 'Resolved').length;
+      return [
+        { label: 'Fired',      count: fired,      bar: 'bg-evidence-500/85' },
+        { label: 'Triaged',    count: triaged,    bar: 'bg-mitigated-500/85' },
+        { label: 'Classified', count: classified, bar: 'bg-brand-500/85' },
+        { label: 'Closed',     count: closed,     bar: 'bg-compliant/85' },
+      ];
+    }
+    if (isCompliance) {
+      // Demo: derive progress through pipeline from engagement.health (0–100).
+      const h = eng.health;
+      const total = eng.controls;
+      const scoped       = total;
+      const walkthrough  = Math.round(total * Math.min(1, h / 100 + 0.05));
+      const sampled      = Math.round(total * (h / 100));
+      const tested       = Math.round(total * Math.max(0, h / 100 - 0.05));
+      const workingPaper = Math.round(total * Math.max(0, h / 100 - 0.1));
+      const reviewed     = Math.round(total * Math.max(0, h / 100 - 0.18));
+      const signedOff    = h >= 95 ? total : 0;
+      return [
+        { label: 'Scoped',         count: scoped,       bar: 'bg-evidence-500/85' },
+        { label: 'Walkthrough',    count: walkthrough,  bar: 'bg-evidence-600/85' },
+        { label: 'Sampled',        count: sampled,      bar: 'bg-mitigated-500/85' },
+        { label: 'Tested',         count: tested,       bar: 'bg-mitigated-600/85' },
+        { label: 'Working paper',  count: workingPaper, bar: 'bg-brand-500/85' },
+        { label: 'Reviewed',       count: reviewed,     bar: 'bg-brand-600/85' },
+        { label: 'Signed-off',     count: signedOff,    bar: 'bg-compliant/85' },
+      ];
+    }
+    // Internal Audit — 8-step pipeline derived from engagement status / health.
+    const planned = ['Draft', 'Planned'].includes(eng.status);
+    const active = ['Active', 'In Progress'].includes(eng.status);
+    const review = eng.status === 'Review';
+    const closed = eng.status === 'Closed';
+    return [
+      { label: 'Planning',         count: 1,                                  bar: 'bg-evidence-500/85' },
+      { label: 'Announcement',     count: planned || active || review || closed ? 1 : 0, bar: 'bg-evidence-600/85' },
+      { label: 'IDR',              count: active || review || closed ? 1 : 0, bar: 'bg-mitigated-500/85' },
+      { label: 'Analysis',         count: active || review || closed ? 1 : 0, bar: 'bg-mitigated-600/85' },
+      { label: 'Issues sheet',     count: review || closed ? 1 : 0,           bar: 'bg-brand-500/85' },
+      { label: 'Discussion',       count: review || closed ? 1 : 0,           bar: 'bg-brand-600/85' },
+      { label: 'Final report',     count: closed ? 1 : 0,                     bar: 'bg-compliant/85' },
+      { label: 'Audit Committee',  count: closed ? 1 : 0,                     bar: 'bg-compliant/85' },
+    ];
+  }, [eng, exceptions, isAutomation, isCompliance]);
 
   // Severity distribution of currently-open (non-resolved) exceptions.
   const severityData = useMemo(() => {
@@ -1111,15 +1101,15 @@ function AutomationOverviewTab({
       {/* ─── KPI strip ─── */}
       <div className="grid grid-cols-4 gap-3">
         <KpiCard
-          label="Total Workflows"
-          value={MOCK_WORKFLOWS.length}
-          sub={`${liveCount} live · ${adhocCount} ad-hoc`}
+          label={labels.kpi1Label}
+          value={labels.kpi1Value}
+          sub={labels.kpi1Sub}
           icon={Workflow}
           tone="text-text"
           onClick={() => onDrillToExceptions({})}
         />
         <KpiCard
-          label="Open Exceptions"
+          label={labels.kpi2Label}
           value={openCount}
           sub={totalCount > 0 ? `${pct(openCount)}% of ${totalCount}` : '—'}
           icon={AlertTriangle}
@@ -1127,7 +1117,7 @@ function AutomationOverviewTab({
           onClick={() => onDrillToExceptions({ status: 'Open' })}
         />
         <KpiCard
-          label="In Progress"
+          label={labels.kpi3Label}
           value={inProgressCount}
           sub={totalCount > 0 ? `${pct(inProgressCount)}% of ${totalCount}` : '—'}
           icon={Clock}
@@ -1135,7 +1125,7 @@ function AutomationOverviewTab({
           onClick={() => onDrillToExceptions({ status: 'Triaging' })}
         />
         <KpiCard
-          label="Health"
+          label={labels.kpi4Label}
           value={`${eng.health}%`}
           sub={`${resolvedCount} resolved · ${openCount + inProgressCount} active`}
           icon={CheckCircle2}
@@ -1151,7 +1141,7 @@ function AutomationOverviewTab({
         <div className="glass-card rounded-xl p-5">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <h3 className="text-[13px] font-semibold text-text">Exceptions by severity</h3>
+              <h3 className="text-[13px] font-semibold text-text">{labels.donutHeader}</h3>
               <p className="text-[11px] text-text-muted mt-0.5">Click a slice to drill into Exception Management.</p>
             </div>
             <span className="text-[11px] text-text-muted">{totalOpenForDonut} open</span>
@@ -1212,7 +1202,7 @@ function AutomationOverviewTab({
         <div className="glass-card rounded-xl p-5">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <h3 className="text-[13px] font-semibold text-text">Exceptions by workflow</h3>
+              <h3 className="text-[13px] font-semibold text-text">{labels.barHeader}</h3>
               <p className="text-[11px] text-text-muted mt-0.5">Click a bar to filter the Exception Management tab.</p>
             </div>
           </div>
@@ -1257,7 +1247,7 @@ function AutomationOverviewTab({
       <div className="glass-card rounded-xl p-5">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <h3 className="text-[13px] font-semibold text-text">Exception heatmap — last {heatmapDays} days</h3>
+            <h3 className="text-[13px] font-semibold text-text">{labels.heatmapHeader.replace('14', String(heatmapDays))}</h3>
             <p className="text-[11px] text-text-muted mt-0.5">Rows are workflows; each cell is a day. Click a cell to drill into that workflow.</p>
           </div>
           <div className="flex items-center gap-2 text-[10.5px] text-text-muted">
@@ -1328,7 +1318,7 @@ function AutomationOverviewTab({
         <div className="glass-card rounded-xl p-5">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <h3 className="text-[13px] font-semibold text-text">Workflow effectiveness · 90d</h3>
+              <h3 className="text-[13px] font-semibold text-text">{labels.effectivenessHeader}</h3>
               <p className="text-[11px] text-text-muted mt-0.5">True positives / total fires per workflow. Low signal = tune the threshold.</p>
             </div>
           </div>
@@ -1358,27 +1348,23 @@ function AutomationOverviewTab({
         <div className="glass-card rounded-xl p-5">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <h3 className="text-[13px] font-semibold text-text">Exception lifecycle funnel</h3>
-              <p className="text-[11px] text-text-muted mt-0.5">Where exceptions sit in the resolution pipeline. Bottlenecks become visible.</p>
+              <h3 className="text-[13px] font-semibold text-text">{labels.funnelHeader}</h3>
+              <p className="text-[11px] text-text-muted mt-0.5">
+                {isAutomation
+                  ? 'Where exceptions sit in the resolution pipeline. Bottlenecks become visible.'
+                  : isCompliance
+                    ? 'Where controls sit in the test pipeline. Big drop = bottleneck.'
+                    : 'Stage the engagement is currently at in the IA pipeline.'}
+              </p>
             </div>
           </div>
           {(() => {
-            const fired = exceptions.length;
-            const triaged = exceptions.filter(e => e.status !== 'Open').length;
-            const classified = exceptions.filter(e => e.classification).length;
-            const closed = exceptions.filter(e => e.status === 'Resolved').length;
-            const max = Math.max(1, fired);
-            const steps = [
-              { label: 'Fired',       count: fired,      bar: 'bg-evidence-500/85' },
-              { label: 'Triaged',     count: triaged,    bar: 'bg-mitigated-500/85' },
-              { label: 'Classified',  count: classified, bar: 'bg-brand-500/85' },
-              { label: 'Closed',      count: closed,     bar: 'bg-compliant/85' },
-            ];
+            const max = Math.max(1, ...funnelSteps.map(s => s.count));
             return (
               <div className="space-y-2">
-                {steps.map((s, i) => (
+                {funnelSteps.map((s, i) => (
                   <div key={s.label} className="flex items-center gap-3">
-                    <span className="text-[11px] text-text-muted w-20 shrink-0">{s.label}</span>
+                    <span className="text-[11px] text-text-muted w-24 shrink-0 truncate">{s.label}</span>
                     <div className="flex-1 h-7 bg-surface-2/40 rounded-md overflow-hidden">
                       <motion.div
                         initial={{ width: 0 }}
@@ -1386,11 +1372,11 @@ function AutomationOverviewTab({
                         transition={{ delay: 0.05 + i * 0.06, duration: 0.4 }}
                         className={`h-full ${s.bar} flex items-center px-2`}
                       >
-                        <span className="text-[11px] font-bold text-white tabular-nums">{s.count}</span>
+                        {s.count > 0 && <span className="text-[11px] font-bold text-white tabular-nums">{s.count}</span>}
                       </motion.div>
                     </div>
                     <span className="text-[11px] text-text-muted tabular-nums w-12 text-right shrink-0">
-                      {fired === 0 ? '—' : `${Math.round((s.count / fired) * 100)}%`}
+                      {max === 0 ? '—' : `${Math.round((s.count / max) * 100)}%`}
                     </span>
                   </div>
                 ))}
@@ -1448,8 +1434,8 @@ function AutomationOverviewTab({
       <div className="glass-card rounded-xl p-5">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <h3 className="text-[13px] font-semibold text-text">Workflow configuration</h3>
-            <p className="text-[11px] text-text-muted mt-0.5">Tune schedules, thresholds, and routing for each workflow on this automation. Grouped by sub-process.</p>
+            <h3 className="text-[13px] font-semibold text-text">{labels.workflowConfigHeader}</h3>
+            <p className="text-[11px] text-text-muted mt-0.5">{labels.workflowConfigSub}</p>
           </div>
         </div>
         <div className="space-y-4">
