@@ -241,48 +241,8 @@ function AutomationProjectSetup({ config, onChange }: { config: AutomationProjec
     <div className="space-y-4">
       <div>
         <h3 className="text-[15px] font-bold text-text mb-1">Automation Project Setup</h3>
-        <p className="text-[12px] text-text-muted">Configure input data, automation mode, outputs, and scheduling.</p>
+        <p className="text-[12px] text-text-muted">Define outputs, review needs, run cadence, and optional governance references. Workflow selection and data source configuration happen inside the project workspace.</p>
       </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className={labelCls}>Input Data Type <span className="text-red-400">*</span></label>
-          <select value={config.inputType} onChange={e => update('inputType', e.target.value as AutomationInputType)} className={selectCls}>
-            <option value={AutomationInputType.EXCEL_CSV}>Excel / CSV</option>
-            <option value={AutomationInputType.PDF}>PDF</option>
-            <option value={AutomationInputType.SQL}>SQL</option>
-            <option value={AutomationInputType.IMAGE}>Image</option>
-            <option value={AutomationInputType.HYBRID}>Hybrid</option>
-          </select>
-        </div>
-        <div>
-          <label className={labelCls}>How do you want to automate this? <span className="text-red-400">*</span></label>
-          <select value={config.automationSetupMode} onChange={e => update('automationSetupMode', e.target.value as AutomationSetupMode)} className={selectCls}>
-            <option value={AutomationSetupMode.SELECT_EXISTING_WORKFLOW}>Use Existing Workflow</option>
-            <option value={AutomationSetupMode.CREATE_NEW_WORKFLOW}>Build New Workflow</option>
-            <option value={AutomationSetupMode.QA_ADHOC_ANALYSIS}>Ask Questions / Ad-hoc Analysis</option>
-            <option value={AutomationSetupMode.UPLOAD_DATA_FIRST_DECIDE_LATER}>Upload Data First, Decide Later</option>
-          </select>
-          <p className="text-[9px] text-gray-400 mt-1">{
-            config.automationSetupMode === AutomationSetupMode.SELECT_EXISTING_WORKFLOW ? 'Choose one or more saved workflows to run on the selected input data. Best for repeatable automation and bulk runs.' :
-            config.automationSetupMode === AutomationSetupMode.CREATE_NEW_WORKFLOW ? 'Build a new workflow using the workflow builder. You can link existing project data or add new data during workflow creation.' :
-            config.automationSetupMode === AutomationSetupMode.QA_ADHOC_ANALYSIS ? 'Use this for one-time exploration or Q&A on data/documents. For recurring automation, convert this into a saved workflow.' :
-            'Add input data now and choose the automation approach later.'
-          }</p>
-        </div>
-      </div>
-
-      {config.automationSetupMode === AutomationSetupMode.SELECT_EXISTING_WORKFLOW && (
-        <div>
-          <label className={labelCls}>Existing Workflow</label>
-          <select className={selectCls} value={(config.workflowIds || [])[0] || ''} onChange={e => update('workflowIds', e.target.value ? [e.target.value] : [])}>
-            <option value="">Select workflow...</option>
-            <option value="wf-vendor-recon">Vendor Reconciliation Workflow</option>
-            <option value="wf-expense-val">Expense Validation Workflow</option>
-            <option value="wf-invoice-match">Invoice Matching Workflow</option>
-          </select>
-        </div>
-      )}
 
       <div>
         <label className={labelCls}>Output Types</label>

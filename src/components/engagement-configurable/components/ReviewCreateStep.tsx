@@ -53,8 +53,6 @@ export default function ReviewCreateStep({ patternType, details, config, validat
   }
   if (config.patternType === 'workflow_automation_project') {
     configEntries.push(
-      { label: 'Input Type', value: config.inputType.replace(/_/g, ' ') },
-      { label: 'Setup Mode', value: config.automationSetupMode.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase()) },
       { label: 'Outputs', value: config.outputTypes.map(o => o.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase())).join(', ') },
       { label: 'Run Type', value: config.runType.replace(/_/g, ' ') },
     );
