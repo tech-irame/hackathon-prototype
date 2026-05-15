@@ -15,6 +15,8 @@ import type { AutomationRunsState, AutomationRun, AutoRunType } from './automati
 import { simulateRun, deriveRunsSummary, RUN_STATUS_CLS } from './automationRunsData';
 import { BulkExecuteModal, Checkbox } from '../../../workflow/BulkExecuteModal';
 import type { LibraryWorkflow } from '../../../workflow/WorkflowLibraryView';
+import WorkflowDetail from '../../../workflow/WorkflowDetail';
+import { LIBRARY_WORKFLOWS } from '../../../workflow/WorkflowLibraryView';
 
 function now(): string { return new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
 
@@ -129,12 +131,35 @@ export default function AutomationWorkflowsTab({ engagement, inputData, setup, r
     setShowBulkModal(false);
   };
 
-  // ── Detail view ──
+  // ── Detail view — use real WorkflowDetail for library workflows ──
   if (detailId) {
     const wf = allWorkflows.find(w => w.id === detailId);
     if (!wf) { setDetailId(null); return null; }
+    // Map V3 mock workflow ID (mwf-N) to library workflow ID (lw-00N) for rich detail
+    const mwfMatch = detailId.match(/^mwf-(\d+)$/);
+    const libraryId = mwfMatch ? `lw-${mwfMatch[1].padStart(3, '0')}` : null;
+    const hasLibraryDetail = libraryId && LIBRARY_WORKFLOWS.some(lw => lw.id === libraryId);
+
+    if (hasLibraryDetail) {
+      return (
+        <div className="flex flex-col h-full -mx-4 -mt-2">
+          <WorkflowDetail
+            workflowId={libraryId!}
+            onBack={() => setDetailId(null)}
+            onOpenExecutor={() => { if (!wfIds.includes(detailId)) toggleWorkflow(detailId); setShowBulkModal(true); }}
+          />
+          <AnimatePresence>
+            {showBulkModal && (
+              <BulkExecuteModal selectedWorkflows={libraryWorkflows} onClose={() => setShowBulkModal(false)} onContinue={() => handleBulkModalComplete()} />
+            )}
+          </AnimatePresence>
+        </div>
+      );
+    }
+
+    // Fallback for project-created workflows
     const wfRuns = runsState.runs.filter(r => r.workflowNames?.includes(wf.name) || r.workflowName === wf.name);
-    return <WorkflowDetailView wf={wf} runs={wfRuns} onBack={() => setDetailId(null)} onRun={() => { toggleWorkflow(wf.id); setShowBulkModal(true); }} />;
+    return <WorkflowDetailView wf={wf} runs={wfRuns} onBack={() => setDetailId(null)} onRun={() => { if (!wfIds.includes(wf.id)) toggleWorkflow(wf.id); setShowBulkModal(true); }} />;
   }
 
   // ── List view ──
