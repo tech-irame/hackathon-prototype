@@ -73,12 +73,12 @@ export default function AutomationRunsTab({ engagement, inputData, setup, runsSt
         name,
         description: mockWf?.description || createdWf?.description || createdWf?.objective || name,
         tags: mockWf ? mockWf.compatibleTypes : ['Automation'],
-        businessProcess: (engagement.config as AutomationProjectConfig).inputType || 'P2P',
+        businessProcess: engagement.businessProcess || 'P2P',
         controlId: mockWf?.id ? `CTRL-${mockWf.id.replace('mwf-', '')}` : `PRJ-${id.slice(-3)}`,
         live: !!mockWf,
       };
     });
-  }, [wfIds, wfNames, setup.createdWorkflows, engagement.config]);
+  }, [wfIds, wfNames, setup.createdWorkflows, engagement.businessProcess]);
 
   // Q&A direct run (no modal needed)
   const handleCreateQARun = () => {
