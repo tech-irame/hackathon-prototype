@@ -52,6 +52,8 @@ import WorkflowExecutionPanel from './components/execution/WorkflowExecutionPane
 import TraceabilityPanel from './components/execution/TraceabilityPanel';
 import NotificationDrawer from './components/notifications/NotificationDrawer';
 import { createNotification, type PlatformNotification } from './data/notifications';
+// V3 Configurable Engagement — dev-only preview (not wired to main flow)
+import ConfigurableEngagementWizard from './components/engagement-configurable/ConfigurableEngagementWizard';
 
 const LAUNCHED_FROM_REPORT =
   typeof window !== 'undefined' &&
@@ -599,6 +601,18 @@ export default function App() {
         return <AdminView activeTab="integrations" />;
       case 'admin-logs':
         return <AdminView activeTab="logs" />;
+
+      // V3 Configurable Engagement — dev-only preview route
+      case 'dev-configurable-engagement-v3':
+        return (
+          <div className="p-6 h-full overflow-y-auto">
+            <div className="mb-6">
+              <h2 className="text-[16px] font-bold text-text">Configurable Engagement V3 Preview</h2>
+              <p className="text-[12px] text-text-muted mt-0.5">Internal preview route. Not connected to production flow yet.</p>
+            </div>
+            <ConfigurableEngagementWizard />
+          </div>
+        );
 
       default:
         return (
