@@ -1,0 +1,400 @@
+import { useState } from 'react';
+import { createPortal } from 'react-dom';
+import { motion } from 'motion/react';
+import {
+  X,
+  File as FileIcon,
+  Search,
+  Check,
+  Pencil,
+  ArrowLeft,
+  Shapes,
+  ShieldCheck,
+} from 'lucide-react';
+import type {
+  WorkflowDraft,
+  JourneyFiles,
+  JourneyAlignments,
+} from './types';
+
+interface Props {
+  workflow: WorkflowDraft;
+  files: JourneyFiles;
+  // Kept for backward compatibility with the parent — no longer used in this card.
+  setFiles: (f: JourneyFiles) => void;
+  alignments: JourneyAlignments;
+  expandedInputId?: string | null;
+  onToggleExpand?: (inputId: string) => void;
+  onViewWorkspace?: () => void;
+  onConfirm?: () => void;
+  confirmDisabled?: boolean;
+}
+
+export default function StepMapData({
+  workflow,
+  files,
+  expandedInputId,
+  onToggleExpand,
+  onViewWorkspace,
+  onConfirm,
+  confirmDisabled,
+}: Props) {
+  const [internalExpanded, setInternalExpanded] = useState<string | null>(null);
+  const expanded = expandedInputId !== undefined ? expandedInputId : internalExpanded;
+  const toggleExpanded = (inputId: string) => {
+    if (onToggleExpand) {
+      onToggleExpand(inputId);
+    } else {
+      setInternalExpanded((prev) => (prev === inputId ? null : inputId));
+    }
+  };
+
+  const [previewInput, setPreviewInput] = useState<{ name: string; files: { name: string }[] } | null>(null);
+
+  // Column selection state — seeded with ALL columns selected per input.
+  const [selectedByInput, setSelectedByInput] = useState<Record<string, Set<string>>>(() => {
+    const init: Record<string, Set<string>> = {};
+    workflow.inputs.forEach((inp) => {
+      init[inp.id] = new Set(inp.columns ?? []);
+    });
+    return init;
+  });
+  const [searchByInput, setSearchByInput] = useState<Record<string, string>>({});
+
+  const toggleColumn = (inputId: string, col: string) => {
+    setSelectedByInput((prev) => {
+      const next = { ...prev };
+      const cur = new Set(prev[inputId] ?? []);
+      if (cur.has(col)) cur.delete(col);
+      else cur.add(col);
+      next[inputId] = cur;
+      return next;
+    });
+  };
+
+  const selectAll = (inputId: string, cols: string[]) => {
+    setSelectedByInput((prev) => ({ ...prev, [inputId]: new Set(cols) }));
+  };
+  const deselectAll = (inputId: string) => {
+    setSelectedByInput((prev) => ({ ...prev, [inputId]: new Set() }));
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="flex flex-col gap-2.5"
+    >
+      {workflow.inputs.map((input) => {
+        const allCols = input.columns ?? [];
+        const selected = selectedByInput[input.id] ?? new Set<string>();
+        const search = searchByInput[input.id] ?? '';
+        const filteredCols = allCols.filter((c) =>
+          c.toLowerCase().includes(search.toLowerCase()),
+        );
+        const isOpen = expanded === input.id;
+        const uploaded = files[input.id] ?? [];
+        const sourceName = uploaded[0]?.name ?? 'No source mapped';
+        const selectedCols = allCols.filter((c) => selected.has(c));
+
+        return (
+          <section
+            key={input.id}
+            className="rounded-2xl border border-canvas-border bg-canvas-elevated overflow-hidden"
+          >
+            {/* Compact header row */}
+            <div className="flex items-center justify-between gap-3 px-4 py-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-[14px] font-semibold text-ink-900 shrink-0">
+                  {input.name}
+                </span>
+                <ArrowLeft size={13} className="text-ink-400 shrink-0" />
+                <button
+                  type="button"
+                  onClick={() =>
+                    uploaded.length > 0 &&
+                    setPreviewInput({ name: input.name, files: uploaded })
+                  }
+                  disabled={uploaded.length === 0}
+                  className={[
+                    'text-[13px] truncate text-left transition-colors',
+                    uploaded.length > 0
+                      ? 'text-ink-500 hover:text-brand-700 cursor-pointer'
+                      : 'text-ink-400 italic cursor-default',
+                  ].join(' ')}
+                >
+                  {sourceName}
+                </button>
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                <span className="text-[12px] text-ink-400 tabular-nums whitespace-nowrap">
+                  {selected.size} of {allCols.length} cols
+                </span>
+                <button
+                  type="button"
+                  onClick={() => toggleExpanded(input.id)}
+                  aria-expanded={isOpen}
+                  className="inline-flex items-center gap-1 text-[12.5px] font-semibold text-brand-700 hover:text-brand-800 cursor-pointer transition-colors"
+                >
+                  <Pencil size={12} />
+                  Edit
+                </button>
+              </div>
+            </div>
+
+            {/* Collapsed: selected column pills */}
+            {!isOpen && (
+              <div className="px-4 pb-3">
+                {selectedCols.length === 0 ? (
+                  <span className="text-[11.5px] text-ink-400 italic">
+                    No columns selected.
+                  </span>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedCols.map((col) => (
+                      <span
+                        key={col}
+                        className="inline-flex items-center rounded-lg bg-brand-50 border border-brand-100 px-2.5 py-1 text-[12px] text-ink-800 font-medium"
+                      >
+                        {col}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Expanded: column picker */}
+            {isOpen && (
+              <div className="border-t border-canvas-border/60 px-4 py-3">
+                {allCols.length === 0 ? (
+                  <div className="text-[11.5px] text-ink-400">
+                    No columns detected for {input.name}.
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between mb-2.5">
+                      <span className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-ink-400">
+                        Select columns to use
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => selectAll(input.id, allCols)}
+                          className="text-[11.5px] font-semibold text-brand-700 hover:text-brand-800 cursor-pointer px-1 py-0.5 transition-colors"
+                        >
+                          Select all
+                        </button>
+                        <span className="text-ink-300">·</span>
+                        <button
+                          type="button"
+                          onClick={() => deselectAll(input.id)}
+                          className="text-[11.5px] font-semibold text-ink-500 hover:text-ink-700 cursor-pointer px-1 py-0.5 transition-colors"
+                        >
+                          Deselect all
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="relative mb-2.5">
+                      <Search
+                        size={12}
+                        className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400"
+                      />
+                      <input
+                        type="text"
+                        value={search}
+                        onChange={(e) =>
+                          setSearchByInput((prev) => ({
+                            ...prev,
+                            [input.id]: e.target.value,
+                          }))
+                        }
+                        placeholder="Type to filter columns…"
+                        className="w-full rounded-full border border-canvas-border bg-canvas pl-8 pr-3 py-2 text-[12.5px] text-ink-800 placeholder:text-ink-400 focus:outline-none focus:ring-2 focus:ring-brand-600/15 focus:border-brand-400/50 transition-all"
+                      />
+                    </div>
+
+                    {filteredCols.length === 0 ? (
+                      <div className="rounded-lg border border-dashed border-canvas-border px-3 py-4 text-center text-[11.5px] text-ink-400">
+                        No columns match “{search}”.
+                      </div>
+                    ) : (
+                      <ul className="grid grid-cols-2 gap-1.5">
+                        {filteredCols.map((col) => {
+                          const isSelected = selected.has(col);
+                          return (
+                            <li key={col}>
+                              <button
+                                type="button"
+                                onClick={() => toggleColumn(input.id, col)}
+                                aria-pressed={isSelected}
+                                className={[
+                                  'w-full flex items-center gap-2.5 rounded-full border px-3 py-1.5 text-left transition-colors cursor-pointer',
+                                  isSelected
+                                    ? 'border-brand-400 bg-brand-50/60'
+                                    : 'border-canvas-border bg-canvas-elevated hover:border-brand-300 hover:bg-brand-50/30',
+                                ].join(' ')}
+                              >
+                                <span
+                                  className={[
+                                    'w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-colors',
+                                    isSelected
+                                      ? 'bg-brand-600 text-white'
+                                      : 'border border-canvas-border bg-canvas',
+                                  ].join(' ')}
+                                >
+                                  {isSelected && (
+                                    <Check size={12} strokeWidth={3} />
+                                  )}
+                                </span>
+                                <span className="flex-1 text-[13px] font-medium text-ink-800 truncate">
+                                  {col}
+                                </span>
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </section>
+        );
+      })}
+
+      <div className="flex items-center justify-between gap-2">
+        {onConfirm ? (
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={confirmDisabled}
+            className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[12px] font-semibold text-white bg-gradient-to-br from-brand-600 to-fuchsia-600 hover:from-brand-500 hover:to-fuchsia-500 shadow-[0_8px_16px_-10px_rgba(106,18,205,0.5)] disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
+          >
+            <ShieldCheck size={13} />
+            Confirm & Proceed
+          </button>
+        ) : (
+          <span />
+        )}
+        <button
+          type="button"
+          onClick={() => onViewWorkspace?.()}
+          className="inline-flex items-center gap-1.5 rounded-md border border-canvas-border bg-canvas-elevated hover:border-brand-300 hover:text-brand-700 hover:bg-brand-50/40 px-3 py-1.5 text-[12px] font-semibold text-ink-700 transition-colors cursor-pointer"
+        >
+          <Shapes size={13} />
+          View Workspace
+        </button>
+      </div>
+
+      {/* Preview modal */}
+      {previewInput && (
+        <DataPreviewModal
+          schemaName={previewInput.name}
+          fileName={previewInput.files[0]?.name ?? ''}
+          onClose={() => setPreviewInput(null)}
+        />
+      )}
+    </motion.div>
+  );
+}
+
+// ─── Data Preview Modal ──────────────────────────────────────────────
+
+const PREVIEW_DATA = [
+  { row: 1, invoice_no: 'INV-001', vendor_id: 'V-1042', amount: '12,450.00', gl_code: '5010', invoice_date: '2024-01-05' },
+  { row: 2, invoice_no: 'INV-002', vendor_id: 'V-2381', amount: '8,200.00', gl_code: '5020', invoice_date: '2024-01-12' },
+  { row: 3, invoice_no: 'INV-003', vendor_id: 'V-1042', amount: '3,750.50', gl_code: '5010', invoice_date: '2024-01-18' },
+  { row: 4, invoice_no: 'INV-004', vendor_id: 'V-9901', amount: '22,000.00', gl_code: '6030', invoice_date: '2024-01-22' },
+  { row: 5, invoice_no: 'INV-005', vendor_id: 'V-3310', amount: '5,600.00', gl_code: '5020', invoice_date: '2024-01-29' },
+];
+
+const PREVIEW_COLUMNS = ['ROW', 'INVOICE_NO', 'VENDOR_ID', 'AMOUNT', 'GL_CODE', 'INVOICE_DATE'];
+
+function DataPreviewModal({
+  schemaName,
+  fileName,
+  onClose,
+}: {
+  schemaName: string;
+  fileName: string;
+  onClose: () => void;
+}) {
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96, y: 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+        className="relative w-[680px] max-h-[80vh] bg-canvas-elevated rounded-2xl shadow-2xl border border-canvas-border overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-6 py-4 border-b border-canvas-border">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-brand-100 flex items-center justify-center">
+              <FileIcon size={16} className="text-brand-600" />
+            </div>
+            <div>
+              <div className="text-[14px] font-bold text-ink-900">{schemaName}</div>
+              <div className="text-[11.5px] text-ink-400">{fileName}</div>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-7 h-7 rounded-lg flex items-center justify-center text-ink-400 hover:text-ink-800 hover:bg-canvas transition-colors cursor-pointer"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="overflow-auto max-h-[60vh]">
+          <table className="w-full text-[12.5px]">
+            <thead>
+              <tr className="border-b border-canvas-border bg-canvas/60">
+                {PREVIEW_COLUMNS.map((col) => (
+                  <th
+                    key={col}
+                    className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-ink-400"
+                  >
+                    {col}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {PREVIEW_DATA.map((row) => (
+                <tr key={row.row} className="border-b border-canvas-border/40 hover:bg-brand-50/20 transition-colors">
+                  <td className="px-4 py-2.5 text-ink-400 tabular-nums">{row.row}</td>
+                  <td className="px-4 py-2.5 text-ink-800 font-medium">{row.invoice_no}</td>
+                  <td className="px-4 py-2.5 text-ink-800">{row.vendor_id}</td>
+                  <td className="px-4 py-2.5 text-ink-800 tabular-nums text-right">{row.amount}</td>
+                  <td className="px-4 py-2.5 text-ink-800 tabular-nums">{row.gl_code}</td>
+                  <td className="px-4 py-2.5 text-ink-800 tabular-nums">{row.invoice_date}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="flex items-center justify-between px-6 py-3 border-t border-canvas-border">
+          <span className="text-[11px] text-ink-400">Previewing first 5 entries</span>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-[12px] font-semibold px-4 py-2 transition-colors cursor-pointer"
+          >
+            Close Preview
+          </button>
+        </div>
+      </motion.div>
+    </div>,
+    document.body,
+  );
+}

@@ -1,0 +1,44 @@
+import { useMemo, useState } from 'react';
+import { X } from 'lucide-react';
+import DataSourcePanel from '../concierge-workflow-builder/DataSourcePanel';
+import { generateWorkflow } from '../concierge-workflow-builder/mockApi';
+import type { JourneyFiles } from '../concierge-workflow-builder/types';
+import type { WorkflowTypeId } from '../../data/mockData';
+
+interface Props {
+  onClose: () => void;
+  workflowType?: WorkflowTypeId;
+}
+
+const TYPE_PROMPT: Record<WorkflowTypeId, string> = {
+  reconciliation: 'Three-way reconciliation across invoices, POs, and contracts',
+  detection: 'Duplicate invoice detection',
+  monitoring: 'Vendor master change monitoring',
+  compliance: 'Segregation of duties compliance check',
+};
+
+export default function ChatWorkflowWorkspace({ onClose, workflowType }: Props) {
+  const workflow = useMemo(
+    () => generateWorkflow(workflowType ? TYPE_PROMPT[workflowType] : 'detection'),
+    [workflowType],
+  );
+  const [files, setFiles] = useState<JourneyFiles>({});
+
+  return (
+    <div className="relative h-full bg-canvas-elevated border-l border-canvas-border">
+      <DataSourcePanel
+        workflow={workflow}
+        files={files}
+        setFiles={setFiles}
+        step={3}
+      />
+      <button
+        onClick={onClose}
+        aria-label="Close workspace"
+        className="absolute top-2 right-3 z-20 p-1.5 text-text-muted hover:text-text-secondary rounded-md hover:bg-paper-50 cursor-pointer"
+      >
+        <X size={16} />
+      </button>
+    </div>
+  );
+}

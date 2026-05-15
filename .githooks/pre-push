@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Pre-push hook: run Claude preflight review.
+# Enable with: npm run setup-hooks
+# Skip a single push with: SKIP_PREFLIGHT=1 git push
+
+set -uo pipefail
+
+ROOT=$(git rev-parse --show-toplevel)
+SCRIPT="$ROOT/tools/preflight-review.sh"
+
+if [[ -x "$SCRIPT" ]]; then
+  bash "$SCRIPT"
+elif [[ -f "$SCRIPT" ]]; then
+  bash "$SCRIPT"
+else
+  echo "pre-push: $SCRIPT not found, skipping preflight"
+fi
+
+exit 0

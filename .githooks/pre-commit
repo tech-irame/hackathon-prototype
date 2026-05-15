@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Pre-commit hook: run `npm run build` so broken code never enters history.
+# Enable with: npm run setup-hooks
+# Skip a single commit with: SKIP_BUILD=1 git commit …
+
+set -uo pipefail
+
+if [[ "${SKIP_BUILD:-0}" == "1" ]]; then
+  echo "pre-commit: SKIP_BUILD=1, skipping npm run build"
+  exit 0
+fi
+
+ROOT=$(git rev-parse --show-toplevel)
+cd "$ROOT"
+
+if [[ ! -f package.json ]]; then
+  echo "pre-commit: no package.json at repo root, skipping"
+  exit 0
+fi
+
+echo "pre-commit: running npm run build…"
+if ! npm run build --silent; then
+  echo
+  echo "✗ pre-commit: npm run build failed. Fix the build before committing."
+  echo "  (To bypass this hook for one commit: SKIP_BUILD=1 git commit …)"
+  exit 1
+fi
+
+echo "✓ pre-commit: build passed"
+exit 0

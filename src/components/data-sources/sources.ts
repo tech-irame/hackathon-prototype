@@ -1,0 +1,81 @@
+// Shared seed + types for data sources. Consumed by DataSourcesView (browse)
+// and DataPickerModal (chat-attach). Single source of truth for the mock list.
+
+import {
+  Database, FileText, Globe, Cloud, MessageSquare,
+} from 'lucide-react';
+
+export type SourceType = 'file' | 'database' | 'api' | 'cloud' | 'session';
+
+export interface DataSource {
+  id: string;
+  name: string;
+  type: SourceType;
+  /** Sub-detail shown under the name (file format, db engine, api method, cloud provider, etc.) */
+  subtype: string;
+  createdAt: string; // ISO date
+}
+
+export const TODAY = new Date('2026-04-23');
+
+const dayOffset = (n: number): string => {
+  const d = new Date(TODAY);
+  d.setDate(d.getDate() - n);
+  return d.toISOString().slice(0, 10);
+};
+
+export const SEED: DataSource[] = [
+  // ── Files (manual uploads) ──
+  { id: 'f-01', name: 'AI_Fare Audit',                         type: 'file', subtype: 'XLSX · 12.4 MB', createdAt: dayOffset(0) },
+  { id: 'f-02', name: 'PWC Status',                            type: 'file', subtype: 'PDF · 2.1 MB',   createdAt: dayOffset(0) },
+  { id: 'f-03', name: 'Emaar Extraction',                      type: 'file', subtype: 'CSV · 4.8 MB',   createdAt: dayOffset(3) },
+  { id: 'f-04', name: 'Emaar Payment Extraction',              type: 'file', subtype: 'XLSX · 6.2 MB',  createdAt: dayOffset(3) },
+  { id: 'f-05', name: 'Loan Details Extraction',               type: 'file', subtype: 'PDF · 8.7 MB',   createdAt: dayOffset(3) },
+  { id: 'f-06', name: 'Import Remittance — Bank Demo',         type: 'file', subtype: 'CSV · 1.4 MB',   createdAt: dayOffset(3) },
+  { id: 'f-07', name: 'Media Demo',                            type: 'file', subtype: 'XLSX · 9.1 MB',  createdAt: dayOffset(6) },
+  { id: 'f-08', name: 'Demo Invoice Data 1604',                type: 'file', subtype: 'CSV · 3.3 MB',   createdAt: dayOffset(7) },
+  { id: 'f-09', name: 'Demo Agreements',                       type: 'file', subtype: 'PDF · 11.2 MB',  createdAt: dayOffset(7) },
+  { id: 'f-10', name: 'MB5B Demo',                             type: 'file', subtype: 'XLSX · 5.7 MB',  createdAt: dayOffset(7) },
+  { id: 'f-11', name: 'Air India HR KPI — Dummy Employees',    type: 'file', subtype: 'CSV · 2.9 MB',   createdAt: dayOffset(8) },
+  { id: 'f-12', name: 'NSE Agreement Sample',                  type: 'file', subtype: 'PDF · 4.4 MB',   createdAt: dayOffset(9) },
+  { id: 'f-13', name: 'NSE AP Analytics',                      type: 'file', subtype: 'XLSX · 7.6 MB',  createdAt: dayOffset(9) },
+  { id: 'f-14', name: 'NSE Position Limits Monitoring',        type: 'file', subtype: 'CSV · 1.8 MB',   createdAt: dayOffset(11) },
+  { id: 'f-15', name: 'NSE Penalty on Shortfall Margin',       type: 'file', subtype: 'XLSX · 3.5 MB',  createdAt: dayOffset(11) },
+  { id: 'f-16', name: 'Air India HR KPI — Bills vs Reimbursement', type: 'file', subtype: 'XLSX · 6.0 MB', createdAt: dayOffset(13) },
+
+  // ── Databases ──
+  { id: 'db-01', name: 'SAP ERP — AP Module',     type: 'database', subtype: 'Oracle · 1.2M rows', createdAt: dayOffset(0) },
+  { id: 'db-02', name: 'Vendor Master',           type: 'database', subtype: 'PostgreSQL · 892 rows', createdAt: dayOffset(2) },
+  { id: 'db-03', name: 'GL Transaction History',  type: 'database', subtype: 'Snowflake · 3.8M rows', createdAt: dayOffset(5) },
+  { id: 'db-04', name: 'Workday HRIS',            type: 'database', subtype: 'PostgreSQL · 234 rows', createdAt: dayOffset(10) },
+
+  // ── APIs ──
+  { id: 'api-01', name: 'Workday Access Events',         type: 'api', subtype: 'REST · OAuth2',     createdAt: dayOffset(2) },
+  { id: 'api-02', name: 'NetSuite Vendors',              type: 'api', subtype: 'REST · API Key',    createdAt: dayOffset(6) },
+  { id: 'api-03', name: 'JIRA Audit Issues',             type: 'api', subtype: 'REST · OAuth2',     createdAt: dayOffset(12) },
+
+  // ── Cloud ──
+  { id: 'cl-01', name: 'S3 — auditify-evidence-bucket',  type: 'cloud', subtype: 'AWS S3',          createdAt: dayOffset(0) },
+  { id: 'cl-02', name: 'Google Drive — Q1 Workpapers',   type: 'cloud', subtype: 'Google Drive',    createdAt: dayOffset(4) },
+  { id: 'cl-03', name: 'SharePoint — Audit Library',     type: 'cloud', subtype: 'Microsoft 365',   createdAt: dayOffset(15) },
+
+  // ── Session files (chat-attached) ──
+  { id: 'sf-01', name: 'IRA chat — JE anomaly samples',  type: 'session', subtype: 'CSV · linked to ch-005', createdAt: dayOffset(0) },
+  { id: 'sf-02', name: 'IRA chat — Vendor concentration', type: 'session', subtype: 'XLSX · linked to ch-002', createdAt: dayOffset(2) },
+  { id: 'sf-03', name: 'IRA chat — SOX deficiencies',    type: 'session', subtype: 'PDF · linked to ch-003',  createdAt: dayOffset(8) },
+  { id: 'sf-04', name: 'IRA chat — Privileged access',   type: 'session', subtype: 'CSV · linked to ch-001',  createdAt: dayOffset(14) },
+];
+
+export const INTEGRATED_TYPES: SourceType[] = ['database', 'api', 'cloud', 'session'];
+
+export const TYPE_META: Record<SourceType, { icon: React.ElementType; tone: string; label: string }> = {
+  file:     { icon: FileText,       tone: 'text-brand-700 bg-brand-50',         label: 'File' },
+  database: { icon: Database,       tone: 'text-evidence-700 bg-evidence-50',   label: 'Database' },
+  api:      { icon: Globe,          tone: 'text-mitigated-700 bg-mitigated-50', label: 'API' },
+  cloud:    { icon: Cloud,          tone: 'text-compliant-700 bg-compliant-50', label: 'Cloud' },
+  session:  { icon: MessageSquare,  tone: 'text-ink-700 bg-paper-100',          label: 'Session file' },
+};
+
+export function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}

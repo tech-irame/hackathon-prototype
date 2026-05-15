@@ -1,0 +1,62 @@
+name: Claude PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  id-token: write
+
+jobs:
+  review:
+    if: |
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request && contains(github.event.comment.body, '@claude'))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            You are reviewing a HACKATHON PROTOTYPE where multiple pods (teams) push to the
+            same repo. This is a THROWAWAY DEMO. Your bias must match that.
+
+            DO NOT raise (be gentle / silent on these):
+            - Performance, scaling, bundle size, memoization
+            - Test coverage or missing tests
+            - Type safety nits, "any" usage, error handling, defensive coding
+            - Code style, naming, refactor opportunities, file organization
+            - Accessibility (unless something is genuinely broken to operate)
+            - Security (mocked-data app, no real secrets, no backend)
+
+            DO raise — BRUTALLY and SPECIFICALLY (these cause team friction):
+
+            1. **Design conflicts** — new visual choices that contradict what already exists
+               in src/. Different colors, typography scales, spacing, component shapes, or
+               card patterns from the established bento / charcoal / purple-accent system.
+               Cite both the existing reference (file:line) and the diverging new code (file:line).
+
+            2. **Feature redundancy** — this PR builds something that already exists. Two
+               views doing the same job, two ways to navigate to the same place, parallel
+               mock data shapes for the same entity, duplicated component logic. Name both
+               the existing thing and the new duplicate.
+
+            3. **UX / flow gaps** — user can enter a state but can't exit cleanly, navigation
+               contradicts the existing pattern, a CTA leads nowhere, two screens share a
+               name but mean different things, "back" doesn't work, modal traps, inconsistent
+               empty/loading states across sibling views.
+
+            Use Read/Grep on src/ to inspect the existing codebase before judging. Be terse —
+            bullet points only, no preamble, no summary, no closing remarks.
+
+            If nothing material conflicts on these three axes, comment exactly:
+            "✅ No design / redundancy / UX conflicts detected."
