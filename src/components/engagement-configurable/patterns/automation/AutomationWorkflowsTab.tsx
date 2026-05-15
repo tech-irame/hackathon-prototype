@@ -15,8 +15,6 @@ import type { AutomationRunsState, AutomationRun, AutoRunType } from './automati
 import { simulateRun, deriveRunsSummary, RUN_STATUS_CLS } from './automationRunsData';
 import { BulkExecuteModal, Checkbox } from '../../../workflow/BulkExecuteModal';
 import type { LibraryWorkflow } from '../../../workflow/WorkflowLibraryView';
-import WorkflowDetail from '../../../workflow/WorkflowDetail';
-import { LIBRARY_WORKFLOWS } from '../../../workflow/WorkflowLibraryView';
 
 function now(): string { return new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
 
@@ -131,35 +129,21 @@ export default function AutomationWorkflowsTab({ engagement, inputData, setup, r
     setShowBulkModal(false);
   };
 
-  // ── Detail view — use real WorkflowDetail for library workflows ──
+  // ── Detail view ──
   if (detailId) {
     const wf = allWorkflows.find(w => w.id === detailId);
     if (!wf) { setDetailId(null); return null; }
-    // Map V3 mock workflow ID (mwf-N) to library workflow ID (lw-00N) for rich detail
-    const mwfMatch = detailId.match(/^mwf-(\d+)$/);
-    const libraryId = mwfMatch ? `lw-${mwfMatch[1].padStart(3, '0')}` : null;
-    const hasLibraryDetail = libraryId && LIBRARY_WORKFLOWS.some(lw => lw.id === libraryId);
-
-    if (hasLibraryDetail) {
-      return (
-        <div className="flex flex-col h-full -mx-4 -mt-2">
-          <WorkflowDetail
-            workflowId={libraryId!}
-            onBack={() => setDetailId(null)}
-            onOpenExecutor={() => { if (!wfIds.includes(detailId)) toggleWorkflow(detailId); setShowBulkModal(true); }}
-          />
-          <AnimatePresence>
-            {showBulkModal && (
-              <BulkExecuteModal selectedWorkflows={libraryWorkflows} onClose={() => setShowBulkModal(false)} onContinue={() => handleBulkModalComplete()} />
-            )}
-          </AnimatePresence>
-        </div>
-      );
-    }
-
-    // Fallback for project-created workflows
     const wfRuns = runsState.runs.filter(r => r.workflowNames?.includes(wf.name) || r.workflowName === wf.name);
-    return <WorkflowDetailView wf={wf} runs={wfRuns} onBack={() => setDetailId(null)} onRun={() => { if (!wfIds.includes(wf.id)) toggleWorkflow(wf.id); setShowBulkModal(true); }} />;
+    return (
+      <>
+        <WorkflowDetailView wf={wf} runs={wfRuns} onBack={() => setDetailId(null)} onRun={() => { if (!wfIds.includes(wf.id)) toggleWorkflow(wf.id); setShowBulkModal(true); }} />
+        <AnimatePresence>
+          {showBulkModal && (
+            <BulkExecuteModal selectedWorkflows={libraryWorkflows} onClose={() => setShowBulkModal(false)} onContinue={() => handleBulkModalComplete()} />
+          )}
+        </AnimatePresence>
+      </>
+    );
   }
 
   // ── List view ──
@@ -280,8 +264,14 @@ export default function AutomationWorkflowsTab({ engagement, inputData, setup, r
 
 // ─── Workflow Detail View ────────────────────────────────────────────────
 
+const pillCls = (active: boolean) => `px-3.5 h-9 rounded-xl text-[13px] font-semibold transition-all cursor-pointer ${active ? 'bg-primary text-white shadow-sm' : 'bg-surface-2 text-text-muted hover:bg-surface-2/80 border border-border-light'}`;
+
 function WorkflowDetailView({ wf, runs, onBack, onRun }: { wf: ProjectWorkflow; runs: AutomationRun[]; onBack: () => void; onRun: () => void }) {
   const [tab, setTab] = useState<'overview' | 'runs' | 'configuration'>('overview');
+  const [frequency, setFrequency] = useState<'Hourly' | 'Daily' | 'Weekly' | 'Monthly'>('Daily');
+  const [runTime, setRunTime] = useState('06:00');
+  const [triggerOn, setTriggerOn] = useState<'Schedule' | 'Data Change' | 'Manual'>('Schedule');
+  const [retry, setRetry] = useState<'Off' | '1x' | '3x' | '5x'>('3x');
   const lastRun = runs.length > 0 ? runs[runs.length - 1] : null;
 
   return (
@@ -381,19 +371,91 @@ function WorkflowDetailView({ wf, runs, onBack, onRun }: { wf: ProjectWorkflow; 
           </div>
         )}
         {tab === 'configuration' && (
-          <div className="space-y-4 max-w-[600px]">
-            {[
-              { label: 'Business Process', value: wf.businessProcess },
-              { label: 'Control ID', value: wf.controlId },
-              { label: 'Status', value: wf.status },
-              { label: 'Source', value: wf.isCreated ? 'Created in this Project' : 'Workflow Library' },
-              { label: 'Tags', value: wf.tags.join(', ') || '—' },
-            ].map(item => (
-              <div key={item.label} className="flex items-start gap-4 py-2 border-b border-border-light/60">
-                <span className="text-[12px] text-text-muted w-[160px] shrink-0">{item.label}</span>
-                <span className="text-[13px] text-text font-medium">{item.value}</span>
+          <div className="space-y-5 max-w-[700px]">
+            {/* Audit Run Frequency */}
+            <div className="rounded-2xl border border-border-light bg-white p-5">
+              <h4 className="text-[11px] font-mono uppercase tracking-tight text-text-muted mb-4 flex items-center gap-2">
+                <Clock size={13} className="text-primary" />Audit run frequency
+              </h4>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-5">
+                <div>
+                  <label className="text-[13px] font-semibold text-text block mb-2">Frequency</label>
+                  <div className="flex flex-wrap gap-2">
+                    {(['Hourly', 'Daily', 'Weekly', 'Monthly'] as const).map(f => (
+                      <button key={f} onClick={() => setFrequency(f)} className={pillCls(frequency === f)}>{f}</button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[13px] font-semibold text-text block mb-2">Run Time</label>
+                  <input type="time" value={runTime} onChange={e => setRunTime(e.target.value)}
+                    className="w-full h-11 px-3.5 rounded-xl border border-border-light text-[14px] bg-white text-text focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/15 transition-all" />
+                </div>
+                <div>
+                  <label className="text-[13px] font-semibold text-text block mb-2">Trigger On</label>
+                  <div className="flex flex-wrap gap-2">
+                    {(['Schedule', 'Data Change', 'Manual'] as const).map(t => (
+                      <button key={t} onClick={() => setTriggerOn(t)} className={pillCls(triggerOn === t)}>{t}</button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[13px] font-semibold text-text block mb-2">Retry on Failure</label>
+                  <div className="flex flex-wrap gap-2">
+                    {(['Off', '1x', '3x', '5x'] as const).map(r => (
+                      <button key={r} onClick={() => setRetry(r)} className={pillCls(retry === r)}>{r}</button>
+                    ))}
+                  </div>
+                </div>
               </div>
-            ))}
+            </div>
+
+            {/* Tolerance Rules placeholder */}
+            <div className="rounded-2xl border border-border-light bg-white p-5">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-[14px] font-semibold text-text flex items-center gap-2">
+                  <AlertCircle size={14} className="text-primary" />Tolerance rules
+                </h4>
+                <span className="text-[12px] text-text-muted">3 active</span>
+              </div>
+              <div className="space-y-2">
+                {[
+                  { label: 'Amount', type: 'MONETARY', value: '±$500', active: true },
+                  { label: 'Date', type: 'DATE', value: '±3 calendar days', active: true },
+                  { label: 'Quantity', type: 'NUMERIC', value: '±5%', active: true },
+                ].map(rule => (
+                  <div key={rule.label} className="flex items-center justify-between px-4 py-3 rounded-xl border border-border-light bg-surface-2/30">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary"><AlertCircle size={14} /></div>
+                      <div>
+                        <div className="text-[13px] font-semibold text-text">{rule.label}</div>
+                        <div className="text-[11px] text-text-muted">{rule.type} · {rule.value}</div>
+                      </div>
+                    </div>
+                    <div className={`w-10 h-6 rounded-full relative cursor-pointer transition-colors ${rule.active ? 'bg-primary' : 'bg-gray-200'}`}>
+                      <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${rule.active ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Workflow metadata */}
+            <div className="rounded-2xl border border-border-light bg-white p-5 space-y-3">
+              <h4 className="text-[11px] font-mono uppercase tracking-tight text-text-muted mb-2">Workflow Metadata</h4>
+              {[
+                { label: 'Business Process', value: wf.businessProcess },
+                { label: 'Control ID', value: wf.controlId },
+                { label: 'Status', value: wf.status },
+                { label: 'Source', value: wf.isCreated ? 'Created in this Project' : 'Workflow Library' },
+                { label: 'Tags', value: wf.tags.join(', ') || '—' },
+              ].map(item => (
+                <div key={item.label} className="flex items-start gap-4 py-1.5 border-b border-border-light/40 last:border-b-0">
+                  <span className="text-[12px] text-text-muted w-[140px] shrink-0">{item.label}</span>
+                  <span className="text-[13px] text-text font-medium">{item.value}</span>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>
