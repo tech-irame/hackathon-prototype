@@ -324,6 +324,7 @@ export default function Sidebar({ view, setView, expanded, toggleSidebar, unread
           <Divider label="Programs" expanded={isExpanded} />
 
           <NavItem icon={Calendar} label="Audit Planning" active={view === 'audit-planning'} expanded={isExpanded} onClick={() => setView('audit-planning')} />
+          <NavItem icon={ClipboardCheck} label="Engagements" active={view === 'engagements'} expanded={isExpanded} onClick={() => setView('engagements')} />
           <NavItem icon={Layers} label="Process Hub" active={view === 'programs' || view === 'business-processes' || view === 'bp-detail'} expanded={isExpanded} onClick={() => setView('programs')} />
 
           {/* ── GLOBAL ── */}

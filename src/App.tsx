@@ -29,6 +29,8 @@ import PowerBIImportWizard from './components/modals/PowerBIImportWizard';
 import ReportBuilder from './components/reports/ReportBuilder';
 import AuditPlanningView from './components/audit/AuditPlanningView';
 import AuditPlanningPage from './components/audit/AuditPlanningPage';
+import EngagementsView from './components/audit/EngagementsView';
+import EngagementOverviewView from './components/audit/EngagementOverviewView';
 import ProgramsView from './components/audit/ProgramsView';
 // New pages
 import RACMView from './components/governance/RACMView';
@@ -85,6 +87,7 @@ export default function App() {
     setSelectedWorkflow,
     setSelectedBP,
     openAuditExecution,
+    openEngagement,
     setShowExceptionModal,
     setShowEmailPreviewModal,
     setShowShareModal,
@@ -518,12 +521,36 @@ export default function App() {
           />
         );
 
+      case 'engagements':
+        return (
+          <EngagementsView
+            onOpenAuditPlanning={() => setView('audit-planning')}
+            onOpenEngagement={openEngagement}
+          />
+        );
+
+      case 'engagement-overview':
+        return (
+          <EngagementOverviewView
+            engagementId={state.selectedEngagementId ?? ''}
+            onBack={() => setView('engagements')}
+            onOpenExecution={(engId) => {
+              setEngagementBackView('audit-planning');
+              openAuditExecution(engId);
+              setView('engagement-detail' as any);
+            }}
+          />
+        );
+
       case 'audit-planning':
-        return <AuditPlanningPage onNavigateToExecution={(engId) => {
-          setEngagementBackView('audit-planning');
-          openAuditExecution(engId);
-          setView('engagement-detail' as any);
-        }} />;
+        return <AuditPlanningPage
+          onOpenEngagements={() => setView('engagements')}
+          onNavigateToExecution={(engId) => {
+            setEngagementBackView('audit-planning');
+            openAuditExecution(engId);
+            setView('engagement-detail' as any);
+          }}
+        />;
 
       case 'knowledge-hub':
         return <KnowledgeHubView />;

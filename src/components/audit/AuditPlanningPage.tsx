@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   Calendar, ClipboardList, Plus, X, User, Clock,
   Shield, ChevronRight, Search, Eye, Pencil, Play,
-  Info,
+  Info, ClipboardCheck, ArrowUpRight,
 } from 'lucide-react';
 import Orb from '../shared/Orb';
 import { useToast } from '../shared/Toast';
@@ -33,6 +33,7 @@ interface TimelineEngagement {
 
 interface Props {
   onNavigateToExecution?: (engagementId: string) => void;
+  onOpenEngagements?: () => void;
 }
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -80,7 +81,7 @@ const RACM_OPTIONS = ['RACM v2.1 (Current — Feb 2026)', 'RACM v2.0 (Nov 2025)'
 const AUDIT_TYPES_LIST = ['Financial Internal Control', 'Operational Audit', 'Compliance Audit', 'IT Audit', 'Concurrent Audit', 'Internal Audit', 'Other'];
 const FRAMEWORK_LIST = ['SOX ICFR', 'IFC', 'COSO', 'SOC 1', 'SOC 2', 'ISO 27001', 'Internal Policy', 'Custom'];
 
-export default function AuditPlanningPage({ onNavigateToExecution }: Props) {
+export default function AuditPlanningPage({ onNavigateToExecution, onOpenEngagements }: Props) {
   const { addToast } = useToast();
   const [activeTab, setActiveTab] = useState<PlanningTab>('timeline');
 
@@ -148,12 +149,23 @@ export default function AuditPlanningPage({ onNavigateToExecution }: Props) {
             </div>
             <p className="text-sm text-text-secondary mt-1 ml-9">Plan, schedule, and manage audit engagements across processes.</p>
           </div>
-          {activeTab === 'timeline' && (
-            <button onClick={() => setShowPlanDrawer(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-[13px] font-semibold transition-colors cursor-pointer shrink-0">
-              <Plus size={14} />Plan Engagement
-            </button>
-          )}
+          <div className="flex items-center gap-2 shrink-0">
+            {onOpenEngagements && (
+              <button onClick={onOpenEngagements}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-border bg-white hover:bg-primary-xlight/40 hover:border-primary/30 text-[12px] font-semibold text-text-secondary hover:text-primary transition-colors cursor-pointer"
+                title="Open the engagements list">
+                <ClipboardCheck size={13} />
+                Engagements
+                <ArrowUpRight size={12} />
+              </button>
+            )}
+            {activeTab === 'timeline' && (
+              <button onClick={() => setShowPlanDrawer(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-[13px] font-semibold transition-colors cursor-pointer">
+                <Plus size={14} />Plan Engagement
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Tabs */}

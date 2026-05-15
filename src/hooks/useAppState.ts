@@ -26,6 +26,8 @@ export type View =
   | 'governance-control-detail'
   | 'audit-risk-register'
   | 'audit-planning'
+  | 'engagements'
+  | 'engagement-overview'
   | 'programs'
   // Execution
   | 'audit-execution'
@@ -245,6 +247,10 @@ export function useAppState() {
 
   const openAuditExecution = useCallback((engagementId: string) => {
     setState(prev => ({ ...prev, view: 'audit-execution' as View, selectedEngagementId: engagementId }));
+  }, []);
+
+  const openEngagement = useCallback((engagementId: string) => {
+    setState(prev => ({ ...prev, view: 'engagement-overview' as View, selectedEngagementId: engagementId }));
   }, []);
 
   // Modal controls
@@ -482,6 +488,7 @@ export function useAppState() {
     enterWorkflowMode,
     openWorkflowExecutor,
     openAuditExecution,
+    openEngagement,
     openChat,
     setSelectedChatId,
     openDashboard,
