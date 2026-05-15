@@ -1,18 +1,21 @@
 // ─── Automation Project — Runs Tab ────────────────────────────────────────
 // Execute automation runs and view history, outputs, exceptions.
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Play, CheckCircle2, AlertCircle, ChevronDown, ChevronRight, Lock, X, Info,
 } from 'lucide-react';
+import { AnimatePresence } from 'motion/react';
 import type { ConfigurableEngagement, AutomationProjectConfig } from '../../configurableEngagementTypes';
 import type { AutomationInputDataState } from './automationInputData';
 import type { AutomationSetupState } from './automationSetupData';
-import { deriveSetupReadiness, SETUP_MODE_LABELS } from './automationSetupData';
+import { deriveSetupReadiness, SETUP_MODE_LABELS, MOCK_WORKFLOWS } from './automationSetupData';
 import {
   simulateRun, deriveRunsSummary, RUN_STATUS_CLS, EX_SEVERITY_CLS, EX_STATUS_CLS, EX_CAT_LABELS,
   type AutomationRunsState, type AutomationRun, type AutoRunType, type ExceptionStatus,
 } from './automationRunsData';
+import { BulkExecuteModal } from '../../../workflow/BulkExecuteModal';
+import type { LibraryWorkflow } from '../../../workflow/WorkflowLibraryView';
 
 const inputCls = 'w-full px-3 py-2 border border-border rounded-lg text-[12px] text-text bg-white outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/10 transition-all';
 const labelCls = 'text-[11px] font-semibold text-text-muted block mb-1';
@@ -33,6 +36,7 @@ export default function AutomationRunsTab({ engagement, inputData, setup, runsSt
   const summary = deriveRunsSummary(runsState);
   const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
   const [runName, setRunName] = useState('');
+  const [showBulkModal, setShowBulkModal] = useState(false);
 
   // Locked state
   if (!isReady) {
@@ -56,17 +60,53 @@ export default function AutomationRunsTab({ engagement, inputData, setup, runsSt
   const wfLabel = wfNames.length > 1 ? `${wfNames.length} Workflows` : (wfNames[0] || setup.draftWorkflow?.name || setup.qaSetup?.objective || 'Automation');
   const defaultRunName = `${wfLabel} Run — ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
   const isBulk = wfNames.length > 1;
+  const isWorkflowMode = setup.setupMode === 'SELECT_EXISTING_WORKFLOW' || setup.setupMode === 'CREATE_NEW_WORKFLOW';
 
-  const handleCreateRun = () => {
+  // Map V3 selected workflows to LibraryWorkflow format for BulkExecuteModal
+  const libraryWorkflows = useMemo((): LibraryWorkflow[] => {
+    return wfIds.map((id, i) => {
+      const mockWf = MOCK_WORKFLOWS.find(w => w.id === id);
+      const createdWf = (setup.createdWorkflows || []).find(w => w.id === id);
+      const name = wfNames[i] || mockWf?.name || createdWf?.name || 'Workflow';
+      return {
+        id,
+        name,
+        description: mockWf?.description || createdWf?.description || createdWf?.objective || name,
+        tags: mockWf ? mockWf.compatibleTypes : ['Automation'],
+        businessProcess: (engagement.config as AutomationProjectConfig).inputType || 'P2P',
+        controlId: mockWf?.id ? `CTRL-${mockWf.id.replace('mwf-', '')}` : `PRJ-${id.slice(-3)}`,
+        live: !!mockWf,
+      };
+    });
+  }, [wfIds, wfNames, setup.createdWorkflows, engagement.config]);
+
+  // Q&A direct run (no modal needed)
+  const handleCreateQARun = () => {
     const run: AutomationRun = {
       id: `run-${Date.now()}`, runName: runName.trim() || defaultRunName, runType, sourceSetupMode: setup.setupMode,
-      workflowName: wfNames[0] || setup.draftWorkflow?.name || '', inputSourceIds: inputData.selectedSourceIds,
+      workflowName: setup.qaSetup?.objective || '', inputSourceIds: inputData.selectedSourceIds,
+      workflowIds: [], workflowNames: [], bulkRun: false,
+      status: 'READY', startedAt: null, completedAt: null, runBy: '', summary: '', processedRecords: 0,
+      exceptionCount: 0, outputCount: 0, outputs: [], exceptions: [], logs: [],
+    };
+    const completed = simulateRun(run, setup, inputData, engagement.owner);
+    onUpdateRuns({ runs: [...runsState.runs, completed] });
+    setRunName('');
+  };
+
+  // BulkExecuteModal completion — create + simulate V3 run
+  const handleBulkModalComplete = () => {
+    const run: AutomationRun = {
+      id: `run-${Date.now()}`, runName: runName.trim() || defaultRunName, runType, sourceSetupMode: setup.setupMode,
+      workflowName: wfNames[0] || '', inputSourceIds: inputData.selectedSourceIds,
       workflowIds: wfIds, workflowNames: wfNames, bulkRun: isBulk,
       status: 'READY', startedAt: null, completedAt: null, runBy: '', summary: '', processedRecords: 0,
       exceptionCount: 0, outputCount: 0, outputs: [], exceptions: [], logs: [],
     };
-    onUpdateRuns({ runs: [...runsState.runs, run] });
+    const completed = simulateRun(run, setup, inputData, engagement.owner);
+    onUpdateRuns({ runs: [...runsState.runs, completed] });
     setRunName('');
+    setShowBulkModal(false);
   };
 
   const handleExecuteRun = (runId: string) => {
@@ -88,7 +128,7 @@ export default function AutomationRunsTab({ engagement, inputData, setup, runsSt
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div><h3 className="text-[15px] font-bold text-text mb-0.5">Runs</h3><p className="text-[12px] text-text-muted">Execute configured automation and review run history, outputs, and exceptions.</p></div>
+      <div><h3 className="text-[15px] font-bold text-text mb-0.5">Runs</h3><p className="text-[12px] text-text-muted">Execute selected workflows using the bulk run flow and review generated outputs and exceptions.</p></div>
 
       {/* Context */}
       <div className="rounded-lg border border-border-light p-3">
@@ -117,10 +157,10 @@ export default function AutomationRunsTab({ engagement, inputData, setup, runsSt
         ))}
       </div>
 
-      {/* Create run */}
+      {/* Run CTA */}
       <div className="rounded-lg border-2 border-dashed border-primary/20 bg-primary/5 p-4 space-y-2">
         <div className="flex items-center justify-between">
-          <h4 className="text-[12px] font-bold text-text">Create Run</h4>
+          <h4 className="text-[12px] font-bold text-text">{isWorkflowMode ? 'Execute Workflows' : 'Run Analysis'}</h4>
           {isBulk && <span className="px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 text-[9px] font-bold">{wfNames.length} workflows selected</span>}
         </div>
         {isBulk && (
@@ -128,12 +168,23 @@ export default function AutomationRunsTab({ engagement, inputData, setup, runsSt
             {wfNames.map((n, i) => <span key={i} className="px-1.5 py-0.5 rounded bg-gray-100 text-[9px] text-gray-600">{n}</span>)}
           </div>
         )}
-        {isBulk && <p className="text-[10px] text-gray-500">This will run all selected workflows together. Each workflow will generate its own outputs and exceptions.</p>}
-        <div className="flex items-center gap-3">
-          <input value={runName} onChange={e => setRunName(e.target.value)} placeholder={defaultRunName} className="flex-1 px-3 py-2 border border-border rounded-lg text-[12px] text-text bg-white outline-none focus:border-primary/40" />
-          <button onClick={handleCreateRun}
-            className="px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white text-[12px] font-semibold cursor-pointer transition-colors shrink-0">{isBulk ? 'Run Selected Workflows' : 'Run Workflow'}</button>
-        </div>
+        {isWorkflowMode && <p className="text-[10px] text-gray-500">Opens the Workflow Library bulk execution flow scoped to this automation project.</p>}
+
+        {isWorkflowMode ? (
+          <div className="flex items-center gap-3">
+            <input value={runName} onChange={e => setRunName(e.target.value)} placeholder={defaultRunName} className="flex-1 px-3 py-2 border border-border rounded-lg text-[12px] text-text bg-white outline-none focus:border-primary/40" />
+            <button onClick={() => setShowBulkModal(true)}
+              className="px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white text-[12px] font-semibold cursor-pointer transition-colors shrink-0 flex items-center gap-1.5">
+              <Play size={12} />{isBulk ? 'Run Selected Workflows' : 'Run Workflow'}
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3">
+            <input value={runName} onChange={e => setRunName(e.target.value)} placeholder={defaultRunName} className="flex-1 px-3 py-2 border border-border rounded-lg text-[12px] text-text bg-white outline-none focus:border-primary/40" />
+            <button onClick={handleCreateQARun}
+              className="px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white text-[12px] font-semibold cursor-pointer transition-colors shrink-0">Run Q&A Analysis</button>
+          </div>
+        )}
       </div>
 
       {/* Runs table */}
@@ -196,6 +247,17 @@ export default function AutomationRunsTab({ engagement, inputData, setup, runsSt
           Continue to Output Review <ChevronRight size={11} />
         </button>
       </div>
+
+      {/* BulkExecuteModal */}
+      <AnimatePresence>
+        {showBulkModal && (
+          <BulkExecuteModal
+            selectedWorkflows={libraryWorkflows}
+            onClose={() => setShowBulkModal(false)}
+            onContinue={() => handleBulkModalComplete()}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -243,7 +305,7 @@ function RunDetail({ run, onUpdateException }: { run: AutomationRun; onUpdateExc
       {run.exceptions.length > 0 && (
         <div>
           <h6 className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Exceptions ({run.exceptions.length})</h6>
-          <p className="text-[9px] text-gray-400 mb-1.5">Exceptions are not cases yet. Mark valid exceptions as case candidates in Output Review.</p>
+          <p className="text-[9px] text-gray-400 mb-1.5">Exceptions are not cases yet. Review and classify valid exceptions in Output Review.</p>
           <div className="space-y-1.5">{run.exceptions.map(ex => (
             <div key={ex.id} className="rounded-lg border border-border-light p-3 flex items-start gap-3">
               <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold shrink-0 mt-0.5 ${EX_SEVERITY_CLS[ex.severity]}`}>{ex.severity}</span>
@@ -262,7 +324,6 @@ function RunDetail({ run, onUpdateException }: { run: AutomationRun; onUpdateExc
                 <div className="flex items-center gap-1 shrink-0">
                   <button onClick={() => onUpdateException(ex.id, 'REVIEWED')} className="px-2 py-1 rounded text-[8px] font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 cursor-pointer transition-colors">Review</button>
                   <button onClick={() => onUpdateException(ex.id, 'DISMISSED')} className="px-2 py-1 rounded text-[8px] font-semibold text-gray-500 bg-gray-100 hover:bg-gray-200 cursor-pointer transition-colors">Dismiss</button>
-                  <button onClick={() => onUpdateException(ex.id, 'CASE_CANDIDATE')} className="px-2 py-1 rounded text-[8px] font-semibold text-purple-600 bg-purple-50 hover:bg-purple-100 cursor-pointer transition-colors">→ Case</button>
                 </div>
               )}
             </div>
