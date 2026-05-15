@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   ClipboardCheck, Calendar, ArrowUpRight, Search, Plus,
   Play, Pencil, Trash2, AlertTriangle, Clock,
 } from 'lucide-react';
 import Orb from '../shared/Orb';
-import { ENGAGEMENTS, type AutomationSubtype, type EngStatus, type EngType, type ProcessCode } from '../../data/engagements';
+import { ENGAGEMENTS, type AutomationSubtype, type Engagement, type EngStatus, type EngType, type ProcessCode } from '../../data/engagements';
+import CreateEngagementWizard from './CreateEngagementWizard';
 
 interface Props {
   onOpenEngagement: (engagementId: string) => void;
@@ -76,10 +77,12 @@ export default function EngagementsView({ onOpenEngagement, onOpenAuditPlanning 
   const [typeFilter, setTypeFilter] = useState<'All' | EngType>('All');
   const [statusFilter, setStatusFilter] = useState<'All' | EngStatus>('All');
   const [processFilter, setProcessFilter] = useState<'All' | ProcessCode>('All');
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [created, setCreated] = useState<Engagement[]>([]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return ENGAGEMENTS.filter(e => {
+    return [...created, ...ENGAGEMENTS].filter(e => {
       if (typeFilter !== 'All' && e.type !== typeFilter) return false;
       if (statusFilter !== 'All' && e.status !== statusFilter) return false;
       if (processFilter !== 'All' && e.process !== processFilter) return false;
@@ -115,6 +118,7 @@ export default function EngagementsView({ onOpenEngagement, onOpenAuditPlanning 
               <ArrowUpRight size={12} />
             </button>
             <button
+              onClick={() => setWizardOpen(true)}
               className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-[13px] font-semibold transition-colors cursor-pointer"
             >
               <Plus size={14} />New Engagement
@@ -338,11 +342,23 @@ export default function EngagementsView({ onOpenEngagement, onOpenAuditPlanning 
 
             {/* Footer */}
             <div className="px-6 py-2.5 text-[11px] text-text-muted bg-surface-2/30 border-t border-border-light">
-              {filtered.length} of {ENGAGEMENTS.length} engagements
+              {filtered.length} of {ENGAGEMENTS.length + created.length} engagements
             </div>
           </div>
         )}
       </div>
+
+      <AnimatePresence>
+        {wizardOpen && (
+          <CreateEngagementWizard
+            onClose={() => setWizardOpen(false)}
+            onCreated={(newEng) => {
+              setCreated(prev => [newEng, ...prev]);
+              setWizardOpen(false);
+            }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -42,6 +42,7 @@ interface Props {
   engagementId: string;
   onBack: () => void;
   onOpenExecution: (engagementId: string) => void;
+  onOpenCaseManagement: (engagementId: string) => void;
 }
 
 // ─── Tabs per engagement type ─────────────────────────────────────────────────
@@ -84,7 +85,7 @@ const MOCK_CONTROLS: Record<string, { id: string; ref: string; name: string; sta
 type InputSource = 'Excel' | 'PDF' | 'SQL';
 type Cadence = { kind: 'Frequency'; label: string } | { kind: 'Ad-hoc' };
 
-const MOCK_WORKFLOWS: {
+interface MockWorkflow {
   id: string;
   code: string;
   name: string;
@@ -93,12 +94,25 @@ const MOCK_WORKFLOWS: {
   cadence: Cadence;
   lastRun: string;
   status: 'Success' | 'Failed' | 'Running';
-}[] = [
-  { id: 'wf1', code: 'WF-P2P-001', name: 'Three-Way Match (PO · GRN · Invoice)', type: 'Reconciliation', inputs: ['Excel', 'PDF'], cadence: { kind: 'Frequency', label: 'Daily 6 AM' }, lastRun: '2h ago', status: 'Success' },
-  { id: 'wf2', code: 'WF-P2P-002', name: 'Duplicate Invoice Detector', type: 'Detection', inputs: ['SQL'], cadence: { kind: 'Frequency', label: 'Hourly' }, lastRun: '8m ago', status: 'Success' },
-  { id: 'wf3', code: 'WF-P2P-003', name: 'PO Approval Threshold Scan', type: 'Compliance', inputs: ['SQL'], cadence: { kind: 'Ad-hoc' }, lastRun: '12h ago', status: 'Running' },
-  { id: 'wf4', code: 'WF-P2P-004', name: 'Vendor Master Change Monitor', type: 'Monitoring', inputs: ['Excel', 'SQL'], cadence: { kind: 'Frequency', label: 'Hourly' }, lastRun: '34m ago', status: 'Success' },
+  /** Sub-process within the engagement's process. */
+  subProcess: string;
+  /** True positives / total fires over 90 days — for effectiveness scoring. */
+  truePositives: number;
+  totalFires: number;
+}
+
+const MOCK_WORKFLOWS: MockWorkflow[] = [
+  { id: 'wf1', code: 'WF-P2P-001', name: 'Three-Way Match (PO · GRN · Invoice)', type: 'Reconciliation', inputs: ['Excel', 'PDF'], cadence: { kind: 'Frequency', label: 'Daily 6 AM' }, lastRun: '2h ago', status: 'Success', subProcess: 'Invoice Processing', truePositives: 38, totalFires: 47 },
+  { id: 'wf2', code: 'WF-P2P-002', name: 'Duplicate Invoice Detector',           type: 'Detection',      inputs: ['SQL'],          cadence: { kind: 'Frequency', label: 'Hourly' },    lastRun: '8m ago',  status: 'Success', subProcess: 'Invoice Processing',         truePositives: 52, totalFires: 84 },
+  { id: 'wf3', code: 'WF-P2P-003', name: 'PO Approval Threshold Scan',           type: 'Compliance',     inputs: ['SQL'],          cadence: { kind: 'Ad-hoc' },                       lastRun: '12h ago', status: 'Running', subProcess: 'Purchase Order Management',  truePositives: 12, totalFires: 28 },
+  { id: 'wf4', code: 'WF-P2P-004', name: 'Vendor Master Change Monitor',          type: 'Monitoring',     inputs: ['Excel', 'SQL'], cadence: { kind: 'Frequency', label: 'Hourly' },    lastRun: '34m ago', status: 'Success', subProcess: 'Vendor Onboarding',          truePositives: 14, totalFires: 22 },
 ];
+
+function effectivenessTier(pct: number): { label: string; tone: string; bar: string } {
+  if (pct >= 80) return { label: 'High', tone: 'text-compliant-700', bar: 'bg-compliant' };
+  if (pct >= 60) return { label: 'Medium', tone: 'text-mitigated-700', bar: 'bg-mitigated-500' };
+  return { label: 'Low signal', tone: 'text-risk-700', bar: 'bg-risk' };
+}
 
 /** Visual style per input source. SQL gets a distinct evidence-blue treatment because it's the live/connected source. */
 const INPUT_BADGE_CLS: Record<InputSource, string> = {
@@ -157,17 +171,13 @@ function healthTier(pct: number): { bar: string; text: string } {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function EngagementDetailView({ engagementId, onBack, onOpenExecution }: Props) {
+export default function EngagementDetailView({ engagementId, onBack, onOpenExecution, onOpenCaseManagement }: Props) {
   const { addToast } = useToast();
   const engagement = useMemo(() => ENGAGEMENTS.find(e => e.id === engagementId), [engagementId]);
 
   // Default the tab to overview; pick the first tab for the type once we know the engagement.
   const tabs = useMemo(() => engagement ? tabsForType(engagement.type) : [], [engagement]);
   const [activeTab, setActiveTab] = useState<TabId>('overview');
-  const [selectedException, setSelectedException] = useState<EngagementException | null>(null);
-  /** Drill-down filter for the Exception Management tab — set when user clicks
-   *  a chart slice / bar / heatmap cell on the Automation Overview tab. */
-  const [exceptionFilter, setExceptionFilter] = useState<{ severity?: Severity; workflowId?: string; status?: EngagementException['status'] }>({});
   const [configWorkflow, setConfigWorkflow] = useState<string | null>(null);
 
   if (!engagement) {
@@ -351,10 +361,7 @@ export default function EngagementDetailView({ engagementId, onBack, onOpenExecu
             {activeTab === 'overview' && eng.type === 'Automation' && (
               <AutomationOverviewTab
                 eng={eng}
-                onDrillToExceptions={(filter) => {
-                  setExceptionFilter(filter);
-                  setActiveTab('exceptions');
-                }}
+                onDrillToExceptions={() => onOpenCaseManagement(eng.id)}
                 onConfigureWorkflow={(wfId) => setConfigWorkflow(wfId)}
               />
             )}
@@ -524,68 +531,9 @@ export default function EngagementDetailView({ engagementId, onBack, onOpenExecu
               </div>
             )}
 
-            {/* ═══ WORKFLOWS (all types) ═══ */}
+            {/* ═══ WORKFLOWS (all types) — grouped by sub-process accordion ═══ */}
             {activeTab === 'workflows' && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-[13px] font-semibold text-text">
-                    Workflows <span className="text-text-muted font-normal">({MOCK_WORKFLOWS.length})</span>
-                  </h3>
-                  <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-white hover:bg-primary-xlight/40 hover:border-primary/30 text-[12px] font-semibold text-text-secondary hover:text-primary transition-colors cursor-pointer">
-                    <Plus size={12} />Link Workflow
-                  </button>
-                </div>
-                <div className="space-y-2.5">
-                  {MOCK_WORKFLOWS.map((wf, i) => (
-                    <motion.div
-                      key={wf.id}
-                      initial={{ opacity: 0, y: 4 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.03 }}
-                      className="glass-card rounded-xl p-4 flex items-center gap-4 hover:border-primary/20 transition-colors cursor-pointer"
-                    >
-                      <div className="p-2 rounded-lg bg-brand-50 shrink-0"><Workflow size={15} className="text-brand-600" /></div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-[13px] font-semibold text-text">{wf.name}</span>
-                          <span className="px-1.5 h-4 rounded text-[9.5px] font-bold bg-surface-2 text-text-secondary font-mono">{wf.code}</span>
-                          {/* Input source badges — SQL stands out as it's the live/connected source. */}
-                          {wf.inputs.map(src => (
-                            <span
-                              key={src}
-                              className={`inline-flex items-center gap-1 px-1.5 h-4 rounded text-[9.5px] font-bold uppercase tracking-wide border ${INPUT_BADGE_CLS[src]}`}
-                              title={src === 'SQL' ? 'Live SQL data source' : `${src} input`}
-                            >
-                              {src === 'SQL' && <span className="w-1 h-1 rounded-full bg-evidence-600" aria-hidden="true" />}
-                              {src}
-                            </span>
-                          ))}
-                          {wf.inputs.length > 1 && (
-                            <span className="px-1 text-[9px] font-semibold uppercase tracking-wider text-text-muted" title="Multiple input sources">Hybrid</span>
-                          )}
-                        </div>
-                        <div className="text-[11px] text-text-muted mt-0.5 flex items-center gap-1.5 flex-wrap">
-                          <span>{wf.type}</span>
-                          <span>·</span>
-                          {wf.cadence.kind === 'Ad-hoc' ? (
-                            <span className="inline-flex items-center px-1.5 h-4 rounded text-[10px] font-semibold italic bg-mitigated-50/60 text-mitigated-700 border border-mitigated-100/60">Ad-hoc</span>
-                          ) : (
-                            <span className="text-text-secondary font-medium">{wf.cadence.label}</span>
-                          )}
-                          <span>·</span>
-                          <span>Last run {wf.lastRun}</span>
-                        </div>
-                      </div>
-                      <span className={`px-2 h-5 rounded-full text-[10px] font-semibold inline-flex items-center ${
-                        wf.status === 'Success' ? 'bg-compliant-50 text-compliant-700'
-                        : wf.status === 'Running' ? 'bg-evidence-50 text-evidence-700'
-                        : 'bg-risk-50 text-risk-700'
-                      }`}>{wf.status}</span>
-                      <ChevronRight size={14} className="text-text-muted" />
-                    </motion.div>
-                  ))}
-                </div>
-              </div>
+              <WorkflowsBySubProcess workflows={MOCK_WORKFLOWS} />
             )}
 
             {/* ═══ EVIDENCE (Compliance / IA) ═══ */}
@@ -618,14 +566,9 @@ export default function EngagementDetailView({ engagementId, onBack, onOpenExecu
               </div>
             )}
 
-            {/* ═══ EXCEPTION MANAGEMENT (Automation) ═══ */}
+            {/* ═══ EXCEPTION MANAGEMENT (Automation) — slim summary; full workspace lives at /case-management ═══ */}
             {activeTab === 'exceptions' && (
-              <ExceptionManagementTab
-                eng={eng}
-                onOpenException={setSelectedException}
-                initialFilter={exceptionFilter}
-                onClearFilter={() => setExceptionFilter({})}
-              />
+              <ExceptionManagementTab eng={eng} onOpenCaseManagement={() => onOpenCaseManagement(eng.id)} />
             )}
             {/* ═══ ACTION TRAIL (all types) ═══ */}
             {activeTab === 'trail' && (
@@ -634,19 +577,6 @@ export default function EngagementDetailView({ engagementId, onBack, onOpenExecu
           </motion.div>
         </AnimatePresence>
       </div>
-
-      {/* Per-exception case+ATR drawer */}
-      <AnimatePresence>
-        {selectedException && (
-          <EngagementExceptionDrawer
-            exception={selectedException}
-            onClose={() => setSelectedException(null)}
-            onOpenWorkflowRun={(wfId) => {
-              addToast({ message: `Open workflow run for ${wfId} — coming soon`, type: 'info' });
-            }}
-          />
-        )}
-      </AnimatePresence>
 
       {/* Per-workflow configuration drawer */}
       <AnimatePresence>
@@ -686,42 +616,13 @@ type ExceptionViewMode = 'workflow' | 'all';
 
 function ExceptionManagementTab({
   eng,
-  onOpenException,
-  initialFilter,
-  onClearFilter,
+  onOpenCaseManagement,
 }: {
   eng: Engagement;
-  onOpenException: (ex: EngagementException) => void;
-  initialFilter?: { severity?: Severity; workflowId?: string; status?: EngagementException['status'] };
-  onClearFilter?: () => void;
+  onOpenCaseManagement: () => void;
 }) {
   const allExceptions = useMemo(() => exceptionsForEngagement(eng.id), [eng.id]);
-
-  // Apply incoming drill-down filter (set when user clicks an Overview chart).
-  const filteredExceptions = useMemo(() => {
-    if (!initialFilter || (!initialFilter.severity && !initialFilter.workflowId && !initialFilter.status)) {
-      return allExceptions;
-    }
-    return allExceptions.filter(e => {
-      if (initialFilter.severity && e.severity !== initialFilter.severity) return false;
-      if (initialFilter.workflowId && e.workflowId !== initialFilter.workflowId) return false;
-      if (initialFilter.status && e.status !== initialFilter.status) return false;
-      return true;
-    });
-  }, [allExceptions, initialFilter]);
-
-  const groups = useMemo(() => groupByWorkflow(filteredExceptions), [filteredExceptions]);
-
-  const [viewMode, setViewMode] = useState<ExceptionViewMode>('workflow');
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
-
-  // When a drill-down filter is incoming, switch to flat view so the filtered
-  // result is scannable without expanding groups.
-  useEffect(() => {
-    if (initialFilter && (initialFilter.severity || initialFilter.workflowId || initialFilter.status)) {
-      setViewMode('all');
-    }
-  }, [initialFilter]);
+  const groups = useMemo(() => groupByWorkflow(allExceptions), [allExceptions]);
 
   const totals = useMemo(() => {
     const t = { open: 0, triaging: 0, resolved: 0 };
@@ -733,154 +634,89 @@ function ExceptionManagementTab({
     return t;
   }, [allExceptions]);
 
-  const toggleGroup = (id: string) => {
-    setCollapsedGroups(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  };
-
-  if (allExceptions.length === 0) {
-    return (
-      <div className="border border-border-light rounded-xl p-14 text-center bg-white">
-        <AlertTriangle size={28} className="text-text-muted mx-auto mb-3" />
-        <p className="text-[14px] font-semibold text-text mb-1">No exceptions yet</p>
-        <p className="text-[12px] text-text-muted">Exceptions flagged by linked workflows will appear here.</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-4">
-      {/* Drill-down filter banner */}
-      {initialFilter && (initialFilter.severity || initialFilter.workflowId || initialFilter.status) && (
-        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/8 border border-primary/20 text-[12px]">
-          <Activity size={12} className="text-primary" />
-          <span className="text-text font-medium">Filtered from Overview:</span>
-          {initialFilter.severity && (
-            <span className={`inline-flex items-center px-1.5 h-4 rounded text-[10px] font-bold uppercase tracking-wide border ${SEV_BADGE_CLS[initialFilter.severity]}`}>
-              {initialFilter.severity}
-            </span>
-          )}
-          {initialFilter.workflowId && (
-            <span className="inline-flex items-center gap-1 text-text-secondary">
-              <Workflow size={11} />{filteredExceptions[0]?.workflowName ?? initialFilter.workflowId}
-            </span>
-          )}
-          {initialFilter.status && (
-            <span className="text-text-secondary">Status: {initialFilter.status}</span>
-          )}
-          <button
-            onClick={() => onClearFilter?.()}
-            className="ml-auto text-[11px] font-semibold text-primary hover:underline cursor-pointer"
-          >
-            Clear filter
-          </button>
-        </div>
-      )}
-
-      {/* Header with totals + view toggle */}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-4 text-[11px]">
-          <h3 className="text-[13px] font-semibold text-text">Exceptions <span className="text-text-muted font-normal">({allExceptions.length})</span></h3>
-          <div className="flex items-center gap-3 text-text-muted">
-            <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-risk" />{totals.open} open</span>
-            <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-mitigated-500" />{totals.triaging} triaging</span>
-            <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-compliant" />{totals.resolved} resolved</span>
+    <div className="space-y-5">
+      {/* Slim KPI strip — full triage lives in Case Management workspace */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="glass-card rounded-xl p-4">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[10.5px] uppercase tracking-wide font-semibold text-text-muted">Total Open</span>
+            <AlertTriangle size={13} className="text-risk-700" />
           </div>
+          <div className="text-[24px] font-bold text-risk-700 tabular-nums leading-none">{totals.open}</div>
+          <div className="text-[11px] text-text-muted mt-1.5">Awaiting triage</div>
         </div>
-        {/* View mode toggle */}
-        <div className="inline-flex items-center rounded-lg border border-border-light bg-white p-0.5 text-[11px]">
-          {(['workflow', 'all'] as ExceptionViewMode[]).map(m => (
-            <button
-              key={m}
-              onClick={() => setViewMode(m)}
-              className={`px-3 py-1.5 rounded-md font-semibold transition-colors cursor-pointer ${
-                viewMode === m
-                  ? 'bg-primary text-white'
-                  : 'text-text-muted hover:text-primary'
-              }`}
-            >
-              {m === 'workflow' ? 'By Workflow' : 'All Exceptions'}
-            </button>
-          ))}
+        <div className="glass-card rounded-xl p-4">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[10.5px] uppercase tracking-wide font-semibold text-text-muted">In Progress</span>
+            <Clock size={13} className="text-mitigated-700" />
+          </div>
+          <div className="text-[24px] font-bold text-mitigated-700 tabular-nums leading-none">{totals.triaging}</div>
+          <div className="text-[11px] text-text-muted mt-1.5">Being triaged by a risk owner</div>
+        </div>
+        <div className="glass-card rounded-xl p-4">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[10.5px] uppercase tracking-wide font-semibold text-text-muted">Total Closed</span>
+            <CheckCircle2 size={13} className="text-compliant-700" />
+          </div>
+          <div className="text-[24px] font-bold text-compliant-700 tabular-nums leading-none">{totals.resolved}</div>
+          <div className="text-[11px] text-text-muted mt-1.5">Resolved this engagement</div>
         </div>
       </div>
 
-      {/* By-workflow grouped view */}
-      {viewMode === 'workflow' && (
-        <div className="space-y-3">
+      {/* Manage CTA */}
+      <button
+        onClick={onOpenCaseManagement}
+        className="w-full glass-card rounded-2xl p-5 flex items-center gap-4 hover:border-primary/30 hover:shadow-sm transition-all cursor-pointer text-left group"
+      >
+        <div className="p-3 rounded-xl bg-gradient-to-br from-primary to-primary-medium shrink-0">
+          <ListChecks size={20} className="text-white" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="text-[15px] font-bold text-text">Manage Exceptions</h3>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-primary bg-primary/10 px-1.5 h-4 rounded inline-flex items-center">Workspace</span>
+          </div>
+          <p className="text-[12.5px] text-text-secondary mt-1">
+            Open the full case-management workspace — multi-select, bulk assign / classify / close, SLA tracking, saved views, per-exception case + ATR drawer.
+          </p>
+        </div>
+        <ArrowUpRight size={18} className="text-text-muted group-hover:text-primary transition-colors shrink-0" />
+      </button>
+
+      {/* Read-only workflow summary */}
+      {allExceptions.length > 0 && (
+        <div className="space-y-2.5">
+          <h4 className="text-[11px] uppercase tracking-wider font-semibold text-text-muted">Active workflows producing exceptions</h4>
           {groups.map(group => {
-            const isCollapsed = collapsedGroups.has(group.workflowId);
-            const total = group.exceptions.length;
             const openCount = group.exceptions.filter(e => e.status !== 'Resolved').length;
-            const lastOpened = group.exceptions[0]?.opened ?? '—';
             return (
-              <div key={group.workflowId} className="glass-card rounded-xl overflow-hidden">
-                <button
-                  onClick={() => toggleGroup(group.workflowId)}
-                  className="w-full flex items-center gap-4 px-4 py-3 hover:bg-surface-2/40 transition-colors cursor-pointer text-left"
-                >
-                  <div className="p-2 rounded-lg bg-brand-50 shrink-0"><Workflow size={14} className="text-brand-600" /></div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-[13px] font-semibold text-text">{group.workflowName}</span>
-                      <span className="text-[11px] text-text-muted">{total} total · {openCount} open</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                      {(['Critical', 'High', 'Medium', 'Low'] as Severity[]).map(sev => (
-                        group.severityCounts[sev] > 0 && (
-                          <span key={sev} className={`inline-flex items-center px-1.5 h-4 rounded text-[10px] font-bold uppercase tracking-wide border ${SEV_BADGE_CLS[sev]}`}>
-                            {group.severityCounts[sev]} {sev}
-                          </span>
-                        )
-                      ))}
-                    </div>
+              <button
+                key={group.workflowId}
+                onClick={onOpenCaseManagement}
+                className="w-full glass-card rounded-xl px-4 py-3 flex items-center gap-3 hover:border-primary/20 transition-colors cursor-pointer text-left"
+              >
+                <div className="p-2 rounded-lg bg-brand-50 shrink-0"><Workflow size={14} className="text-brand-600" /></div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[13px] font-semibold text-text">{group.workflowName}</span>
+                    <span className="text-[11px] text-text-muted">{group.exceptions.length} total · {openCount} open</span>
                   </div>
-                  <div className="text-[11px] text-text-muted shrink-0 hidden md:block">
-                    Last fired {lastOpened}
+                  <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                    {(['Critical', 'High', 'Medium', 'Low'] as Severity[]).map(sev => (
+                      group.severityCounts[sev] > 0 && (
+                        <span key={sev} className={`inline-flex items-center px-1.5 h-4 rounded text-[10px] font-bold uppercase tracking-wide border ${SEV_BADGE_CLS[sev]}`}>
+                          {group.severityCounts[sev]} {sev}
+                        </span>
+                      )
+                    ))}
                   </div>
-                  <ChevronRight size={14} className={`text-text-muted transition-transform shrink-0 ${isCollapsed ? '' : 'rotate-90'}`} />
-                </button>
-                <AnimatePresence initial={false}>
-                  {!isCollapsed && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.15 }}
-                      className="overflow-hidden border-t border-border-light"
-                    >
-                      <div className="divide-y divide-border-light/60">
-                        {group.exceptions.map(ex => (
-                          <ExceptionRow key={ex.id} ex={ex} onClick={() => onOpenException(ex)} />
-                        ))}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+                </div>
+                <ChevronRight size={14} className="text-text-muted shrink-0" />
+              </button>
             );
           })}
         </div>
-      )}
-
-      {/* Flat "All Exceptions" view */}
-      {viewMode === 'all' && (
-        filteredExceptions.length === 0 ? (
-          <div className="border border-border-light rounded-xl p-12 text-center bg-white">
-            <AlertTriangle size={28} className="text-text-muted mx-auto mb-3" />
-            <p className="text-[14px] font-semibold text-text mb-1">No exceptions match the active filter</p>
-            <p className="text-[12px] text-text-muted">Clear the drill-down to see all exceptions.</p>
-          </div>
-        ) : (
-          <div className="glass-card rounded-xl overflow-hidden divide-y divide-border-light/60">
-            {filteredExceptions.map(ex => (
-              <ExceptionRow key={ex.id} ex={ex} onClick={() => onOpenException(ex)} showWorkflow />
-            ))}
-          </div>
-        )
       )}
     </div>
   );
@@ -1486,55 +1322,188 @@ function AutomationOverviewTab({
         )}
       </div>
 
+      {/* ─── Auditor intelligence strip — effectiveness + pattern + anomaly + lifecycle funnel ─── */}
+      <div className="grid grid-cols-2 gap-4">
+        {/* Workflow effectiveness */}
+        <div className="glass-card rounded-xl p-5">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h3 className="text-[13px] font-semibold text-text">Workflow effectiveness · 90d</h3>
+              <p className="text-[11px] text-text-muted mt-0.5">True positives / total fires per workflow. Low signal = tune the threshold.</p>
+            </div>
+          </div>
+          <div className="space-y-2.5">
+            {MOCK_WORKFLOWS.map(wf => {
+              const eff = wf.totalFires > 0 ? Math.round((wf.truePositives / wf.totalFires) * 100) : 0;
+              const tier = effectivenessTier(eff);
+              return (
+                <div key={wf.id} className="space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[12px] text-text truncate">{wf.name}</span>
+                    <span className={`text-[12px] font-bold tabular-nums shrink-0 ${tier.tone}`}>{eff}% · {tier.label}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 h-1.5 bg-surface-3 rounded-full overflow-hidden">
+                      <div className={`h-full ${tier.bar} transition-all`} style={{ width: `${eff}%` }} />
+                    </div>
+                    <span className="text-[10.5px] text-text-muted tabular-nums shrink-0 w-12 text-right">{wf.truePositives}/{wf.totalFires}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Lifecycle funnel */}
+        <div className="glass-card rounded-xl p-5">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h3 className="text-[13px] font-semibold text-text">Exception lifecycle funnel</h3>
+              <p className="text-[11px] text-text-muted mt-0.5">Where exceptions sit in the resolution pipeline. Bottlenecks become visible.</p>
+            </div>
+          </div>
+          {(() => {
+            const fired = exceptions.length;
+            const triaged = exceptions.filter(e => e.status !== 'Open').length;
+            const classified = exceptions.filter(e => e.classification).length;
+            const closed = exceptions.filter(e => e.status === 'Resolved').length;
+            const max = Math.max(1, fired);
+            const steps = [
+              { label: 'Fired',       count: fired,      bar: 'bg-evidence-500/85' },
+              { label: 'Triaged',     count: triaged,    bar: 'bg-mitigated-500/85' },
+              { label: 'Classified',  count: classified, bar: 'bg-brand-500/85' },
+              { label: 'Closed',      count: closed,     bar: 'bg-compliant/85' },
+            ];
+            return (
+              <div className="space-y-2">
+                {steps.map((s, i) => (
+                  <div key={s.label} className="flex items-center gap-3">
+                    <span className="text-[11px] text-text-muted w-20 shrink-0">{s.label}</span>
+                    <div className="flex-1 h-7 bg-surface-2/40 rounded-md overflow-hidden">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${(s.count / max) * 100}%` }}
+                        transition={{ delay: 0.05 + i * 0.06, duration: 0.4 }}
+                        className={`h-full ${s.bar} flex items-center px-2`}
+                      >
+                        <span className="text-[11px] font-bold text-white tabular-nums">{s.count}</span>
+                      </motion.div>
+                    </div>
+                    <span className="text-[11px] text-text-muted tabular-nums w-12 text-right shrink-0">
+                      {fired === 0 ? '—' : `${Math.round((s.count / fired) * 100)}%`}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+        </div>
+      </div>
+
+      {/* Pattern detection + anomaly strip */}
+      <div className="space-y-2">
+        {(() => {
+          // Pattern: vendor clustering — find a vendor reference appearing in multiple exception titles
+          const vendorPattern = (() => {
+            const counts = new Map<string, number>();
+            exceptions.forEach(e => {
+              const m = e.title.match(/V-\d{4}/);
+              if (m) counts.set(m[0], (counts.get(m[0]) ?? 0) + 1);
+            });
+            const top = Array.from(counts.entries()).sort((a, b) => b[1] - a[1])[0];
+            return top && top[1] >= 2 ? { vendor: top[0], count: top[1] } : null;
+          })();
+          // Anomaly: a frequency workflow whose last run is older than 24h (silent failure)
+          const silentMonitor = MOCK_WORKFLOWS.find(wf => wf.cadence.kind === 'Frequency' && /(\d+)d ago/.test(wf.lastRun));
+          return (
+            <>
+              {vendorPattern && (
+                <div className="flex items-start gap-3 px-4 py-3 rounded-lg bg-mitigated-50/40 border border-mitigated-100/60">
+                  <Sparkles size={14} className="text-mitigated-700 mt-0.5 shrink-0" />
+                  <div className="flex-1">
+                    <div className="text-[12.5px] text-text font-medium">
+                      Pattern detected — exceptions clustering on vendor <span className="font-mono font-bold">{vendorPattern.vendor}</span> ({vendorPattern.count} cases this engagement).
+                    </div>
+                    <div className="text-[11px] text-text-muted mt-0.5">Open the Vendor 360 view to see this vendor's full risk profile across engagements.</div>
+                  </div>
+                </div>
+              )}
+              {silentMonitor && (
+                <div className="flex items-start gap-3 px-4 py-3 rounded-lg bg-risk-50/40 border border-risk-100/60">
+                  <AlertTriangle size={14} className="text-risk-700 mt-0.5 shrink-0" />
+                  <div className="flex-1">
+                    <div className="text-[12.5px] text-text font-medium">
+                      Possible silent failure — <span className="font-semibold">{silentMonitor.name}</span> hasn't fired exceptions in {silentMonitor.lastRun} despite a frequency schedule.
+                    </div>
+                    <div className="text-[11px] text-text-muted mt-0.5">Check the data feed / connector status.</div>
+                  </div>
+                </div>
+              )}
+            </>
+          );
+        })()}
+      </div>
+
       {/* ─── Workflow Configuration list ─── */}
       <div className="glass-card rounded-xl p-5">
         <div className="flex items-center justify-between mb-3">
           <div>
             <h3 className="text-[13px] font-semibold text-text">Workflow configuration</h3>
-            <p className="text-[11px] text-text-muted mt-0.5">Tune schedules, thresholds, and routing for each workflow on this automation.</p>
+            <p className="text-[11px] text-text-muted mt-0.5">Tune schedules, thresholds, and routing for each workflow on this automation. Grouped by sub-process.</p>
           </div>
         </div>
-        <div className="space-y-2.5">
-          {MOCK_WORKFLOWS.map(wf => {
-            const exCount = exceptionsByWorkflow.get(wf.id) ?? 0;
-            return (
-              <div key={wf.id} className="flex items-center gap-3 p-3 rounded-lg border border-border-light hover:border-primary/20 transition-colors">
-                <div className="p-2 rounded-lg bg-brand-50 shrink-0"><Workflow size={14} className="text-brand-600" /></div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-[13px] font-semibold text-text">{wf.name}</span>
-                    <span className="px-1.5 h-4 rounded text-[9.5px] font-bold bg-surface-2 text-text-secondary font-mono">{wf.code}</span>
-                    {wf.inputs.map(src => (
-                      <span key={src} className={`inline-flex items-center gap-1 px-1.5 h-4 rounded text-[9.5px] font-bold uppercase tracking-wide border ${INPUT_BADGE_CLS[src]}`}>
-                        {src === 'SQL' && <span className="w-1 h-1 rounded-full bg-evidence-600" aria-hidden="true" />}
-                        {src}
-                      </span>
-                    ))}
-                  </div>
-                  <div className="text-[11px] text-text-muted mt-1 flex items-center gap-1.5 flex-wrap">
-                    {wf.cadence.kind === 'Ad-hoc' ? (
-                      <span className="inline-flex items-center px-1.5 h-4 rounded text-[10px] font-semibold italic bg-mitigated-50/60 text-mitigated-700 border border-mitigated-100/60">Ad-hoc</span>
-                    ) : (
-                      <span className="text-text-secondary font-medium">{wf.cadence.label}</span>
-                    )}
-                    <span className="text-border">·</span>
-                    <span>Last run {wf.lastRun}</span>
-                    <span className="text-border">·</span>
-                    <span className={exCount > 0 ? 'text-risk-700 font-semibold' : 'text-text-muted'}>
-                      {exCount} open exception{exCount === 1 ? '' : 's'}
-                    </span>
-                  </div>
-                </div>
-                <button
-                  onClick={() => onConfigureWorkflow(wf.id)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-white hover:bg-primary-xlight/40 hover:border-primary/30 text-[11px] font-semibold text-text-secondary hover:text-primary transition-colors cursor-pointer shrink-0"
-                >
-                  <Settings size={11} />
-                  Configure
-                </button>
+        <div className="space-y-4">
+          {groupBySubProcess(MOCK_WORKFLOWS).map(group => (
+            <div key={group.subProcess}>
+              <div className="flex items-center gap-2 mb-2">
+                <Layers size={12} className="text-text-muted" />
+                <span className="text-[11px] font-bold text-text-muted uppercase tracking-wider">{group.subProcess}</span>
+                <span className="text-[11px] text-text-muted">· {group.items.length}</span>
               </div>
-            );
-          })}
+              <div className="space-y-2 ml-5">
+                {group.items.map(wf => {
+                  const exCount = exceptionsByWorkflow.get(wf.id) ?? 0;
+                  return (
+                    <div key={wf.id} className="flex items-center gap-3 p-3 rounded-lg border border-border-light hover:border-primary/20 transition-colors">
+                      <div className="p-2 rounded-lg bg-brand-50 shrink-0"><Workflow size={14} className="text-brand-600" /></div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-[13px] font-semibold text-text">{wf.name}</span>
+                          <span className="px-1.5 h-4 rounded text-[9.5px] font-bold bg-surface-2 text-text-secondary font-mono">{wf.code}</span>
+                          {wf.inputs.map(src => (
+                            <span key={src} className={`inline-flex items-center gap-1 px-1.5 h-4 rounded text-[9.5px] font-bold uppercase tracking-wide border ${INPUT_BADGE_CLS[src]}`}>
+                              {src === 'SQL' && <span className="w-1 h-1 rounded-full bg-evidence-600" aria-hidden="true" />}
+                              {src}
+                            </span>
+                          ))}
+                        </div>
+                        <div className="text-[11px] text-text-muted mt-1 flex items-center gap-1.5 flex-wrap">
+                          {wf.cadence.kind === 'Ad-hoc' ? (
+                            <span className="inline-flex items-center px-1.5 h-4 rounded text-[10px] font-semibold italic bg-mitigated-50/60 text-mitigated-700 border border-mitigated-100/60">Ad-hoc</span>
+                          ) : (
+                            <span className="text-text-secondary font-medium">{wf.cadence.label}</span>
+                          )}
+                          <span className="text-border">·</span>
+                          <span>Last run {wf.lastRun}</span>
+                          <span className="text-border">·</span>
+                          <span className={exCount > 0 ? 'text-risk-700 font-semibold' : 'text-text-muted'}>
+                            {exCount} open exception{exCount === 1 ? '' : 's'}
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => onConfigureWorkflow(wf.id)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-white hover:bg-primary-xlight/40 hover:border-primary/30 text-[11px] font-semibold text-text-secondary hover:text-primary transition-colors cursor-pointer shrink-0"
+                      >
+                        <Settings size={11} />
+                        Configure
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -1815,5 +1784,124 @@ function WorkflowConfigDrawer({
         </footer>
       </motion.aside>
     </>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Sub-process accordion for the Workflows tab + Overview workflow config list
+// ═════════════════════════════════════════════════════════════════════════════
+
+function groupBySubProcess<T extends { subProcess: string }>(items: T[]): { subProcess: string; items: T[] }[] {
+  const map = new Map<string, T[]>();
+  items.forEach(it => {
+    const arr = map.get(it.subProcess) ?? [];
+    arr.push(it);
+    map.set(it.subProcess, arr);
+  });
+  return Array.from(map.entries()).map(([subProcess, items]) => ({ subProcess, items }));
+}
+
+function WorkflowsBySubProcess({ workflows }: { workflows: MockWorkflow[] }) {
+  const groups = useMemo(() => groupBySubProcess(workflows), [workflows]);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const toggle = (sp: string) => setCollapsed(prev => {
+    const n = new Set(prev);
+    if (n.has(sp)) n.delete(sp); else n.add(sp);
+    return n;
+  });
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-[13px] font-semibold text-text">
+          Workflows <span className="text-text-muted font-normal">({workflows.length})</span>
+          <span className="text-text-muted font-normal ml-2">· grouped by sub-process</span>
+        </h3>
+        <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-white hover:bg-primary-xlight/40 hover:border-primary/30 text-[12px] font-semibold text-text-secondary hover:text-primary transition-colors cursor-pointer">
+          <Plus size={12} />Link Workflow
+        </button>
+      </div>
+      <div className="space-y-3">
+        {groups.map(group => {
+          const isCollapsed = collapsed.has(group.subProcess);
+          return (
+            <div key={group.subProcess} className="glass-card rounded-xl overflow-hidden">
+              <button
+                onClick={() => toggle(group.subProcess)}
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-surface-2/40 transition-colors cursor-pointer text-left"
+              >
+                <div className="p-1.5 rounded-lg bg-brand-50 shrink-0"><Layers size={13} className="text-brand-600" /></div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[13px] font-semibold text-text">{group.subProcess}</span>
+                    <span className="text-[11px] text-text-muted">{group.items.length} workflow{group.items.length === 1 ? '' : 's'}</span>
+                  </div>
+                </div>
+                <ChevronRight size={14} className={`text-text-muted transition-transform shrink-0 ${isCollapsed ? '' : 'rotate-90'}`} />
+              </button>
+              <AnimatePresence initial={false}>
+                {!isCollapsed && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className="overflow-hidden border-t border-border-light"
+                  >
+                    <div className="divide-y divide-border-light/60">
+                      {group.items.map(wf => <WorkflowRow key={wf.id} wf={wf} />)}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function WorkflowRow({ wf }: { wf: MockWorkflow }) {
+  const eff = wf.totalFires > 0 ? Math.round((wf.truePositives / wf.totalFires) * 100) : 0;
+  const tier = effectivenessTier(eff);
+  return (
+    <div className="flex items-center gap-4 px-4 py-3 hover:bg-surface-2/30 transition-colors cursor-pointer">
+      <div className="p-2 rounded-lg bg-brand-50 shrink-0"><Workflow size={14} className="text-brand-600" /></div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[13px] font-semibold text-text">{wf.name}</span>
+          <span className="px-1.5 h-4 rounded text-[9.5px] font-bold bg-surface-2 text-text-secondary font-mono">{wf.code}</span>
+          {wf.inputs.map(src => (
+            <span key={src} className={`inline-flex items-center gap-1 px-1.5 h-4 rounded text-[9.5px] font-bold uppercase tracking-wide border ${INPUT_BADGE_CLS[src]}`}>
+              {src === 'SQL' && <span className="w-1 h-1 rounded-full bg-evidence-600" aria-hidden="true" />}
+              {src}
+            </span>
+          ))}
+          {wf.inputs.length > 1 && (
+            <span className="px-1 text-[9px] font-semibold uppercase tracking-wider text-text-muted">Hybrid</span>
+          )}
+        </div>
+        <div className="text-[11px] text-text-muted mt-0.5 flex items-center gap-1.5 flex-wrap">
+          <span>{wf.type}</span>
+          <span className="text-border">·</span>
+          {wf.cadence.kind === 'Ad-hoc' ? (
+            <span className="inline-flex items-center px-1.5 h-4 rounded text-[10px] font-semibold italic bg-mitigated-50/60 text-mitigated-700 border border-mitigated-100/60">Ad-hoc</span>
+          ) : (
+            <span className="text-text-secondary font-medium">{wf.cadence.label}</span>
+          )}
+          <span className="text-border">·</span>
+          <span>Last run {wf.lastRun}</span>
+          <span className="text-border">·</span>
+          <span className={`${tier.tone} font-semibold`}>{eff}% effective</span>
+          <span className="text-text-muted">({wf.truePositives}/{wf.totalFires} 90d)</span>
+        </div>
+      </div>
+      <span className={`px-2 h-5 rounded-full text-[10px] font-semibold inline-flex items-center shrink-0 ${
+        wf.status === 'Success' ? 'bg-compliant-50 text-compliant-700'
+        : wf.status === 'Running' ? 'bg-evidence-50 text-evidence-700'
+        : 'bg-risk-50 text-risk-700'
+      }`}>{wf.status}</span>
+      <ChevronRight size={14} className="text-text-muted shrink-0" />
+    </div>
   );
 }

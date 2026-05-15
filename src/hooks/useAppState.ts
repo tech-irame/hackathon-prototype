@@ -28,6 +28,11 @@ export type View =
   | 'audit-planning'
   | 'engagements'
   | 'engagement-overview'
+  | 'engagement-case-management'
+  | 'engagement-compare'
+  | 'my-queue'
+  | 'closed-case-sampling'
+  | 'vendor-360'
   | 'programs'
   // Execution
   | 'audit-execution'
@@ -251,6 +256,10 @@ export function useAppState() {
 
   const openEngagement = useCallback((engagementId: string) => {
     setState(prev => ({ ...prev, view: 'engagement-overview' as View, selectedEngagementId: engagementId }));
+  }, []);
+
+  const openCaseManagement = useCallback((engagementId: string) => {
+    setState(prev => ({ ...prev, view: 'engagement-case-management' as View, selectedEngagementId: engagementId }));
   }, []);
 
   // Modal controls
@@ -489,6 +498,7 @@ export function useAppState() {
     openWorkflowExecutor,
     openAuditExecution,
     openEngagement,
+    openCaseManagement,
     openChat,
     setSelectedChatId,
     openDashboard,

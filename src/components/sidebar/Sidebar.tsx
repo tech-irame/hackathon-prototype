@@ -6,7 +6,8 @@ import {
   AlertTriangle, Sparkles, Building2, Home, Calendar,
   Shield, Search as SearchIcon, Settings, Clock, Check,
   Wand2, MoreHorizontal, LogOut, HelpCircle, ExternalLink,
-  ClipboardCheck, FileText, Target, Layers, Bell
+  ClipboardCheck, FileText, Target, Layers, Bell,
+  Inbox, GitCompare, FlaskConical
 } from 'lucide-react';
 import type { View } from '../../hooks/useAppState';
 
@@ -324,7 +325,10 @@ export default function Sidebar({ view, setView, expanded, toggleSidebar, unread
           <Divider label="Programs" expanded={isExpanded} />
 
           <NavItem icon={Calendar} label="Audit Planning" active={view === 'audit-planning'} expanded={isExpanded} onClick={() => setView('audit-planning')} />
-          <NavItem icon={ClipboardCheck} label="Engagements" active={view === 'engagements'} expanded={isExpanded} onClick={() => setView('engagements')} />
+          <NavItem icon={ClipboardCheck} label="Engagements" active={view === 'engagements' || view === 'engagement-overview' || view === 'engagement-case-management'} expanded={isExpanded} onClick={() => setView('engagements')} />
+          <NavItem icon={Inbox} label="My Queue" active={view === 'my-queue'} expanded={isExpanded} onClick={() => setView('my-queue')} />
+          <NavItem icon={GitCompare} label="Engagement Compare" active={view === 'engagement-compare'} expanded={isExpanded} onClick={() => setView('engagement-compare')} />
+          <NavItem icon={FlaskConical} label="Closed-Case Sampling" active={view === 'closed-case-sampling'} expanded={isExpanded} onClick={() => setView('closed-case-sampling')} />
           <NavItem icon={Layers} label="Process Hub" active={view === 'programs' || view === 'business-processes' || view === 'bp-detail'} expanded={isExpanded} onClick={() => setView('programs')} />
 
           {/* ── GLOBAL ── */}
@@ -333,6 +337,7 @@ export default function Sidebar({ view, setView, expanded, toggleSidebar, unread
           <NavItem icon={LayoutDashboard} label="Dashboard" active={view === 'dashboards'} expanded={isExpanded} onClick={() => setView('dashboards')} />
           <NavItem icon={FileBarChart} label="Report" active={view === 'reports' || view === 'report-history' || view === 'report-builder'} expanded={isExpanded} onClick={() => setView('reports')} />
           <NavItem icon={AlertTriangle} label="Risk Register" active={view === 'audit-risk-register'} expanded={isExpanded} onClick={() => setView('audit-risk-register')} />
+          <NavItem icon={Building2} label="Vendor 360" active={view === 'vendor-360'} expanded={isExpanded} onClick={() => setView('vendor-360')} />
           <NavItem icon={Shield} label="Control Library" active={view === 'governance-controls' || view === 'governance-control-detail'} expanded={isExpanded} onClick={() => setView('governance-controls')} />
           <NavItem icon={Workflow} label="Workflow Library" active={workflowViews.includes(view)} expanded={isExpanded} onClick={() => setView('workflow-library')} />
           <NavItem icon={Wand2} label="AI Concierge" active={aiConciergeViews.includes(view)} expanded={isExpanded} onClick={() => setView('ai-concierge')} />
