@@ -5,7 +5,7 @@ import {
   CheckCircle2, Clock, FileText, FolderOpen, Layers, Play,
   Shield, ShieldCheck, Sparkles, User, Workflow, Zap, Upload,
   ChevronRight, Plus, Activity, MessageSquare, ListChecks,
-  RefreshCw, X, Settings, Database,
+  RefreshCw, X, Settings, Database, BookOpen,
 } from 'lucide-react';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
 import Orb from '../shared/Orb';
@@ -33,10 +33,13 @@ import {
   type Severity,
 } from '../../data/engagement-exceptions';
 import EngagementExceptionDrawer from './EngagementExceptionDrawer';
+import RACMTab from './RACMTab';
+import ControlsTab from './ControlsTab';
+import WorkingPaperTab from './WorkingPaperTab';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type TabId = 'overview' | 'racm' | 'controls' | 'workflows' | 'evidence' | 'exceptions' | 'trail';
+type TabId = 'overview' | 'racm' | 'controls' | 'workflows' | 'evidence' | 'exceptions' | 'trail' | 'working-paper';
 
 interface Props {
   engagementId: string;
@@ -57,6 +60,15 @@ function tabsForType(type: EngType): { id: TabId; label: string; icon: React.Ele
         { id: 'trail', label: 'Action Trail', icon: Activity },
       ];
     case 'Compliance':
+      return [
+        { id: 'overview', label: 'Overview', icon: Layers },
+        { id: 'racm', label: 'RACM', icon: FileText },
+        { id: 'controls', label: 'Controls', icon: Shield },
+        { id: 'workflows', label: 'Workflows', icon: Workflow },
+        { id: 'evidence', label: 'Evidence', icon: FolderOpen },
+        { id: 'working-paper', label: 'Working Paper', icon: BookOpen },
+        { id: 'trail', label: 'Action Trail', icon: Activity },
+      ];
     case 'Internal Audit':
       return [
         { id: 'overview', label: 'Overview', icon: Layers },
@@ -64,6 +76,7 @@ function tabsForType(type: EngType): { id: TabId; label: string; icon: React.Ele
         { id: 'controls', label: 'Controls', icon: Shield },
         { id: 'workflows', label: 'Workflows', icon: Workflow },
         { id: 'evidence', label: 'Evidence', icon: FolderOpen },
+        { id: 'working-paper', label: 'Audit Report', icon: BookOpen },
         { id: 'trail', label: 'Action Trail', icon: Activity },
       ];
   }
@@ -367,78 +380,12 @@ export default function EngagementDetailView({ engagementId, onBack, onOpenExecu
             )}
             {/* ═══ RACM (Compliance / IA) ═══ */}
             {activeTab === 'racm' && (
-              <div className="space-y-4">
-                <div className="glass-card rounded-xl p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <div>
-                      <h3 className="text-[14px] font-bold text-text">Linked RACM</h3>
-                      <p className="text-[12px] text-text-muted mt-0.5">The Risk and Control Matrix this engagement tests against.</p>
-                    </div>
-                    <button className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-border bg-white hover:bg-primary-xlight/40 hover:border-primary/30 text-[12px] font-semibold text-text-secondary hover:text-primary transition-colors cursor-pointer">
-                      View RACM <ArrowUpRight size={12} />
-                    </button>
-                  </div>
-                  <div className="flex items-center gap-3 p-3 rounded-lg bg-surface-2/40 border border-border-light">
-                    <div className="p-2 rounded-lg bg-brand-50"><FileText size={16} className="text-brand-600" /></div>
-                    <div className="flex-1">
-                      <div className="text-[13px] font-semibold text-text">{eng.process} {eng.type === 'Compliance' ? eng.framework : 'Internal Audit'} RACM v2.1</div>
-                      <div className="text-[11px] text-text-muted">{eng.controls} controls · {MOCK_CONTROLS.default.filter(c => c.key).length} key · Locked Feb 2026</div>
-                    </div>
-                    <span className="px-2 h-5 rounded-full text-[10px] font-semibold bg-compliant-50 text-compliant-700 inline-flex items-center">Locked</span>
-                  </div>
-                </div>
-
-                <div className="glass-card rounded-xl p-5">
-                  <h3 className="text-[12px] font-bold text-ink-500 uppercase tracking-wider mb-3">RACM scope summary</h3>
-                  <div className="grid grid-cols-4 gap-3">
-                    {[
-                      { label: 'Risks', value: Math.round(eng.controls * 0.7) },
-                      { label: 'Controls', value: eng.controls },
-                      { label: 'Key Controls', value: MOCK_CONTROLS.default.filter(c => c.key).length },
-                      { label: 'Frameworks', value: 1 },
-                    ].map(m => (
-                      <div key={m.label} className="rounded-lg border border-border-light p-3 text-center">
-                        <div className="text-[18px] font-bold text-text tabular-nums">{m.value}</div>
-                        <div className="text-[10px] text-text-muted uppercase tracking-wide mt-0.5">{m.label}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
+              <RACMTab engagement={eng} />
             )}
 
             {/* ═══ CONTROLS (Compliance / IA) ═══ */}
             {activeTab === 'controls' && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-[13px] font-semibold text-text">Controls in scope <span className="text-text-muted font-normal">({MOCK_CONTROLS.default.length})</span></h3>
-                  <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-white hover:bg-primary-xlight/40 hover:border-primary/30 text-[12px] font-semibold text-text-secondary hover:text-primary transition-colors cursor-pointer">
-                    <Plus size={12} />Add Control
-                  </button>
-                </div>
-                <div className="glass-card rounded-xl overflow-hidden">
-                  <table className="w-full text-[12.5px]">
-                    <thead>
-                      <tr className="border-b border-border bg-surface-2/50">
-                        <th className="px-4 py-2.5 text-left text-[10px] font-semibold text-text-muted uppercase tracking-wide">Ref</th>
-                        <th className="px-4 py-2.5 text-left text-[10px] font-semibold text-text-muted uppercase tracking-wide">Control</th>
-                        <th className="px-4 py-2.5 text-left text-[10px] font-semibold text-text-muted uppercase tracking-wide">Key</th>
-                        <th className="px-4 py-2.5 text-left text-[10px] font-semibold text-text-muted uppercase tracking-wide">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {MOCK_CONTROLS.default.map(c => (
-                        <tr key={c.id} className="border-b border-border/40 last:border-0 hover:bg-surface-2/30 transition-colors cursor-pointer">
-                          <td className="px-4 py-3 text-[11.5px] font-mono text-text-secondary tabular-nums">{c.ref}</td>
-                          <td className="px-4 py-3 text-text">{c.name}</td>
-                          <td className="px-4 py-3">{c.key ? <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-mitigated-50 text-mitigated-700 text-[10px] font-bold">K</span> : <span className="text-text-muted">—</span>}</td>
-                          <td className="px-4 py-3"><span className={`px-2 h-5 rounded-full text-[10px] font-semibold inline-flex items-center ${CONTROL_STATUS_CLS[c.status]}`}>{c.status}</span></td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+              <ControlsTab engagement={eng} />
             )}
 
             {/* ═══ WORKFLOWS (all types) — grouped by sub-process accordion ═══ */}
@@ -480,6 +427,11 @@ export default function EngagementDetailView({ engagementId, onBack, onOpenExecu
             {activeTab === 'exceptions' && (
               <ExceptionManagementTab eng={eng} onOpenCaseManagement={() => onOpenCaseManagement(eng.id)} />
             )}
+            {/* ═══ WORKING PAPER (Compliance) / AUDIT REPORT (IA) ═══ */}
+            {activeTab === 'working-paper' && (
+              <WorkingPaperTab engagement={eng} />
+            )}
+
             {/* ═══ ACTION TRAIL (all types) ═══ */}
             {activeTab === 'trail' && (
               <ActionTrailTab eng={eng} />
