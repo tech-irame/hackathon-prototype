@@ -1,0 +1,352 @@
+import React from 'react';
+import { AlertTriangle } from 'lucide-react';
+import {
+  EngagementPatternType, ComplianceFramework, ControlScopeSource, TestingInputMethod,
+  AuditScopeLevel, AutomationInputType, AutomationSetupMode, AutomationOutputType, RunType, RunFrequency,
+} from '../configurableEngagementTypes';
+import type { ComplianceConfig, InternalAuditConfig, AutomationProjectConfig, EngagementConfig } from '../configurableEngagementTypes';
+
+interface Props {
+  patternType: EngagementPatternType;
+  config: EngagementConfig;
+  onChange: (config: EngagementConfig) => void;
+}
+
+const inputCls = 'w-full px-3 py-2 border border-border rounded-lg text-[12px] text-text bg-white outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/10 transition-all';
+const selectCls = inputCls + ' cursor-pointer appearance-none';
+const labelCls = 'text-[11px] font-semibold text-text-muted block mb-1';
+const checkCls = 'w-3.5 h-3.5 rounded border-border text-primary cursor-pointer accent-[#6a12cd]';
+
+export default function PatternConfigStep({ patternType, config, onChange }: Props) {
+  if (patternType === EngagementPatternType.COMPLIANCE_CONTROL_TESTING && config.patternType === EngagementPatternType.COMPLIANCE_CONTROL_TESTING) {
+    return <ComplianceSetup config={config} onChange={onChange} />;
+  }
+  if (patternType === EngagementPatternType.INTERNAL_AUDIT_ASSIGNMENT && config.patternType === EngagementPatternType.INTERNAL_AUDIT_ASSIGNMENT) {
+    return <InternalAuditSetup config={config} onChange={onChange} />;
+  }
+  if (patternType === EngagementPatternType.WORKFLOW_AUTOMATION_PROJECT && config.patternType === EngagementPatternType.WORKFLOW_AUTOMATION_PROJECT) {
+    return <AutomationProjectSetup config={config} onChange={onChange} />;
+  }
+  return null;
+}
+
+// ─── Compliance Control Testing ───────────────────────────────────────────
+
+function ComplianceSetup({ config, onChange }: { config: ComplianceConfig; onChange: (c: EngagementConfig) => void }) {
+  const update = <K extends keyof ComplianceConfig>(field: K, value: ComplianceConfig[K]) =>
+    onChange({ ...config, [field]: value });
+
+  const racmFrameworks: ComplianceFramework[] = [ComplianceFramework.SOX_ICFR, ComplianceFramework.IFC, ComplianceFramework.ICOFR];
+  const racmWarning = racmFrameworks.includes(config.framework) && config.controlScopeSource !== ControlScopeSource.RACM_VERSION;
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h3 className="text-[15px] font-bold text-text mb-1">Compliance Setup</h3>
+        <p className="text-[12px] text-text-muted">Configure framework, control scope, and testing approach.</p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelCls}>Framework <span className="text-red-400">*</span></label>
+          <select value={config.framework} onChange={e => update('framework', e.target.value as ComplianceFramework)} className={selectCls}>
+            <option value={ComplianceFramework.SOX_ICFR}>SOX ICFR</option>
+            <option value={ComplianceFramework.IFC}>IFC</option>
+            <option value={ComplianceFramework.ICOFR}>ICOFR</option>
+            <option value={ComplianceFramework.SOC1}>SOC 1</option>
+            <option value={ComplianceFramework.SOC2}>SOC 2</option>
+            <option value={ComplianceFramework.GDPR}>GDPR</option>
+            <option value={ComplianceFramework.CUSTOM}>Custom</option>
+          </select>
+        </div>
+        <div>
+          <label className={labelCls}>Audit Type</label>
+          <select value={config.auditType} onChange={e => update('auditType', e.target.value)} className={selectCls}>
+            <option value="Financial Internal Control">Financial Internal Control</option>
+            <option value="Compliance">Compliance</option>
+            <option value="IT">IT</option>
+            <option value="Operational">Operational</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelCls}>Audit Period Start <span className="text-red-400">*</span></label>
+          <input type="date" value={config.auditPeriodStart} onChange={e => update('auditPeriodStart', e.target.value)} className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>Audit Period End <span className="text-red-400">*</span></label>
+          <input type="date" value={config.auditPeriodEnd} onChange={e => update('auditPeriodEnd', e.target.value)} className={inputCls} />
+        </div>
+      </div>
+
+      <div>
+        <label className={labelCls}>Control Scope Source <span className="text-red-400">*</span></label>
+        <select value={config.controlScopeSource} onChange={e => update('controlScopeSource', e.target.value as ControlScopeSource)} className={selectCls}>
+          <option value={ControlScopeSource.RACM_VERSION}>RACM Version</option>
+          <option value={ControlScopeSource.SELECTED_CONTROLS}>Selected Controls</option>
+          <option value={ControlScopeSource.IMPORTED_CONTROLS}>Imported Controls</option>
+          <option value={ControlScopeSource.MANUAL_CONTROLS}>Manual Controls</option>
+        </select>
+      </div>
+
+      {config.controlScopeSource === ControlScopeSource.RACM_VERSION && (
+        <div>
+          <label className={labelCls}>RACM Version</label>
+          <select className={selectCls} value={config.racmVersionId || ''} onChange={e => update('racmVersionId', e.target.value)}>
+            <option value="">Select RACM version...</option>
+            <option value="racm-fy26-v1">FY26 P2P — Vendor Payment v1</option>
+            <option value="racm-fy26-v2">FY26 O2C — Revenue Cycle v1</option>
+          </select>
+        </div>
+      )}
+
+      {racmWarning && (
+        <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-[11px] text-amber-700">
+          <AlertTriangle size={13} className="shrink-0 mt-0.5" />
+          <span>This framework requires RACM linkage for defensible compliance testing.</span>
+        </div>
+      )}
+
+      <div>
+        <label className={labelCls}>Default Testing Input Method</label>
+        <select value={config.defaultTestingInputMethod} onChange={e => update('defaultTestingInputMethod', e.target.value as TestingInputMethod)} className={selectCls}>
+          <option value={TestingInputMethod.UPLOAD_SELECTED_SAMPLES}>Upload Selected Samples</option>
+          <option value={TestingInputMethod.GENERATE_SAMPLES_FROM_POPULATION}>Generate Samples from Population</option>
+          <option value={TestingInputMethod.TEST_FULL_POPULATION}>Test Full Population</option>
+          <option value={TestingInputMethod.DOCUMENT_BASED_TESTING}>Document-Based Testing</option>
+          <option value={TestingInputMethod.NO_SAMPLE_BASED_TESTING}>No Sample-Based Testing</option>
+        </select>
+      </div>
+
+      <div className="flex items-center gap-4">
+        <label className="flex items-center gap-2 text-[11px] text-text cursor-pointer">
+          <input type="checkbox" checked={config.allowControlLevelOverride} onChange={e => update('allowControlLevelOverride', e.target.checked)} className={checkCls} />
+          Allow control-level override
+        </label>
+        <label className="flex items-center gap-2 text-[11px] text-gray-400 cursor-not-allowed">
+          <input type="checkbox" checked={config.reviewerRequired} disabled className={checkCls + ' opacity-50'} />
+          Reviewer required
+        </label>
+      </div>
+    </div>
+  );
+}
+
+// ─── Internal Audit Assignment ────────────────────────────────────────────
+
+function InternalAuditSetup({ config, onChange }: { config: InternalAuditConfig; onChange: (c: EngagementConfig) => void }) {
+  const update = <K extends keyof InternalAuditConfig>(field: K, value: InternalAuditConfig[K]) =>
+    onChange({ ...config, [field]: value });
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h3 className="text-[15px] font-bold text-text mb-1">Audit Assignment Setup</h3>
+        <p className="text-[12px] text-text-muted">Configure scope, announcement, IDR, and reporting settings.</p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelCls}>Audit Period Start <span className="text-red-400">*</span></label>
+          <input type="date" value={config.auditPeriodStart} onChange={e => update('auditPeriodStart', e.target.value)} className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>Audit Period End <span className="text-red-400">*</span></label>
+          <input type="date" value={config.auditPeriodEnd} onChange={e => update('auditPeriodEnd', e.target.value)} className={inputCls} />
+        </div>
+      </div>
+
+      <div>
+        <label className={labelCls}>Scope Level <span className="text-red-400">*</span></label>
+        <select value={config.scopeLevel} onChange={e => update('scopeLevel', e.target.value as AuditScopeLevel)} className={selectCls}>
+          <option value={AuditScopeLevel.PROCESS}>Process</option>
+          <option value={AuditScopeLevel.SUB_PROCESS}>Sub-process</option>
+          <option value={AuditScopeLevel.ACTIVITY}>Activity</option>
+          <option value={AuditScopeLevel.SPECIFIC_ELEMENT}>Specific Element</option>
+          <option value={AuditScopeLevel.CUSTOM_SCOPE}>Custom Scope</option>
+        </select>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelCls}>Business Process</label>
+          <input value={config.businessProcessId || ''} onChange={e => update('businessProcessId', e.target.value)} placeholder="Link business process" className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>Sub-process</label>
+          <input value={config.subProcessId || ''} onChange={e => update('subProcessId', e.target.value)} placeholder="Link sub-process" className={inputCls} />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelCls}>SOP Link</label>
+          <input value={(config.sopIds || []).join(', ')} onChange={e => update('sopIds', e.target.value ? e.target.value.split(',').map(s => s.trim()) : [])} placeholder="SOP IDs (comma separated)" className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>RACM Link (optional)</label>
+          <input value={config.racmVersionId || ''} onChange={e => update('racmVersionId', e.target.value)} placeholder="Optional RACM reference" className={inputCls} />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelCls}>Checklist (optional)</label>
+          <input value={config.checklistId || ''} onChange={e => update('checklistId', e.target.value)} placeholder="Link checklist" className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>Process Owner <span className="text-red-400">*</span></label>
+          <input value={config.processOwner} onChange={e => update('processOwner', e.target.value)} placeholder="Process owner name" className={inputCls} />
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-4">
+        <label className="flex items-center gap-2 text-[11px] text-text cursor-pointer">
+          <input type="checkbox" checked={config.idrEnabled} onChange={e => update('idrEnabled', e.target.checked)} className={checkCls} />
+          Enable IDR
+        </label>
+        <label className="flex items-center gap-2 text-[11px] text-text cursor-pointer">
+          <input type="checkbox" checked={config.announcementRequired} onChange={e => update('announcementRequired', e.target.checked)} className={checkCls} />
+          Announcement required
+        </label>
+        <label className="flex items-center gap-2 text-[11px] text-text cursor-pointer">
+          <input type="checkbox" checked={config.finalReportRequired} onChange={e => update('finalReportRequired', e.target.checked)} className={checkCls} />
+          Final report required
+        </label>
+        <label className="flex items-center gap-2 text-[11px] text-text cursor-pointer">
+          <input type="checkbox" checked={config.actionTrackingEnabled} onChange={e => update('actionTrackingEnabled', e.target.checked)} className={checkCls} />
+          Action tracking
+        </label>
+      </div>
+    </div>
+  );
+}
+
+// ─── Workflow Automation Project ──────────────────────────────────────────
+
+function AutomationProjectSetup({ config, onChange }: { config: AutomationProjectConfig; onChange: (c: EngagementConfig) => void }) {
+  const update = <K extends keyof AutomationProjectConfig>(field: K, value: AutomationProjectConfig[K]) =>
+    onChange({ ...config, [field]: value });
+
+  const toggleOutput = (ot: AutomationOutputType) => {
+    if (ot === AutomationOutputType.REPORT) return; // report is required
+    const current = config.outputTypes;
+    update('outputTypes', current.includes(ot) ? current.filter(o => o !== ot) : [...current, ot]);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h3 className="text-[15px] font-bold text-text mb-1">Automation Project Setup</h3>
+        <p className="text-[12px] text-text-muted">Configure input data, automation mode, outputs, and scheduling.</p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelCls}>Input Data Type <span className="text-red-400">*</span></label>
+          <select value={config.inputType} onChange={e => update('inputType', e.target.value as AutomationInputType)} className={selectCls}>
+            <option value={AutomationInputType.EXCEL_CSV}>Excel / CSV</option>
+            <option value={AutomationInputType.PDF}>PDF</option>
+            <option value={AutomationInputType.SQL}>SQL</option>
+            <option value={AutomationInputType.IMAGE}>Image</option>
+            <option value={AutomationInputType.HYBRID}>Hybrid</option>
+          </select>
+        </div>
+        <div>
+          <label className={labelCls}>How do you want to automate this? <span className="text-red-400">*</span></label>
+          <select value={config.automationSetupMode} onChange={e => update('automationSetupMode', e.target.value as AutomationSetupMode)} className={selectCls}>
+            <option value={AutomationSetupMode.SELECT_EXISTING_WORKFLOW}>Use Existing Workflow</option>
+            <option value={AutomationSetupMode.CREATE_NEW_WORKFLOW}>Build New Workflow</option>
+            <option value={AutomationSetupMode.QA_ADHOC_ANALYSIS}>Ask Questions / Ad-hoc Analysis</option>
+            <option value={AutomationSetupMode.UPLOAD_DATA_FIRST_DECIDE_LATER}>Upload Data First, Decide Later</option>
+          </select>
+          <p className="text-[9px] text-gray-400 mt-1">{
+            config.automationSetupMode === AutomationSetupMode.SELECT_EXISTING_WORKFLOW ? 'Choose one or more saved workflows to run on the selected input data. Best for repeatable automation and bulk runs.' :
+            config.automationSetupMode === AutomationSetupMode.CREATE_NEW_WORKFLOW ? 'Build a new workflow using the workflow builder. You can link existing project data or add new data during workflow creation.' :
+            config.automationSetupMode === AutomationSetupMode.QA_ADHOC_ANALYSIS ? 'Use this for one-time exploration or Q&A on data/documents. For recurring automation, convert this into a saved workflow.' :
+            'Add input data now and choose the automation approach later.'
+          }</p>
+        </div>
+      </div>
+
+      {config.automationSetupMode === AutomationSetupMode.SELECT_EXISTING_WORKFLOW && (
+        <div>
+          <label className={labelCls}>Existing Workflow</label>
+          <select className={selectCls} value={(config.workflowIds || [])[0] || ''} onChange={e => update('workflowIds', e.target.value ? [e.target.value] : [])}>
+            <option value="">Select workflow...</option>
+            <option value="wf-vendor-recon">Vendor Reconciliation Workflow</option>
+            <option value="wf-expense-val">Expense Validation Workflow</option>
+            <option value="wf-invoice-match">Invoice Matching Workflow</option>
+          </select>
+        </div>
+      )}
+
+      <div>
+        <label className={labelCls}>Output Types</label>
+        <div className="flex flex-wrap gap-3 mt-1">
+          {Object.values(AutomationOutputType).map(ot => {
+            const isReport = ot === AutomationOutputType.REPORT;
+            const checked = config.outputTypes.includes(ot);
+            const label = ot === 'CASE_MANAGEMENT' ? 'Case Management' : ot === 'DOWNLOADABLE_FILE' ? 'Downloadable File' : ot.charAt(0) + ot.slice(1).toLowerCase();
+            return (
+              <label key={ot} className={`flex items-center gap-2 text-[11px] ${isReport ? 'text-gray-400 cursor-not-allowed' : 'text-text cursor-pointer'}`}>
+                <input type="checkbox" checked={checked || isReport} disabled={isReport} onChange={() => toggleOutput(ot)} className={checkCls + (isReport ? ' opacity-50' : '')} />
+                {label}
+              </label>
+            );
+          })}
+        </div>
+        <p className="text-[9px] text-gray-400 mt-1">Report is required and cannot be unchecked.</p>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-4">
+        <label className="flex items-center gap-2 text-[11px] text-text cursor-pointer">
+          <input type="checkbox" checked={config.reviewRequired} onChange={e => update('reviewRequired', e.target.checked)} className={checkCls} />
+          Review required
+        </label>
+        <label className="flex items-center gap-2 text-[11px] text-text cursor-pointer">
+          <input type="checkbox" checked={config.caseCreationEnabled} onChange={e => update('caseCreationEnabled', e.target.checked)} className={checkCls} />
+          Case creation enabled
+        </label>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelCls}>Run Type</label>
+          <select value={config.runType} onChange={e => update('runType', e.target.value as RunType)} className={selectCls}>
+            <option value={RunType.AD_HOC}>Ad-hoc</option>
+            <option value={RunType.ONE_TIME}>One-time</option>
+            <option value={RunType.RECURRING}>Recurring</option>
+          </select>
+        </div>
+        {config.runType === RunType.RECURRING && (
+          <div>
+            <label className={labelCls}>Frequency <span className="text-red-400">*</span></label>
+            <select value={config.frequency || ''} onChange={e => update('frequency', e.target.value as RunFrequency)} className={selectCls}>
+              <option value="">Select frequency...</option>
+              <option value={RunFrequency.DAILY}>Daily</option>
+              <option value={RunFrequency.WEEKLY}>Weekly</option>
+              <option value={RunFrequency.MONTHLY}>Monthly</option>
+              <option value={RunFrequency.QUARTERLY}>Quarterly</option>
+              <option value={RunFrequency.CUSTOM}>Custom</option>
+            </select>
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelCls}>RACM Reference (optional)</label>
+          <input value={config.racmReferenceId || ''} onChange={e => update('racmReferenceId', e.target.value)} placeholder="Optional RACM link" className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>Control Reference (optional)</label>
+          <input value={(config.controlReferenceIds || []).join(', ')} onChange={e => update('controlReferenceIds', e.target.value ? e.target.value.split(',').map(s => s.trim()) : [])} placeholder="Optional control IDs" className={inputCls} />
+        </div>
+      </div>
+    </div>
+  );
+}

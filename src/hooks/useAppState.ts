@@ -57,7 +57,9 @@ export type View =
   // Case Management
   | 'manage-exceptions'
   // Chat trash
-  | 'chat-trash';
+  | 'chat-trash'
+  // Dev-only preview routes
+  | 'dev-configurable-engagement-v3';
 
 export type ChatMode = 'chat' | 'workflow';
 export type ExceptionRole = 'risk-owner' | 'auditor';
@@ -144,6 +146,7 @@ const getInitialView = (): View => {
   const v = params.get('view');
   if (v === 'reports') return 'reports';
   if (v === 'manage-exceptions') return 'manage-exceptions';
+  if (v === 'dev-configurable-engagement-v3') return 'dev-configurable-engagement-v3';
   return 'home';
 };
 
