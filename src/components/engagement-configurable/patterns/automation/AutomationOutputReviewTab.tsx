@@ -577,7 +577,7 @@ function WorkflowDetailPanel({ group, engagement, outputReview, completedRuns, g
       {/* CTA */}
       <div className="flex items-center gap-2">
         {onNavigateTab && (
-          <button onClick={() => onNavigateTab('cases')} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-[11px] font-semibold cursor-pointer transition-colors">
+          <button onClick={() => onNavigateTab?.('cases')} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-[11px] font-semibold cursor-pointer transition-colors">
             Go to Cases <ChevronRight size={11} />
           </button>
         )}
