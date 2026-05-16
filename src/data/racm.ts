@@ -25,6 +25,16 @@ export type Frequency = 'Daily' | 'Weekly' | 'Monthly' | 'Quarterly' | 'Annual' 
 export type ControlType = 'Preventive' | 'Detective';
 export type Automation = 'Manual' | 'IT-dependent' | 'Automated';
 
+/**
+ * Attribute scope:
+ *   SAMPLE_BASED — the auditor walks every sample in the control's sample set
+ *                  and tests this attribute against each sample.
+ *   GENERIC      — the attribute is a single control-level check
+ *                  (e.g. "policy signed by CFO exists"); no sample loop.
+ * Default when omitted = SAMPLE_BASED.
+ */
+export type AttributeScope = 'SAMPLE_BASED' | 'GENERIC';
+
 export interface ControlAttribute {
   id: string;
   description: string;
@@ -32,11 +42,17 @@ export interface ControlAttribute {
   /** Evidence types the auditor must collect to validate this attribute
    *  (e.g. "Vendor invoice", "KYC PAN copy"). Drives the Evidence tab. */
   requiredEvidence: string[];
+  /** Per-evidence-type guidance — what should the auditor actually upload.
+   *  Index-aligned with `requiredEvidence`. Shown next to the upload control. */
+  evidenceDescriptions?: string[];
   /** Approximate population size for the engagement period — drives the sample
-   *  count + the "Upload population" affordance. */
+   *  count + the "Upload population" affordance. Population itself is now
+   *  managed at the control level; this remains as a hint for sample-size defaults. */
   populationSize: number;
   /** Default sampling target. */
   defaultSampleSize: number;
+  /** Sample-based (loops over samples) vs generic (single control-level check). */
+  scope?: AttributeScope;
 }
 
 export interface RACMRow {
@@ -66,11 +82,33 @@ export const RACM_LIBRARY: RACMRow[] = [
     controlId: 'P2P-C-01', controlDescription: 'Vendor master add/change requires dual approval with KYC pack attached',
     attributes: [
       { id: 'P2P-C-01.1', description: 'KYC documents collected (PAN, GST, bank cancelled cheque)', testProcedure: 'Inspect KYC pack in vendor master record for completeness.',
-        requiredEvidence: ['KYC PAN copy', 'KYC GST certificate', 'Bank cancelled cheque'], populationSize: 487, defaultSampleSize: 25 },
+        requiredEvidence: ['KYC PAN copy', 'KYC GST certificate', 'Bank cancelled cheque'],
+        evidenceDescriptions: [
+          'Vendor PAN card photocopy. Number must match the ERP vendor master.',
+          'GST registration certificate (REG-06). Verify validity date and GSTIN match.',
+          'Bank cancelled cheque with vendor name printed (not handwritten).',
+        ],
+        populationSize: 487, defaultSampleSize: 25, scope: 'SAMPLE_BASED' },
       { id: 'P2P-C-01.2', description: 'Dual approval recorded in ERP audit log',                       testProcedure: 'Sample 25 new vendors; verify two distinct approvers in ERP log.',
-        requiredEvidence: ['ERP audit log screenshot', 'Approval workflow trail'], populationSize: 487, defaultSampleSize: 25 },
+        requiredEvidence: ['ERP audit log screenshot', 'Approval workflow trail'],
+        evidenceDescriptions: [
+          'Screenshot of the ERP audit log showing both approver user IDs and timestamps.',
+          'Workflow trail export confirming the approval routed through two distinct users (no self-approval).',
+        ],
+        populationSize: 487, defaultSampleSize: 25, scope: 'SAMPLE_BASED' },
       { id: 'P2P-C-01.3', description: 'Vendor screened against sanctions list',                        testProcedure: 'Run vendor list against sanctions DB; verify timestamp ≤ 24h before activation.',
-        requiredEvidence: ['Sanctions screening result', 'Screening timestamp evidence'], populationSize: 487, defaultSampleSize: 25 },
+        requiredEvidence: ['Sanctions screening result', 'Screening timestamp evidence'],
+        evidenceDescriptions: [
+          'Sanctions screening output (clear / hit) from the configured screening provider.',
+          'Timestamp showing the screening was performed within 24h before vendor activation.',
+        ],
+        populationSize: 487, defaultSampleSize: 25, scope: 'SAMPLE_BASED' },
+      // GENERIC attribute — control-level master attestation, no sample loop.
+      { id: 'P2P-C-01.4', description: 'Vendor onboarding policy reviewed and signed by Procurement Head for FY26',
+        testProcedure: 'Inspect signed policy attestation cover page — one signature covers the whole control period.',
+        requiredEvidence: ['Signed policy attestation'],
+        evidenceDescriptions: ['Single signed cover page of the FY26 vendor onboarding policy, signed by the Procurement Head with date.'],
+        populationSize: 1, defaultSampleSize: 1, scope: 'GENERIC' },
     ],
     assertion: 'Existence', frequency: 'Event-driven', controlType: 'Preventive', automation: 'IT-dependent', isKey: true,
   },
@@ -94,7 +132,9 @@ export const RACM_LIBRARY: RACMRow[] = [
     controlId: 'P2P-C-03', controlDescription: 'PO approval threshold enforced by amount tier (DOA matrix)',
     attributes: [
       { id: 'P2P-C-03.1', description: 'DOA matrix configured in ERP per latest policy version',   testProcedure: 'Inspect ERP configuration vs current DOA policy — match approvers to amount tiers.',
-        requiredEvidence: ['DOA policy document', 'ERP config screenshot'], populationSize: 1, defaultSampleSize: 1 },
+        requiredEvidence: ['DOA policy document', 'ERP config screenshot'], populationSize: 1, defaultSampleSize: 1,
+        scope: 'GENERIC',
+        evidenceDescriptions: ['Current signed DOA (Delegation of Authority) policy document.', 'ERP screenshot showing the configured approval matrix.'] },
       { id: 'P2P-C-03.2', description: 'Threshold-override events require justification + 2-up approval', testProcedure: 'Sample all overrides; verify justification text + escalation approver.',
         requiredEvidence: ['Override justification document', 'Escalation approval email'], populationSize: 34, defaultSampleSize: 30 },
       { id: 'P2P-C-03.3', description: 'POs > ₹10L require CFO approval',                          testProcedure: 'Sample 15 POs > ₹10L; verify CFO approval in workflow.',

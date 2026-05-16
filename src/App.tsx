@@ -544,6 +544,7 @@ export default function App() {
             }}
             onOpenCaseManagement={openCaseManagement}
             onOpenRacmFullEditor={() => setView('racm-full-editor')}
+            onLaunchWorkflowBuilder={launchWorkflowBuilderWithPrompt}
           />
         );
 

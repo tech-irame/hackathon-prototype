@@ -48,6 +48,7 @@ interface Props {
   onOpenExecution: (engagementId: string) => void;
   onOpenCaseManagement: (engagementId: string) => void;
   onOpenRacmFullEditor?: () => void;
+  onLaunchWorkflowBuilder?: (seedPrompt: string) => void;
 }
 
 // ─── Tabs per engagement type ─────────────────────────────────────────────────
@@ -186,7 +187,7 @@ function healthTier(pct: number): { bar: string; text: string } {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function EngagementDetailView({ engagementId, onBack, onOpenExecution, onOpenCaseManagement, onOpenRacmFullEditor }: Props) {
+export default function EngagementDetailView({ engagementId, onBack, onOpenExecution, onOpenCaseManagement, onOpenRacmFullEditor, onLaunchWorkflowBuilder }: Props) {
   const { addToast } = useToast();
   const engagement = useMemo(() => ENGAGEMENTS.find(e => e.id === engagementId), [engagementId]);
 
@@ -299,7 +300,7 @@ export default function EngagementDetailView({ engagementId, onBack, onOpenExecu
             <p className="text-[13px] text-text-secondary mt-2 max-w-3xl">{eng.description}</p>
           </div>
 
-          {/* Health + Execution CTA */}
+          {/* Health */}
           <div className="flex items-center gap-4 shrink-0">
             <div className="text-center min-w-[80px]">
               <div className={`text-3xl font-bold tabular-nums ${notStarted ? 'text-text-muted' : health.text}`}>
@@ -314,15 +315,6 @@ export default function EngagementDetailView({ engagementId, onBack, onOpenExecu
                 </div>
               )}
             </div>
-            <button
-              onClick={() => onOpenExecution(eng.id)}
-              className="flex items-center gap-1.5 px-4 py-2.5 bg-primary hover:bg-primary-hover text-white rounded-lg text-[13px] font-semibold transition-colors cursor-pointer"
-              title="Open the full execution workspace for this engagement"
-            >
-              <Play size={14} />
-              Open Execution Workspace
-              <ArrowUpRight size={12} />
-            </button>
           </div>
         </div>
 
@@ -397,7 +389,7 @@ export default function EngagementDetailView({ engagementId, onBack, onOpenExecu
 
             {/* ═══ EVIDENCE (Compliance / IA) ═══ */}
             {activeTab === 'evidence' && (
-              <EvidenceTab engagement={eng} />
+              <EvidenceTab engagement={eng} onLaunchWorkflowBuilder={onLaunchWorkflowBuilder} />
             )}
 
             {/* ═══ EXCEPTION MANAGEMENT (Automation) — slim summary; full workspace lives at /case-management ═══ */}
