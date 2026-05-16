@@ -146,6 +146,13 @@ export default function App() {
   const [controlDrawerId, setControlDrawerId] = useState<string | null>(null);
   const [controlDrawerData, setControlDrawerData] = useState<any>(null);
   const [engagementBackView, setEngagementBackView] = useState<'programs' | 'audit-planning' | 'business-processes'>('programs');
+  // Local context for the full-page RACM editor: which RACM, what process, where to go back to.
+  type RacmEditorContext = { racmId: string; racmName: string; processLabel: string; backView: 'engagement-overview' | 'business-processes' | 'bp-detail' };
+  const [racmEditorContext, setRacmEditorContext] = useState<RacmEditorContext | null>(null);
+  const openRacmFullEditor = (ctx: RacmEditorContext) => {
+    setRacmEditorContext(ctx);
+    setView('racm-full-editor');
+  };
   type CustomTemplate = typeof CUSTOM_TEMPLATES[number];
   const CUSTOM_TEMPLATES_KEY = 'irame.reports.customTemplates.v1';
   const [customTemplates, setCustomTemplates] = useState<CustomTemplate[]>(() => {
@@ -421,6 +428,12 @@ export default function App() {
               openAuditExecution(engId);
               setView('engagement-detail' as any);
             }}
+            onOpenRacmEditor={(racm) => openRacmFullEditor({
+              racmId: racm.id,
+              racmName: racm.name,
+              processLabel: racm.process,
+              backView: 'bp-detail',
+            })}
           />
         );
 
@@ -543,7 +556,12 @@ export default function App() {
               setView('engagement-detail' as any);
             }}
             onOpenCaseManagement={openCaseManagement}
-            onOpenRacmFullEditor={() => setView('racm-full-editor')}
+            onOpenRacmFullEditor={() => openRacmFullEditor({
+              racmId: 'racm-procurement-fy26',
+              racmName: 'Procurement SOP — Budget to Payment RACM',
+              processLabel: 'P2P',
+              backView: 'engagement-overview',
+            })}
             onLaunchWorkflowBuilder={launchWorkflowBuilderWithPrompt}
           />
         );
@@ -600,8 +618,10 @@ export default function App() {
       case 'racm-full-editor':
         return (
           <RacmFullPageEditor
-            onBack={() => setView('engagement-overview')}
-            racmName="Procurement SOP — Budget to Payment RACM"
+            onBack={() => setView(racmEditorContext?.backView ?? 'engagement-overview')}
+            racmName={racmEditorContext?.racmName ?? 'Procurement SOP — Budget to Payment RACM'}
+            racmId={racmEditorContext?.racmId}
+            processLabel={racmEditorContext?.processLabel}
           />
         );
 

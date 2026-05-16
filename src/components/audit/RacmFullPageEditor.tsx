@@ -25,6 +25,10 @@ interface Props {
   onBack: () => void;
   /** RACM display name shown in the page header */
   racmName?: string;
+  /** Identifier for the RACM being edited — used to label the version/source */
+  racmId?: string;
+  /** Optional process label for the page header (e.g. "P2P") */
+  processLabel?: string;
 }
 
 // Columns that render with a styled chip rather than plain text
@@ -37,7 +41,7 @@ const PINNABLE_KEYS: (keyof ProcurementRacmRow)[] = ['riskId', 'controlId', 'sub
 
 type GroupByMode = 'none' | 'subProcess' | 'processArea' | 'riskRating';
 
-export default function RacmFullPageEditor({ onBack, racmName }: Props) {
+export default function RacmFullPageEditor({ onBack, racmName, racmId, processLabel }: Props) {
   // ─── State ───────────────────────────────────────────────────────────
   const [rows, setRows] = useState<ProcurementRacmRow[]>(PROCUREMENT_RACM_ROWS);
   const [search, setSearch] = useState('');
@@ -202,6 +206,8 @@ export default function RacmFullPageEditor({ onBack, racmName }: Props) {
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <h1 className="text-[15px] font-bold text-text truncate">{racmName ?? 'Procurement SOP — Budget to Payment RACM'}</h1>
+              {racmId && <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-gray-100 text-gray-600 font-mono">{racmId}</span>}
+              {processLabel && <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-primary/10 text-primary">{processLabel}</span>}
               <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-50 text-amber-700">DRAFT</span>
               <span className="text-[10px] text-text-muted font-mono">v0.1</span>
             </div>

@@ -20,6 +20,8 @@ interface Props {
   selectedBPId: string | null;
   onSelectBP: (id: string | null) => void;
   onOpenEngagement?: (engagementId: string) => void;
+  /** Opens the full-page RACM editor for any RACM in the list. */
+  onOpenRacmEditor?: (racm: import('./RacmListTable').RacmEntry) => void;
 }
 
 type HubTabId = 'engagements' | 'business-processes';
@@ -2674,8 +2676,9 @@ function ReviewImportWorkspace({ racmName, bpAbbr, fileName, onBack, onFreeze }:
 }
 
 /* ─── BP Detail View ─── */
-function BPDetailView({ bp, onBack }: {
+function BPDetailView({ bp, onBack, onOpenRacmEditor }: {
   bp: typeof BUSINESS_PROCESSES[0]; onBack: () => void;
+  onOpenRacmEditor?: (racm: import('./RacmListTable').RacmEntry) => void;
 }) {
   const { addToast } = useToast();
   const [tab, setTab] = useState<'sop' | 'racm' | 'risks' | 'controls' | 'workflows'>('sop');
@@ -2859,6 +2862,7 @@ function BPDetailView({ bp, onBack }: {
                 }
                 setReviewingRacmId(racm.id);
               }}
+              onOpenInEditor={onOpenRacmEditor}
             />
 
             <AnimatePresence>
@@ -2918,14 +2922,14 @@ function BPDetailView({ bp, onBack }: {
 }
 
 /* ─── Business Processes List ─── */
-export default function BusinessProcesses({ selectedBPId, onSelectBP, onOpenEngagement }: Props) {
+export default function BusinessProcesses({ selectedBPId, onSelectBP, onOpenEngagement, onOpenRacmEditor }: Props) {
   const [tab, setTab] = useState<HubTabId>('engagements');
   const [search, setSearch] = useState('');
   const { addToast } = useToast();
 
   if (selectedBPId) {
     const bp = BUSINESS_PROCESSES.find(b => b.id === selectedBPId);
-    if (bp) return <BPDetailView bp={bp} onBack={() => onSelectBP(null)} />;
+    if (bp) return <BPDetailView bp={bp} onBack={() => onSelectBP(null)} onOpenRacmEditor={onOpenRacmEditor} />;
   }
 
   const activeTabLabel = HUB_TABS.find(t => t.id === tab)!.label;

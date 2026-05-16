@@ -74,9 +74,11 @@ interface Props {
   extraRacms?: RacmEntry[];
   /** Called when user clicks Edit Draft on a draft RACM — opens the Excel editing page */
   onEditDraft?: (racm: RacmEntry) => void;
+  /** Called when user clicks "Open in editor" on any RACM — opens the full-page editor route */
+  onOpenInEditor?: (racm: RacmEntry) => void;
 }
 
-export default function RacmListTable({ processFilter, initialMappingRacm, onMappingOpened, extraRacms, onEditDraft }: Props) {
+export default function RacmListTable({ processFilter, initialMappingRacm, onMappingOpened, extraRacms, onEditDraft, onOpenInEditor }: Props) {
   const [racmList] = useState<RacmEntry[]>(RACM_SEED_DATA);
   const allRacms = (() => {
     if (!extraRacms || extraRacms.length === 0) return racmList;
@@ -174,10 +176,17 @@ export default function RacmListTable({ processFilter, initialMappingRacm, onMap
                       <td className="px-3 py-3"><span className="text-[12px] text-text tabular-nums">{racm.controls}</span></td>
                       <td className="px-3 py-3 text-right" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center gap-1.5 justify-end">
-                          {onEditDraft && (
+                          {onOpenInEditor && (
+                            <button onClick={() => onOpenInEditor(racm)}
+                              title="Open this RACM in the full-page editor"
+                              className="px-2 py-1 rounded-lg text-[10px] font-bold cursor-pointer transition-colors inline-flex items-center gap-1 bg-primary text-white hover:bg-primary/90">
+                              <Pencil size={9} />Open in editor
+                            </button>
+                          )}
+                          {isDraftRacm && onEditDraft && (
                             <button onClick={() => onEditDraft(racm)}
                               className="px-2 py-1 rounded-lg text-[10px] font-bold cursor-pointer transition-colors inline-flex items-center gap-1 bg-primary/10 text-primary hover:bg-primary/20">
-                              <Pencil size={9} />Edit RACM
+                              <Pencil size={9} />Edit draft
                             </button>
                           )}
                           <button onClick={toggleExpand}
