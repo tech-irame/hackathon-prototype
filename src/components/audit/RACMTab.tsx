@@ -27,6 +27,8 @@ import {
 
 interface Props {
   engagement: Engagement;
+  /** Optional callback to escape the embedded tab into the full-page RACM editor */
+  onOpenFullEditor?: () => void;
 }
 
 // ─── Token maps ───────────────────────────────────────────────────────────────
@@ -45,7 +47,7 @@ const AUTOMATION_CLS: Record<Automation, string> = {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function RACMTab(props: Props): JSX.Element {
-  const { engagement } = props;
+  const { engagement, onOpenFullEditor } = props;
   const { addToast } = useToast();
 
   const allRows = useMemo(() => racmRowsForProcess(engagement.process), [engagement.process]);
@@ -210,6 +212,15 @@ export default function RACMTab(props: Props): JSX.Element {
 
         {/* Right — action buttons */}
         <div className="flex items-center gap-2 ml-auto">
+          {onOpenFullEditor && (
+            <button
+              onClick={onOpenFullEditor}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary hover:bg-primary/90 text-white text-[12px] font-semibold transition-colors cursor-pointer"
+              title="Open the full-page editor — best for editing 100+ controls"
+            >
+              <ArrowUpRight size={12} /> Open in editor
+            </button>
+          )}
           <button
             onClick={onDownload}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border-light bg-white hover:bg-primary-xlight/40 hover:border-primary/30 text-[12px] font-semibold text-text-secondary hover:text-primary transition-colors cursor-pointer"

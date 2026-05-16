@@ -39,6 +39,7 @@ import CaseManagementWorkspace from './components/audit/CaseManagementWorkspace'
 import ProgramsView from './components/audit/ProgramsView';
 // New pages
 import RACMView from './components/governance/RACMView';
+import RacmFullPageEditor from './components/audit/RacmFullPageEditor';
 import ControlLibraryView from './components/governance/ControlLibraryView';
 import ControlTestingView from './components/execution/ControlTestingView';
 import EvidenceView from './components/execution/EvidenceView';
@@ -406,11 +407,6 @@ export default function App() {
           <ProgramsView
             selectedBPId={state.selectedBPId}
             onSelectBP={setSelectedBP}
-            onNavigateToExecution={(engId) => {
-              setEngagementBackView('programs');
-              openAuditExecution(engId);
-              setView('engagement-detail' as any);
-            }}
           />
         );
 
@@ -546,6 +542,7 @@ export default function App() {
               setView('engagement-detail' as any);
             }}
             onOpenCaseManagement={openCaseManagement}
+            onOpenRacmFullEditor={() => setView('racm-full-editor')}
           />
         );
 
@@ -597,6 +594,14 @@ export default function App() {
       case 'governance-racm-detail':
       case 'governance-racm-generate':
         return <RACMView />;
+
+      case 'racm-full-editor':
+        return (
+          <RacmFullPageEditor
+            onBack={() => setView('engagement-overview')}
+            racmName="Procurement SOP — Budget to Payment RACM"
+          />
+        );
 
       case 'governance-controls':
       case 'governance-control-detail':

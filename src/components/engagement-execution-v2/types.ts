@@ -112,6 +112,38 @@ export interface AttributeResult {
   notes: string;
   testedAt: string | null;
   testedBy: string | null;
+  /** Per-sample round history for this attribute. Latest round drives `result`. */
+  rounds?: AttributeRoundSampleResult[];
+}
+
+/** A single sample's record inside an attribute's testing round. */
+export interface AttributeRoundSampleResult {
+  roundNumber: number;
+  result: AttrResult;
+  evidenceIds: string[];
+  notes: string;
+  testedAt: string | null;
+  testedBy: string | null;
+}
+
+/**
+ * Attribute-level round metadata (scoped to ExecutionControl, not TestItem).
+ * Round 1 = initial full population. Round 2+ = retest of failed samples.
+ */
+export interface AttributeRound {
+  roundNumber: number;
+  /** Sample (test item) IDs included in this round */
+  sampleIds: string[];
+  /** ISO timestamp when the round was started */
+  startedAt: string;
+  /** ISO timestamp when the round was completed; null while in progress */
+  completedAt: string | null;
+  /** Optional override population reference. Null = inherits control population. */
+  populationOverrideRef: string | null;
+  /** Counts at completion (cached for header display). Zero if still active. */
+  passCount: number;
+  failCount: number;
+  pendingCount: number;
 }
 
 export interface TestItem {
@@ -152,6 +184,8 @@ export interface ControlExecutionState {
   review: ReviewState;
   workingPaper: WorkingPaper;
   conclusion: Conclusion;
+  /** Per-attribute round metadata. Keyed by attributeId. */
+  attributeRounds?: Record<string, AttributeRound[]>;
 }
 
 export interface ExecutionControl {

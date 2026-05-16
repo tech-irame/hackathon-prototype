@@ -1,0 +1,709 @@
+// ─── RACM Full-Page Editor ────────────────────────────────────────────────
+// Excel/Airtable-style grid for RACMs with 100+ controls.
+//   - Frozen left columns (Risk ID, Control ID, Sub-Process toggleable)
+//   - Toggleable column groups
+//   - Inline cell editing
+//   - Group-by Sub-Process (collapsible sections)
+//   - Search + Key/Non-key filter + bulk select
+//   - Detail side panel with all 25 fields organised into collapsible sections
+// Seeded from the Procurement RACM Excel the user provided.
+
+import { useState, useMemo, useRef, useEffect } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
+import {
+  ArrowLeft, Search, Filter, Plus, Download, Upload, Columns3, Layers,
+  X, ChevronRight, ChevronDown, Save, Lock,
+  AlertTriangle, KeyRound, Trash2, Check,
+} from 'lucide-react';
+import {
+  PROCUREMENT_RACM_ROWS, PROCUREMENT_RACM_COLUMNS, COLUMN_GROUP_LABELS, COLUMN_GROUP_ORDER,
+  groupRowsBySubProcess, deriveRiskRatingClass, deriveControlTypeClass, deriveControlNatureClass,
+  type ProcurementRacmRow, type ColumnGroup, type RacmColumnDef,
+} from '../../data/procurement-racm';
+
+interface Props {
+  onBack: () => void;
+  /** RACM display name shown in the page header */
+  racmName?: string;
+}
+
+// Columns that render with a styled chip rather than plain text
+const CHIP_COLUMNS = new Set<keyof ProcurementRacmRow>([
+  'riskRating', 'likelihood', 'impact', 'controlType', 'controlNature', 'frequency', 'confidence',
+]);
+
+// Columns that the user can pin / freeze to the left
+const PINNABLE_KEYS: (keyof ProcurementRacmRow)[] = ['riskId', 'controlId', 'subProcess'];
+
+type GroupByMode = 'none' | 'subProcess' | 'processArea' | 'riskRating';
+
+export default function RacmFullPageEditor({ onBack, racmName }: Props) {
+  // ─── State ───────────────────────────────────────────────────────────
+  const [rows, setRows] = useState<ProcurementRacmRow[]>(PROCUREMENT_RACM_ROWS);
+  const [search, setSearch] = useState('');
+  const [groupBy, setGroupBy] = useState<GroupByMode>('subProcess');
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const [riskRatingFilter, setRiskRatingFilter] = useState<Set<string>>(new Set());
+  const [showOnlyKey, setShowOnlyKey] = useState(false);
+  const [visibleGroups, setVisibleGroups] = useState<Set<ColumnGroup>>(
+    new Set(['identity', 'context', 'risk', 'control', 'assertions'])
+  );
+  const [pinnedKeys, setPinnedKeys] = useState<Set<keyof ProcurementRacmRow>>(
+    new Set(['riskId', 'controlId'])
+  );
+  const [showColumnPanel, setShowColumnPanel] = useState(false);
+  const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
+  const [detailRowId, setDetailRowId] = useState<string | null>(null);
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'edited'>('saved');
+  const [showImportToast, setShowImportToast] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // ─── Derived ─────────────────────────────────────────────────────────
+  const filteredRows = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return rows.filter(r => {
+      if (q) {
+        const hit = Object.values(r).some(v => String(v).toLowerCase().includes(q));
+        if (!hit) return false;
+      }
+      if (riskRatingFilter.size > 0 && !riskRatingFilter.has(r.riskRating)) return false;
+      // "Key" approximation = riskRating High or Critical
+      if (showOnlyKey && r.riskRating.toLowerCase() !== 'high' && r.riskRating.toLowerCase() !== 'critical') return false;
+      return true;
+    });
+  }, [rows, search, riskRatingFilter, showOnlyKey]);
+
+  const grouped = useMemo(() => {
+    if (groupBy === 'none') return [{ label: 'All Controls', rows: filteredRows, count: filteredRows.length }];
+    const map = new Map<string, ProcurementRacmRow[]>();
+    for (const r of filteredRows) {
+      const key = (groupBy === 'subProcess' ? r.subProcess : groupBy === 'processArea' ? r.processArea : r.riskRating) || '(Unassigned)';
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(r);
+    }
+    return Array.from(map.entries()).map(([label, rs]) => ({ label, rows: rs, count: rs.length }));
+  }, [filteredRows, groupBy]);
+
+  const stats = useMemo(() => {
+    const ratingCounts = { High: 0, Medium: 0, Low: 0 } as Record<string, number>;
+    for (const r of rows) ratingCounts[r.riskRating] = (ratingCounts[r.riskRating] || 0) + 1;
+    return {
+      total: rows.length,
+      filtered: filteredRows.length,
+      risks: new Set(rows.map(r => r.riskId)).size,
+      controls: new Set(rows.map(r => r.controlId)).size,
+      key: rows.filter(r => r.riskRating === 'High' || r.riskRating === 'Critical').length,
+      subProcesses: new Set(rows.map(r => r.subProcess)).size,
+      manual: rows.filter(r => r.controlNature === 'Manual').length,
+      automated: rows.filter(r => r.controlNature === 'Automated').length,
+      ratings: ratingCounts,
+    };
+  }, [rows, filteredRows]);
+
+  const visibleColumns = useMemo<RacmColumnDef[]>(() => {
+    // pinned first, then by configured group order
+    const pinned = PROCUREMENT_RACM_COLUMNS.filter(c => pinnedKeys.has(c.key));
+    const rest = PROCUREMENT_RACM_COLUMNS.filter(c => !pinnedKeys.has(c.key) && visibleGroups.has(c.group));
+    return [...pinned, ...rest];
+  }, [pinnedKeys, visibleGroups]);
+
+  // ─── Mutations ───────────────────────────────────────────────────────
+  const updateCell = (rowKey: string, colKey: keyof ProcurementRacmRow, value: string) => {
+    setSaveStatus('saving');
+    setRows(prev => prev.map(r => (`${r.riskId}-${r.controlId}`) === rowKey ? { ...r, [colKey]: value } : r));
+    window.setTimeout(() => setSaveStatus('saved'), 600);
+  };
+
+  const addRow = () => {
+    const nextNum = rows.length + 1;
+    const id = String(nextNum).padStart(3, '0');
+    const blank: ProcurementRacmRow = {
+      riskId: `R${id}`, controlId: `C${id}`,
+      processArea: 'Procurement Lifecycle Management', subProcess: '(Add sub-process)',
+      riskCategory: '', riskDescription: '',
+      riskRating: 'Medium', likelihood: 'Medium', impact: 'Medium',
+      controlObjective: '', controlActivity: '',
+      controlType: 'Preventive', controlNature: 'Manual', frequency: 'Monthly',
+      controlOwner: '', controlEvidence: '',
+      assertions: '', fsLineItem: '', regulatoryRef: '',
+      keyReport: '', ipeIceDetails: '', segregationOfDuties: '', mgmtReviewControl: '',
+      confidence: 'DRAFT', sopSectionRef: '',
+    };
+    setRows(prev => [blank, ...prev]);
+    setDetailRowId(`${blank.riskId}-${blank.controlId}`);
+    setSaveStatus('edited');
+  };
+
+  const deleteSelected = () => {
+    if (selectedRowIds.size === 0) return;
+    setRows(prev => prev.filter(r => !selectedRowIds.has(`${r.riskId}-${r.controlId}`)));
+    setSelectedRowIds(new Set());
+    setSaveStatus('saved');
+  };
+
+  const toggleGroup = (label: string) =>
+    setCollapsedGroups(prev => {
+      const n = new Set(prev);
+      if (n.has(label)) n.delete(label); else n.add(label);
+      return n;
+    });
+
+  const toggleColumnGroup = (g: ColumnGroup) =>
+    setVisibleGroups(prev => {
+      const n = new Set(prev);
+      if (n.has(g)) n.delete(g); else n.add(g);
+      return n;
+    });
+
+  const togglePin = (key: keyof ProcurementRacmRow) =>
+    setPinnedKeys(prev => {
+      const n = new Set(prev);
+      if (n.has(key)) n.delete(key); else n.add(key);
+      return n;
+    });
+
+  const toggleRiskRating = (r: string) =>
+    setRiskRatingFilter(prev => {
+      const n = new Set(prev);
+      if (n.has(r)) n.delete(r); else n.add(r);
+      return n;
+    });
+
+  const toggleRowSelected = (id: string) =>
+    setSelectedRowIds(prev => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id); else n.add(id);
+      return n;
+    });
+
+  const detailRow = detailRowId ? rows.find(r => `${r.riskId}-${r.controlId}` === detailRowId) || null : null;
+
+  // ─── Build sticky-left offset map (px-based) ─────────────────────────
+  const pinnedColumnList = visibleColumns.filter(c => pinnedKeys.has(c.key));
+  const stickyOffsets = useMemo(() => {
+    const map = new Map<string, number>();
+    let acc = 40; // checkbox column
+    for (const c of pinnedColumnList) {
+      map.set(c.key, acc);
+      acc += c.width;
+    }
+    return { offsets: map, total: acc };
+  }, [pinnedColumnList]);
+
+  // ─── Render ──────────────────────────────────────────────────────────
+  return (
+    <div className="h-full w-full flex flex-col bg-canvas overflow-hidden">
+      {/* Header */}
+      <div className="bg-white border-b border-border-light px-6 py-3 flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-3 min-w-0">
+          <button onClick={onBack} className="text-text-muted hover:text-primary cursor-pointer p-1 -ml-1 rounded transition-colors">
+            <ArrowLeft size={16} />
+          </button>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h1 className="text-[15px] font-bold text-text truncate">{racmName ?? 'Procurement SOP — Budget to Payment RACM'}</h1>
+              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-50 text-amber-700">DRAFT</span>
+              <span className="text-[10px] text-text-muted font-mono">v0.1</span>
+            </div>
+            <div className="flex items-center gap-3 text-[11px] text-text-muted mt-0.5">
+              <span><strong className="text-text">{stats.controls}</strong> controls</span>
+              <span><strong className="text-text">{stats.risks}</strong> risks</span>
+              <span><strong className="text-text">{stats.subProcesses}</strong> sub-processes</span>
+              <span className="text-gray-300">·</span>
+              {saveStatus === 'saved' && <span className="text-emerald-600 flex items-center gap-1"><Check size={10} />All changes saved</span>}
+              {saveStatus === 'saving' && <span className="text-amber-600">Saving…</span>}
+              {saveStatus === 'edited' && <span className="text-blue-600">Edited</span>}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <button onClick={() => fileInputRef.current?.click()}
+            className="px-2.5 py-1.5 rounded-lg border border-border text-[11px] font-medium text-text-secondary hover:bg-surface-2 cursor-pointer transition-colors flex items-center gap-1.5">
+            <Upload size={11} />Import
+          </button>
+          <button onClick={() => setShowImportToast(true)}
+            className="px-2.5 py-1.5 rounded-lg border border-border text-[11px] font-medium text-text-secondary hover:bg-surface-2 cursor-pointer transition-colors flex items-center gap-1.5">
+            <Download size={11} />Export
+          </button>
+          <button onClick={addRow}
+            className="px-3 py-1.5 rounded-lg bg-primary hover:bg-primary/90 text-white text-[11px] font-semibold cursor-pointer transition-colors flex items-center gap-1.5">
+            <Plus size={11} />Add Risk-Control
+          </button>
+          <input ref={fileInputRef} type="file" accept=".xlsx,.csv" className="hidden"
+            onChange={() => { setShowImportToast(true); if (fileInputRef.current) fileInputRef.current.value = ''; }} />
+        </div>
+      </div>
+
+      {/* Toolbar */}
+      <div className="bg-white border-b border-border-light px-6 py-2.5 flex items-center justify-between gap-3 shrink-0">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <div className="relative max-w-md flex-1">
+            <Search size={11} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="Search across all 25 columns…"
+              className="w-full pl-7 pr-3 py-1.5 border border-border rounded-lg text-[11px] bg-white outline-none focus:border-primary/40 transition-all" />
+          </div>
+          <button onClick={() => setShowOnlyKey(v => !v)}
+            className={`px-2.5 py-1.5 rounded-lg text-[10px] font-semibold cursor-pointer transition-colors flex items-center gap-1.5 ${showOnlyKey ? 'bg-primary text-white' : 'border border-border text-text-secondary hover:bg-surface-2'}`}>
+            <KeyRound size={10} />Key only
+          </button>
+          {/* Risk rating quick filter */}
+          <div className="flex items-center gap-0.5 px-1 py-0.5 rounded-lg border border-border bg-white">
+            <span className="text-[9px] text-gray-400 font-semibold uppercase px-1.5">Risk</span>
+            {(['High', 'Medium', 'Low'] as const).map(rt => {
+              const active = riskRatingFilter.has(rt);
+              return (
+                <button key={rt} onClick={() => toggleRiskRating(rt)}
+                  className={`px-1.5 py-0.5 rounded text-[9px] font-bold cursor-pointer transition-colors ${active ? 'bg-primary/10 text-primary ring-1 ring-primary/30' : 'text-gray-500 hover:bg-gray-50'}`}>
+                  {rt} <span className="text-[8px] tabular-nums opacity-60">{stats.ratings[rt] ?? 0}</span>
+                </button>
+              );
+            })}
+          </div>
+          {/* Group-by */}
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg border border-border bg-white">
+            <Layers size={10} className="text-gray-400" />
+            <select value={groupBy} onChange={e => setGroupBy(e.target.value as GroupByMode)}
+              className="text-[10px] bg-transparent outline-none cursor-pointer text-text-secondary">
+              <option value="none">No grouping</option>
+              <option value="subProcess">Group by Sub-Process</option>
+              <option value="processArea">Group by Process Area</option>
+              <option value="riskRating">Group by Risk Rating</option>
+            </select>
+          </div>
+          {/* Columns */}
+          <div className="relative">
+            <button onClick={() => setShowColumnPanel(v => !v)}
+              className={`px-2.5 py-1.5 rounded-lg text-[10px] font-semibold cursor-pointer transition-colors flex items-center gap-1.5 ${showColumnPanel ? 'bg-primary/10 text-primary ring-1 ring-primary/30' : 'border border-border text-text-secondary hover:bg-surface-2'}`}>
+              <Columns3 size={10} />
+              Columns ({visibleColumns.length}/{PROCUREMENT_RACM_COLUMNS.length})
+            </button>
+            {showColumnPanel && (
+              <ColumnVisibilityPanel
+                visibleGroups={visibleGroups}
+                pinnedKeys={pinnedKeys}
+                onToggleGroup={toggleColumnGroup}
+                onTogglePin={togglePin}
+                onClose={() => setShowColumnPanel(false)}
+              />
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {selectedRowIds.size > 0 && (
+            <>
+              <span className="text-[10px] text-text-muted">{selectedRowIds.size} selected</span>
+              <button onClick={deleteSelected}
+                className="px-2 py-1.5 rounded-lg text-[10px] font-semibold bg-red-50 text-red-600 hover:bg-red-100 cursor-pointer transition-colors flex items-center gap-1">
+                <Trash2 size={10} />Delete
+              </button>
+              <span className="text-gray-200">|</span>
+            </>
+          )}
+          <span className="text-[10px] text-text-muted">
+            Showing <strong className="text-text">{stats.filtered}</strong> of {stats.total}
+          </span>
+        </div>
+      </div>
+
+      {/* Stats strip */}
+      <div className="bg-surface-2/40 border-b border-border-light px-6 py-2 flex items-center gap-6 text-[10px] shrink-0 overflow-x-auto">
+        <StatPill label="Total Controls" value={stats.total} />
+        <StatPill label="Total Risks" value={stats.risks} />
+        <StatPill label="Sub-Processes" value={stats.subProcesses} />
+        <StatPill label="High Rating" value={stats.ratings.High ?? 0} accent="text-red-600" />
+        <StatPill label="Medium Rating" value={stats.ratings.Medium ?? 0} accent="text-amber-600" />
+        <StatPill label="Low Rating" value={stats.ratings.Low ?? 0} accent="text-emerald-600" />
+        <StatPill label="Manual" value={stats.manual} />
+        <StatPill label="Automated" value={stats.automated} accent="text-emerald-600" />
+      </div>
+
+      {/* Grid container */}
+      <div className="flex-1 overflow-auto bg-white">
+        <RacmGrid
+          grouped={grouped}
+          collapsedGroups={collapsedGroups}
+          onToggleGroup={toggleGroup}
+          visibleColumns={visibleColumns}
+          pinnedKeys={pinnedKeys}
+          stickyOffsets={stickyOffsets}
+          selectedRowIds={selectedRowIds}
+          onToggleRowSelected={toggleRowSelected}
+          onOpenDetail={setDetailRowId}
+          onUpdateCell={updateCell}
+          showGroupHeaders={groupBy !== 'none'}
+        />
+      </div>
+
+      {/* Detail Panel */}
+      <AnimatePresence>
+        {detailRow && (
+          <DetailPanel
+            row={detailRow}
+            onClose={() => setDetailRowId(null)}
+            onUpdate={(k, v) => updateCell(`${detailRow.riskId}-${detailRow.controlId}`, k, v)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Import/Export toast */}
+      <AnimatePresence>
+        {showImportToast && (
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }}
+            onAnimationComplete={() => setTimeout(() => setShowImportToast(false), 2200)}
+            className="fixed bottom-4 left-1/2 -translate-x-1/2 px-3 py-2 rounded-lg bg-text text-white text-[11px] shadow-lg z-50 flex items-center gap-2">
+            <AlertTriangle size={11} className="text-amber-300" />
+            Import / export wired in production — this prototype uses the in-memory dataset.
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// ─── Stats pill ───────────────────────────────────────────────────────────
+function StatPill({ label, value, accent }: { label: string; value: number; accent?: string }) {
+  return (
+    <div className="flex items-center gap-1.5 shrink-0">
+      <span className={`text-[12px] font-bold tabular-nums ${accent ?? 'text-text'}`}>{value}</span>
+      <span className="text-[10px] text-text-muted">{label}</span>
+    </div>
+  );
+}
+
+// ─── Column visibility panel ───────────────────────────────────────────────
+function ColumnVisibilityPanel({
+  visibleGroups, pinnedKeys, onToggleGroup, onTogglePin, onClose,
+}: {
+  visibleGroups: Set<ColumnGroup>;
+  pinnedKeys: Set<keyof ProcurementRacmRow>;
+  onToggleGroup: (g: ColumnGroup) => void;
+  onTogglePin: (k: keyof ProcurementRacmRow) => void;
+  onClose: () => void;
+}) {
+  // close on outside click
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    };
+    window.addEventListener('mousedown', handler);
+    return () => window.removeEventListener('mousedown', handler);
+  }, [onClose]);
+
+  return (
+    <div ref={ref} className="absolute right-0 top-full mt-1 w-72 bg-white border border-border rounded-xl shadow-xl z-30 overflow-hidden">
+      <div className="px-3 py-2 border-b border-border-light bg-surface-2/40">
+        <h6 className="text-[10px] font-bold text-text uppercase tracking-wider">Column groups</h6>
+        <p className="text-[9px] text-text-muted mt-0.5">Toggle entire groups in/out of view.</p>
+      </div>
+      <div className="p-2 space-y-0.5">
+        {COLUMN_GROUP_ORDER.map(g => {
+          const on = visibleGroups.has(g);
+          return (
+            <button key={g} onClick={() => onToggleGroup(g)}
+              className={`w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-[11px] cursor-pointer transition-colors ${on ? 'bg-primary/5 text-primary' : 'text-text-secondary hover:bg-surface-2'}`}>
+              <span className="font-medium">{COLUMN_GROUP_LABELS[g]}</span>
+              <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center ${on ? 'bg-primary border-primary' : 'border-border'}`}>
+                {on && <Check size={9} className="text-white" />}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      <div className="px-3 py-2 border-t border-border-light bg-surface-2/40">
+        <h6 className="text-[10px] font-bold text-text uppercase tracking-wider">Pinned columns</h6>
+        <p className="text-[9px] text-text-muted mt-0.5">Pin to keep visible while scrolling horizontally.</p>
+      </div>
+      <div className="p-2 space-y-0.5">
+        {PINNABLE_KEYS.map(k => {
+          const col = PROCUREMENT_RACM_COLUMNS.find(c => c.key === k)!;
+          const on = pinnedKeys.has(k);
+          return (
+            <button key={k} onClick={() => onTogglePin(k)}
+              className={`w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-[11px] cursor-pointer transition-colors ${on ? 'bg-primary/5 text-primary' : 'text-text-secondary hover:bg-surface-2'}`}>
+              <span className="font-medium">{col.label}</span>
+              <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center ${on ? 'bg-primary border-primary' : 'border-border'}`}>
+                {on && <Check size={9} className="text-white" />}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Grid ─────────────────────────────────────────────────────────────────
+function RacmGrid({
+  grouped, collapsedGroups, onToggleGroup, visibleColumns, pinnedKeys, stickyOffsets,
+  selectedRowIds, onToggleRowSelected, onOpenDetail, onUpdateCell, showGroupHeaders,
+}: {
+  grouped: { label: string; rows: ProcurementRacmRow[]; count: number }[];
+  collapsedGroups: Set<string>;
+  onToggleGroup: (label: string) => void;
+  visibleColumns: RacmColumnDef[];
+  pinnedKeys: Set<keyof ProcurementRacmRow>;
+  stickyOffsets: { offsets: Map<string, number>; total: number };
+  selectedRowIds: Set<string>;
+  onToggleRowSelected: (id: string) => void;
+  onOpenDetail: (id: string) => void;
+  onUpdateCell: (rowKey: string, col: keyof ProcurementRacmRow, value: string) => void;
+  showGroupHeaders: boolean;
+}) {
+  const totalWidth = stickyOffsets.total + visibleColumns.filter(c => !pinnedKeys.has(c.key)).reduce((s, c) => s + c.width, 0);
+
+  return (
+    <div style={{ minWidth: totalWidth }}>
+      {/* Sticky header */}
+      <div className="sticky top-0 z-20 flex bg-surface-2/95 border-b border-border backdrop-blur">
+        {/* checkbox column */}
+        <div className="sticky left-0 bg-surface-2/95 border-r border-border-light h-9 w-10 flex items-center justify-center z-10">
+          <span className="text-[9px] text-gray-400 font-bold">#</span>
+        </div>
+        {visibleColumns.map(c => {
+          const pinned = pinnedKeys.has(c.key);
+          const left = stickyOffsets.offsets.get(c.key);
+          const isLastPinned = pinned && [...pinnedKeys].slice(-1)[0] === c.key;
+          return (
+            <div key={c.key}
+              style={{ width: c.width, minWidth: c.width, left: pinned ? left : undefined }}
+              className={`h-9 px-3 flex items-center text-[9px] font-bold text-text-muted uppercase tracking-wider border-r border-border-light ${pinned ? 'sticky bg-surface-2/95 z-10' : ''} ${isLastPinned ? 'shadow-[2px_0_3px_-2px_rgba(0,0,0,0.08)]' : ''}`}>
+              {c.label}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Rows */}
+      {grouped.map(group => {
+        const collapsed = collapsedGroups.has(group.label);
+        return (
+          <div key={group.label}>
+            {showGroupHeaders && (
+              <button onClick={() => onToggleGroup(group.label)}
+                className="sticky left-0 z-10 w-full text-left flex items-center gap-2 px-4 py-1.5 bg-primary/5 border-b border-primary/15 hover:bg-primary/10 transition-colors cursor-pointer"
+                style={{ minWidth: totalWidth }}>
+                {collapsed ? <ChevronRight size={12} className="text-primary" /> : <ChevronDown size={12} className="text-primary" />}
+                <span className="text-[11px] font-bold text-primary truncate">{group.label}</span>
+                <span className="text-[10px] text-primary/70 tabular-nums">({group.count})</span>
+              </button>
+            )}
+            {!collapsed && group.rows.map((r, idx) => {
+              const rowKey = `${r.riskId}-${r.controlId}`;
+              const isSelected = selectedRowIds.has(rowKey);
+              return (
+                <RacmGridRow key={rowKey}
+                  rowKey={rowKey}
+                  row={r}
+                  rowIdx={idx}
+                  isSelected={isSelected}
+                  visibleColumns={visibleColumns}
+                  pinnedKeys={pinnedKeys}
+                  stickyOffsets={stickyOffsets}
+                  onToggleSelected={() => onToggleRowSelected(rowKey)}
+                  onOpenDetail={() => onOpenDetail(rowKey)}
+                  onUpdateCell={onUpdateCell}
+                />
+              );
+            })}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Grid row ─────────────────────────────────────────────────────────────
+function RacmGridRow({
+  rowKey, row, rowIdx, isSelected, visibleColumns, pinnedKeys, stickyOffsets,
+  onToggleSelected, onOpenDetail, onUpdateCell,
+}: {
+  rowKey: string;
+  row: ProcurementRacmRow;
+  rowIdx: number;
+  isSelected: boolean;
+  visibleColumns: RacmColumnDef[];
+  pinnedKeys: Set<keyof ProcurementRacmRow>;
+  stickyOffsets: { offsets: Map<string, number>; total: number };
+  onToggleSelected: () => void;
+  onOpenDetail: () => void;
+  onUpdateCell: (rowKey: string, col: keyof ProcurementRacmRow, value: string) => void;
+}) {
+  const [editingKey, setEditingKey] = useState<keyof ProcurementRacmRow | null>(null);
+  const bg = isSelected ? 'bg-primary/8' : (rowIdx % 2 === 0 ? 'bg-white' : 'bg-surface-2/30');
+
+  return (
+    <div className={`group flex border-b border-border-light/70 hover:bg-primary/5 ${bg} transition-colors`}>
+      {/* checkbox */}
+      <div className={`sticky left-0 h-10 w-10 flex items-center justify-center border-r border-border-light z-10 ${bg}`}>
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" checked={isSelected} onChange={onToggleSelected}
+            className="w-3.5 h-3.5 rounded border-gray-300 accent-primary cursor-pointer" />
+        </label>
+      </div>
+      {visibleColumns.map(c => {
+        const pinned = pinnedKeys.has(c.key);
+        const left = stickyOffsets.offsets.get(c.key);
+        const isLastPinned = pinned && [...pinnedKeys].slice(-1)[0] === c.key;
+        const isEditing = editingKey === c.key;
+        return (
+          <div key={c.key}
+            style={{ width: c.width, minWidth: c.width, left: pinned ? left : undefined }}
+            className={`h-10 px-3 py-1.5 text-[11px] text-text border-r border-border-light/70 ${pinned ? `sticky z-10 ${bg}` : ''} ${isLastPinned ? 'shadow-[2px_0_3px_-2px_rgba(0,0,0,0.08)]' : ''} ${isEditing ? 'p-0' : ''}`}>
+            {isEditing ? (
+              <input autoFocus defaultValue={row[c.key]}
+                onBlur={e => { onUpdateCell(rowKey, c.key, e.target.value); setEditingKey(null); }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') { onUpdateCell(rowKey, c.key, (e.target as HTMLInputElement).value); setEditingKey(null); }
+                  if (e.key === 'Escape') setEditingKey(null);
+                }}
+                className="w-full h-full px-3 text-[11px] border-2 border-primary rounded outline-none bg-white" />
+            ) : (
+              <CellContent
+                row={row}
+                col={c}
+                onEdit={() => setEditingKey(c.key)}
+                onOpenDetail={onOpenDetail}
+              />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Cell rendering (chip styles, truncation) ─────────────────────────────
+function CellContent({
+  row, col, onEdit, onOpenDetail,
+}: {
+  row: ProcurementRacmRow;
+  col: RacmColumnDef;
+  onEdit: () => void;
+  onOpenDetail: () => void;
+}) {
+  const val = row[col.key];
+  const isId = col.key === 'riskId' || col.key === 'controlId';
+
+  if (isId) {
+    return (
+      <button onClick={onOpenDetail}
+        className="font-mono text-[11px] text-primary hover:underline cursor-pointer">
+        {val || '—'}
+      </button>
+    );
+  }
+
+  if (CHIP_COLUMNS.has(col.key)) {
+    const cls =
+      col.key === 'riskRating' || col.key === 'likelihood' || col.key === 'impact'
+        ? deriveRiskRatingClass(val)
+        : col.key === 'controlType'
+          ? deriveControlTypeClass(val)
+          : col.key === 'controlNature'
+            ? deriveControlNatureClass(val)
+            : 'bg-gray-100 text-gray-600 border-gray-200';
+    return (
+      <button onDoubleClick={onEdit}
+        className={`px-2 h-5 rounded-full text-[9px] font-bold inline-flex items-center border ${cls} cursor-pointer`}>
+        {val || '—'}
+      </button>
+    );
+  }
+
+  // Plain text — single line truncated, double click to edit
+  return (
+    <button onDoubleClick={onEdit} onClick={onEdit}
+      className="w-full h-full text-left text-[11px] text-text truncate cursor-text hover:bg-white/60 -mx-3 px-3 rounded transition-colors">
+      {val || <span className="text-gray-300">—</span>}
+    </button>
+  );
+}
+
+// ─── Detail Panel ─────────────────────────────────────────────────────────
+function DetailPanel({
+  row, onClose, onUpdate,
+}: {
+  row: ProcurementRacmRow;
+  onClose: () => void;
+  onUpdate: (k: keyof ProcurementRacmRow, v: string) => void;
+}) {
+  const sections: { group: ColumnGroup; label: string }[] = COLUMN_GROUP_ORDER.map(g => ({ group: g, label: COLUMN_GROUP_LABELS[g] }));
+
+  return (
+    <motion.div initial={{ x: 480, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 480, opacity: 0 }}
+      transition={{ type: 'spring', stiffness: 320, damping: 32 }}
+      className="fixed right-0 top-0 bottom-0 w-[520px] bg-white border-l border-border shadow-2xl z-40 flex flex-col">
+      {/* header */}
+      <div className="px-5 py-3 border-b border-border-light flex items-start justify-between">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-[10px] font-mono text-gray-400">{row.riskId} · {row.controlId}</span>
+            <span className={`px-1.5 h-4 rounded text-[8px] font-bold inline-flex items-center border ${deriveRiskRatingClass(row.riskRating)}`}>{row.riskRating}</span>
+            <span className={`px-1.5 h-4 rounded text-[8px] font-bold inline-flex items-center border ${deriveControlTypeClass(row.controlType)}`}>{row.controlType}</span>
+            <span className={`px-1.5 h-4 rounded text-[8px] font-bold inline-flex items-center border ${deriveControlNatureClass(row.controlNature)}`}>{row.controlNature}</span>
+          </div>
+          <h2 className="text-[13px] font-bold text-text truncate">{row.controlObjective || row.controlActivity?.slice(0, 80) || '(No objective)'}</h2>
+          <p className="text-[10px] text-text-muted mt-0.5 truncate">{row.subProcess}</p>
+        </div>
+        <button onClick={onClose} className="text-gray-400 hover:text-gray-600 cursor-pointer p-1 -mr-1"><X size={14} /></button>
+      </div>
+
+      {/* body */}
+      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+        {sections.map(s => {
+          const cols = PROCUREMENT_RACM_COLUMNS.filter(c => c.group === s.group);
+          if (cols.length === 0) return null;
+          return (
+            <DetailSection key={s.group} label={s.label}>
+              {cols.map(c => (
+                <DetailField key={c.key} label={c.label} value={row[c.key]} onChange={v => onUpdate(c.key, v)} multiLine={['riskDescription', 'controlObjective', 'controlActivity', 'controlEvidence', 'ipeIceDetails', 'mgmtReviewControl'].includes(c.key)} />
+              ))}
+            </DetailSection>
+          );
+        })}
+      </div>
+
+      <div className="px-5 py-3 border-t border-border-light flex items-center justify-between bg-surface-2/30">
+        <div className="flex items-center gap-1.5 text-[10px] text-text-muted">
+          <Save size={10} />Changes auto-save
+        </div>
+        <button onClick={onClose}
+          className="px-3 py-1.5 rounded-lg bg-primary text-white text-[11px] font-semibold cursor-pointer hover:bg-primary/90 transition-colors">
+          Done
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
+function DetailSection({ label, children }: { label: string; children: React.ReactNode }) {
+  const [open, setOpen] = useState(true);
+  return (
+    <div className="rounded-lg border border-border-light">
+      <button onClick={() => setOpen(v => !v)}
+        className="w-full px-3 py-2 flex items-center justify-between hover:bg-surface-2/30 cursor-pointer transition-colors">
+        <span className="text-[10px] font-bold text-text uppercase tracking-wider">{label}</span>
+        {open ? <ChevronDown size={11} className="text-gray-400" /> : <ChevronRight size={11} className="text-gray-400" />}
+      </button>
+      {open && <div className="px-3 pb-3 pt-1 space-y-2.5">{children}</div>}
+    </div>
+  );
+}
+
+function DetailField({ label, value, onChange, multiLine }: { label: string; value: string; onChange: (v: string) => void; multiLine?: boolean }) {
+  return (
+    <div>
+      <label className="text-[9px] font-semibold text-text-muted uppercase tracking-wider block mb-1">{label}</label>
+      {multiLine ? (
+        <textarea defaultValue={value} onBlur={e => onChange(e.target.value)}
+          rows={Math.min(6, Math.max(2, Math.ceil((value || '').length / 50)))}
+          className="w-full px-2.5 py-1.5 border border-border rounded-lg text-[11px] text-text bg-white outline-none focus:border-primary/40 transition-all resize-none" />
+      ) : (
+        <input defaultValue={value} onBlur={e => onChange(e.target.value)}
+          className="w-full px-2.5 py-1.5 border border-border rounded-lg text-[11px] text-text bg-white outline-none focus:border-primary/40 transition-all" />
+      )}
+    </div>
+  );
+}

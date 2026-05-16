@@ -9,9 +9,9 @@ import {
   X, ChevronRight, Lock, Shield, FileText, AlertTriangle,
   CheckCircle2, Upload, FlaskConical, ClipboardCheck, Eye,
   Play, Layers, Settings, Workflow, Plus, Trash2, Database, Shuffle, Paperclip, Download,
-  Send, RotateCcw, Link2, Loader2, ArrowLeft,
+  Send, RotateCcw, Link2, Loader2, ArrowLeft, Check,
 } from 'lucide-react';
-import type { ExecutionControl, Attribute, Assertion, WorkflowMapping, TestItem, AttributeResult, PopulationSnapshot, Evidence } from './types';
+import type { ExecutionControl, Attribute, Assertion, WorkflowMapping, TestItem, AttributeResult, PopulationSnapshot, Evidence, AttributeRound } from './types';
 import { ControlExecStatus, AttrResult, AttrSource, SampleResult, ExecutionMode, ReviewStatus, WorkingPaperStatus, AttributeType } from './types';
 import {
   EXEC_STATUS_DISPLAY, CONCLUSION_DISPLAY, CONTROL_TYPE_DISPLAY,
@@ -1594,6 +1594,14 @@ function deriveBulkStatus(m: BulkFileMapping): BulkFileMapping['status'] {
 }
 
 // ─── Attribute Testing Step ───────────────────────────────────────────────
+// Per-attribute vertical timeline with rounds (Round 1, Round 2, …).
+// Left rail: attribute selector with status badges. Right: timeline for
+// the selected attribute. Each round walks through:
+//   1. Define population (inherited or override)
+//   2. Upload evidence (bulk, scoped to this attribute × this round's samples)
+//   3. Run test (Auto = workflow, Manual = per-sample P/F)
+//   4. Result summary — if any sample failed, prompt to start Round N+1
+//      with only the failed samples in scope (and fresh evidence).
 
 function AttributeTestingStep({ ctrl, onUpdateControl, onNavigate }: {
   ctrl: ExecutionControl;
@@ -1601,694 +1609,752 @@ function AttributeTestingStep({ ctrl, onUpdateControl, onNavigate }: {
   onNavigate: (stepId: string) => void;
 }) {
   const items = ctrl.execution.testItems;
-  const [expandedSampleId, setExpandedSampleId] = useState<string | null>(items[0]?.id || null);
-  const [bulkMappings, setBulkMappings] = useState<BulkFileMapping[] | null>(null);
-  const [running, setRunning] = useState(false);
-  const [retestMode, setRetestMode] = useState<'select' | 'evidence' | null>(null);
-  const [retestIds, setRetestIds] = useState<Set<string>>(new Set());
-  const [retestCompletedIds, setRetestCompletedIds] = useState<Set<string>>(new Set());
+  const attrs = ctrl.attributes;
 
+  // Hooks must run unconditionally — early returns sit below.
+  const [selectedAttrId, setSelectedAttrId] = useState<string>(attrs[0]?.id || '');
+  const [running, setRunning] = useState(false);
+
+  // Lazy-initialise Round 1 for the selected attribute the first time it is opened
+  useEffect(() => {
+    if (!selectedAttrId || items.length === 0) return;
+    const existing = ctrl.execution.attributeRounds?.[selectedAttrId];
+    if (existing && existing.length > 0) return;
+    onUpdateControl(prev => initRoundOne(prev, selectedAttrId));
+  }, [selectedAttrId, items.length]);  // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Empty states ───────────────────────────────────────────────────────
   if (items.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 text-center">
+      <div className="flex flex-col items-center justify-center py-16 text-center">
         <Lock size={20} className="text-gray-400 mb-3" />
         <h4 className="text-[14px] font-semibold text-text mb-1">No test items</h4>
         <p className="text-[12px] text-text-muted">Select transactions or create samples before attribute testing.</p>
       </div>
     );
   }
+  if (attrs.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <AlertTriangle size={20} className="text-amber-500 mb-3" />
+        <h4 className="text-[14px] font-semibold text-text mb-1">No attributes defined</h4>
+        <p className="text-[12px] text-text-muted">Add attributes on the Overview step before testing.</p>
+      </div>
+    );
+  }
 
-  const progress = deriveTestingProgress(ctrl);
+  const selectedAttr = attrs.find(a => a.id === selectedAttrId) || attrs[0];
+  const rounds = ctrl.execution.attributeRounds?.[selectedAttr.id] || [];
 
-  // Check if all testing is complete
-  const allComplete = progress.totalAttributeChecks > 0 && progress.completedAttributeChecks === progress.totalAttributeChecks;
+  // ─── Render ──────────────────────────────────────────────────────────
+  return (
+    <div className="space-y-5">
+      {/* Stat strip ─ ultra-light, breathable */}
+      <AttrTestingOverview ctrl={ctrl} attrs={attrs} onGoWorkingPaper={() => onNavigate('working-paper')} />
 
-  // Update a single attribute result for a single test item
-  const updateAttributeResult = (itemId: string, attrId: string, result: AttrResult, notes: string) => {
-    onUpdateControl(prev => {
-      const updatedItems = prev.execution.testItems.map(ti => {
-        if (ti.id !== itemId) return ti;
-        const updatedResults = ti.attributeResults.map(ar =>
-          ar.attributeId === attrId ? {
-            ...ar,
-            result,
-            notes,
-            testedAt: new Date().toISOString(),
-            testedBy: 'Current User',
-          } : ar
-        );
-        const updatedItem = { ...ti, attributeResults: updatedResults };
-        // Derive sample result
-        updatedItem.sampleResult = deriveSampleResult(updatedItem, prev.attributes);
-        return updatedItem;
-      });
+      <div className="grid grid-cols-[260px_1fr] gap-5">
+        {/* Left rail — attribute selector */}
+        <AttributeRail
+          attrs={attrs}
+          items={items}
+          ctrl={ctrl}
+          selectedAttrId={selectedAttrId}
+          onSelect={setSelectedAttrId}
+        />
 
-      // Determine new status
-      const totalChecks = updatedItems.length * prev.attributes.length;
-      const completedChecks = updatedItems.reduce((s, ti) =>
-        s + ti.attributeResults.filter(r => r.result !== AttrResult.NOT_TESTED).length, 0);
-      let newStatus = prev.execution.status;
-      if (completedChecks > 0 && completedChecks < totalChecks) {
-        newStatus = ControlExecStatus.TESTING_IN_PROGRESS;
-      } else if (completedChecks === totalChecks && totalChecks > 0) {
-        newStatus = ControlExecStatus.TESTING_COMPLETE;
-      }
+        {/* Right — selected attribute timeline */}
+        <div className="min-w-0">
+          <AttributeTimeline
+            ctrl={ctrl}
+            attr={selectedAttr}
+            rounds={rounds}
+            items={items}
+            running={running}
+            setRunning={setRunning}
+            onUpdateControl={onUpdateControl}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
 
-      return { ...prev, execution: { ...prev.execution, testItems: updatedItems, status: newStatus } };
-    });
+// ─── Attribute testing helpers ────────────────────────────────────────────
+
+/** Lazily initialise Round 1 for an attribute. Round 1 = every test item. */
+function initRoundOne(prev: ExecutionControl, attrId: string): ExecutionControl {
+  const sampleIds = prev.execution.testItems.map(i => i.id);
+  const round: AttributeRound = {
+    roundNumber: 1,
+    sampleIds,
+    startedAt: new Date().toISOString(),
+    completedAt: null,
+    populationOverrideRef: null,
+    passCount: 0, failCount: 0, pendingCount: sampleIds.length,
   };
+  const nextRounds: Record<string, AttributeRound[]> = { ...(prev.execution.attributeRounds || {}) };
+  nextRounds[attrId] = [round];
+  // Seed per-sample round entry as NOT_TESTED
+  const updatedItems = prev.execution.testItems.map(ti => ({
+    ...ti,
+    attributeResults: ti.attributeResults.map(ar => {
+      if (ar.attributeId !== attrId) return ar;
+      const existing = ar.rounds || [];
+      if (existing.some(r => r.roundNumber === 1)) return ar;
+      return {
+        ...ar,
+        rounds: [...existing, { roundNumber: 1, result: AttrResult.NOT_TESTED, evidenceIds: [], notes: '', testedAt: null, testedBy: null }],
+      };
+    }),
+  }));
+  return { ...prev, execution: { ...prev.execution, testItems: updatedItems, attributeRounds: nextRounds } };
+}
 
-  // Attach evidence to a test item for a specific attribute
-  const attachEvidence = (itemId: string, attrId: string, fileName: string, evidenceType: string) => {
-    const evId = `ev-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`;
-    onUpdateControl(prev => ({
+/** Counts for an attribute, summarised across the latest round per sample. */
+function summariseAttribute(
+  attr: Attribute,
+  rounds: AttributeRound[],
+  items: TestItem[],
+): { pass: number; fail: number; pending: number; status: 'Pending' | 'In Progress' | 'Complete · Pass' | 'Complete · Fail'; latestRound: number } {
+  let pass = 0, fail = 0, pending = 0;
+  for (const ti of items) {
+    const ar = ti.attributeResults.find(r => r.attributeId === attr.id);
+    if (!ar) { pending++; continue; }
+    if (ar.result === AttrResult.PASS) pass++;
+    else if (ar.result === AttrResult.FAIL) fail++;
+    else pending++;
+  }
+  const latest = rounds.length > 0 ? rounds[rounds.length - 1].roundNumber : 1;
+  const total = pass + fail + pending;
+  let status: 'Pending' | 'In Progress' | 'Complete · Pass' | 'Complete · Fail';
+  if (pending === total) status = 'Pending';
+  else if (pending > 0) status = 'In Progress';
+  else if (fail === 0) status = 'Complete · Pass';
+  else status = 'Complete · Fail';
+  return { pass, fail, pending, status, latestRound: latest };
+}
+
+// ─── Attribute Testing Overview Strip ─────────────────────────────────────
+function AttrTestingOverview({ ctrl, attrs, onGoWorkingPaper }: {
+  ctrl: ExecutionControl;
+  attrs: Attribute[];
+  onGoWorkingPaper: () => void;
+}) {
+  const items = ctrl.execution.testItems;
+  let complete = 0, withFails = 0;
+  for (const a of attrs) {
+    const rounds = ctrl.execution.attributeRounds?.[a.id] || [];
+    const s = summariseAttribute(a, rounds, items);
+    if (s.status.startsWith('Complete')) complete++;
+    if (s.status === 'Complete · Fail') withFails++;
+  }
+  const allDone = complete === attrs.length;
+
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-xl border border-border-light bg-surface-2/30 px-5 py-3">
+      <div className="flex items-center gap-6 text-[11px]">
+        <div className="flex items-center gap-1.5">
+          <span className="text-[18px] font-bold text-text tabular-nums">{complete}</span>
+          <span className="text-text-muted">of {attrs.length} attributes complete</span>
+        </div>
+        <span className="text-gray-200">·</span>
+        <div className="text-text-muted">
+          <strong className="text-text">{items.length}</strong> samples
+        </div>
+        {withFails > 0 && (
+          <>
+            <span className="text-gray-200">·</span>
+            <span className="text-red-600 font-semibold">{withFails} attribute{withFails !== 1 ? 's have' : ' has'} failures</span>
+          </>
+        )}
+      </div>
+      <button onClick={onGoWorkingPaper}
+        disabled={!allDone}
+        className="px-3 py-1.5 rounded-lg bg-primary hover:bg-primary/90 text-white text-[11px] font-semibold cursor-pointer transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:hover:bg-gray-300">
+        Working Paper<ChevronRight size={11} />
+      </button>
+    </div>
+  );
+}
+
+// ─── Attribute Rail (left) ────────────────────────────────────────────────
+function AttributeRail({ attrs, items, ctrl, selectedAttrId, onSelect }: {
+  attrs: Attribute[];
+  items: TestItem[];
+  ctrl: ExecutionControl;
+  selectedAttrId: string;
+  onSelect: (id: string) => void;
+}) {
+  // Group attributes by assertion
+  const byAssertion = new Map<string, Attribute[]>();
+  for (const a of attrs) {
+    if (!byAssertion.has(a.assertionName)) byAssertion.set(a.assertionName, []);
+    byAssertion.get(a.assertionName)!.push(a);
+  }
+
+  return (
+    <div className="rounded-xl border border-border-light bg-white overflow-hidden h-fit sticky top-0">
+      <div className="px-3 py-2 border-b border-border-light bg-surface-2/40">
+        <h5 className="text-[10px] font-bold text-text uppercase tracking-wider">Attributes ({attrs.length})</h5>
+        <p className="text-[9px] text-text-muted mt-0.5">Test one attribute at a time. Upload its evidence and run its checks independently.</p>
+      </div>
+      <div className="max-h-[520px] overflow-y-auto">
+        {Array.from(byAssertion.entries()).map(([assertionName, list]) => (
+          <div key={assertionName}>
+            <div className="px-3 pt-3 pb-1.5 flex items-center gap-1.5">
+              <Shield size={9} className="text-primary" />
+              <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider">{assertionName}</span>
+            </div>
+            {list.map(a => {
+              const rounds = ctrl.execution.attributeRounds?.[a.id] || [];
+              const s = summariseAttribute(a, rounds, items);
+              const isSelected = a.id === selectedAttrId;
+              return (
+                <button key={a.id} onClick={() => onSelect(a.id)}
+                  className={`w-full text-left px-3 py-2 flex items-start gap-2 transition-colors cursor-pointer border-l-2 ${
+                    isSelected ? 'bg-primary/8 border-primary' : 'border-transparent hover:bg-surface-2/40'
+                  }`}>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1 mb-0.5">
+                      <span className={`text-[11px] font-semibold truncate ${isSelected ? 'text-primary' : 'text-text'}`}>{a.name}</span>
+                      {a.required && <span className="text-[7px] font-bold text-red-400 shrink-0">REQ</span>}
+                    </div>
+                    <div className="flex items-center gap-1.5 text-[9px]">
+                      <span className={`px-1 py-0.5 rounded text-[7px] font-bold ${a.type === 'AUTOMATED' ? 'bg-evidence-50 text-evidence-700' : 'bg-gray-100 text-gray-600'}`}>{a.type === 'AUTOMATED' ? 'AUTO' : 'MANUAL'}</span>
+                      <AttrStatusBadge status={s.status} round={s.latestRound} />
+                    </div>
+                    {(s.pass > 0 || s.fail > 0) && (
+                      <div className="flex items-center gap-2 mt-1 text-[9px] tabular-nums">
+                        {s.pass > 0 && <span className="text-emerald-600">{s.pass} pass</span>}
+                        {s.fail > 0 && <span className="text-red-600">{s.fail} fail</span>}
+                        {s.pending > 0 && <span className="text-gray-400">{s.pending} pending</span>}
+                      </div>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AttrStatusBadge({ status, round }: { status: string; round: number }) {
+  const cls =
+    status === 'Complete · Pass' ? 'bg-emerald-50 text-emerald-700' :
+    status === 'Complete · Fail' ? 'bg-red-50 text-red-700' :
+    status === 'In Progress' ? 'bg-amber-50 text-amber-700' :
+    'bg-gray-100 text-gray-500';
+  return (
+    <span className={`px-1 py-0.5 rounded text-[7px] font-bold ${cls}`}>
+      {status === 'Pending' ? 'Pending' : status === 'In Progress' ? `R${round} active` : status === 'Complete · Pass' ? `R${round} pass` : `R${round} fail`}
+    </span>
+  );
+}
+
+// ─── Attribute Timeline (right) ──────────────────────────────────────────
+function AttributeTimeline({ ctrl, attr, rounds, items, running, setRunning, onUpdateControl }: {
+  ctrl: ExecutionControl;
+  attr: Attribute;
+  rounds: AttributeRound[];
+  items: TestItem[];
+  running: boolean;
+  setRunning: (v: boolean) => void;
+  onUpdateControl: (updater: (ctrl: ExecutionControl) => ExecutionControl) => void;
+}) {
+  // Sample → latest round number map. Helps determine which samples sit in active round
+  const activeRound = rounds[rounds.length - 1];
+
+  // Per-attribute auxiliary helpers
+  const updateRoundCounts = (prev: ExecutionControl, attrId: string, roundNumber: number): ExecutionControl => {
+    const rs = prev.execution.attributeRounds?.[attrId] || [];
+    const target = rs.find(r => r.roundNumber === roundNumber);
+    if (!target) return prev;
+    let pass = 0, fail = 0, pending = 0;
+    for (const sampleId of target.sampleIds) {
+      const ti = prev.execution.testItems.find(t => t.id === sampleId);
+      const ar = ti?.attributeResults.find(a => a.attributeId === attrId);
+      const r = ar?.rounds?.find(x => x.roundNumber === roundNumber);
+      if (!r || r.result === AttrResult.NOT_TESTED) pending++;
+      else if (r.result === AttrResult.PASS) pass++;
+      else fail++;
+    }
+    const next = { ...target, passCount: pass, failCount: fail, pendingCount: pending, completedAt: pending === 0 ? new Date().toISOString() : null };
+    return {
       ...prev,
       execution: {
         ...prev.execution,
-        testItems: prev.execution.testItems.map(ti => {
-          if (ti.id !== itemId) return ti;
-          const newEv: Evidence = { id: evId, fileName, evidenceType, mappedAttributeIds: [attrId], uploadedAt: new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }), uploadedBy: 'Current User' };
-          return {
-            ...ti,
-            evidence: [...ti.evidence, newEv],
-            attributeResults: ti.attributeResults.map(ar => ar.attributeId === attrId ? { ...ar, evidenceIds: [...ar.evidenceIds, evId] } : ar),
-          };
-        }),
+        attributeRounds: { ...prev.execution.attributeRounds, [attrId]: rs.map(r => r.roundNumber === roundNumber ? next : r) },
       },
+    };
+  };
+
+  /** Re-derive AttributeResult.result for a single test item × attribute from its latest round entry. */
+  const recomputeTopLevelResult = (prev: ExecutionControl): ExecutionControl => {
+    const updatedItems = prev.execution.testItems.map(ti => ({
+      ...ti,
+      attributeResults: ti.attributeResults.map(ar => {
+        const last = (ar.rounds || []).slice(-1)[0];
+        if (!last) return ar;
+        return { ...ar, result: last.result, evidenceIds: last.evidenceIds, notes: last.notes, testedAt: last.testedAt, testedBy: last.testedBy };
+      }),
     }));
+    // Update sample result + status
+    const items2 = updatedItems.map(ti => ({ ...ti, sampleResult: deriveSampleResult(ti, prev.attributes) }));
+    const totalChecks = items2.length * prev.attributes.length;
+    const completed = items2.reduce((s, ti) => s + ti.attributeResults.filter(r => r.result !== AttrResult.NOT_TESTED).length, 0);
+    let newStatus = prev.execution.status;
+    if (completed > 0 && completed < totalChecks) newStatus = ControlExecStatus.TESTING_IN_PROGRESS;
+    else if (completed === totalChecks && totalChecks > 0) newStatus = ControlExecStatus.TESTING_COMPLETE;
+    return { ...prev, execution: { ...prev.execution, testItems: items2, status: newStatus } };
   };
 
-  // Bulk upload — auto-attach evidence to every sample × required attribute
-  const handleBulkFolderUpload = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.multiple = true;
-    (input as any).webkitdirectory = true;
-    (input as any).directory = true;
-    input.onchange = () => autoAttachAllEvidence();
-    input.click();
-  };
-
-  const handleBulkMultiFileSelect = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.multiple = true;
-    input.accept = '.pdf,.xlsx,.xls,.csv,.doc,.docx,.png,.jpg,.jpeg';
-    input.onchange = () => autoAttachAllEvidence();
-    input.click();
-  };
-
-  // For prototype: auto-generate evidence for every sample × required attribute
-  const autoAttachAllEvidence = () => {
+  // Upload evidence into the active round for every sample in scope
+  const uploadEvidenceForActiveRound = () => {
     const now = new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     onUpdateControl(prev => {
+      const ar = prev.execution.attributeRounds?.[attr.id] || [];
+      const active = ar[ar.length - 1];
+      if (!active) return prev;
       const updatedItems = prev.execution.testItems.map(ti => {
-        const newEvidence = [...ti.evidence];
-        const updatedResults = ti.attributeResults.map(ar => {
-          const attr = prev.attributes.find(a => a.id === ar.attributeId);
-          if (!attr || !attr.required) return ar;
-          // Skip if already has evidence
-          if (ar.evidenceIds.length > 0) return ar;
-          const evId = `ev-auto-${ti.id}-${attr.id}`;
-          if (!newEvidence.some(e => e.id === evId)) {
-            const evType = attr.requiredEvidenceTypes[0] || 'Supporting Document';
-            newEvidence.push({
-              id: evId,
-              fileName: `${ti.referenceId}_${attr.name.replace(/\s+/g, '_').toLowerCase()}.pdf`,
-              evidenceType: evType,
-              mappedAttributeIds: [attr.id],
-              uploadedAt: now,
-              uploadedBy: 'User',
-            });
-          }
-          return { ...ar, evidenceIds: [...ar.evidenceIds, evId] };
+        if (!active.sampleIds.includes(ti.id)) return ti;
+        const evType = attr.requiredEvidenceTypes[0] || 'Supporting Document';
+        const evId = `ev-r${active.roundNumber}-${attr.id}-${ti.id}`;
+        const evidence = ti.evidence.some(e => e.id === evId)
+          ? ti.evidence
+          : [...ti.evidence, { id: evId, fileName: `${ti.referenceId}_${attr.name.replace(/\s+/g, '_').toLowerCase()}_r${active.roundNumber}.pdf`, evidenceType: evType, mappedAttributeIds: [attr.id], uploadedAt: now, uploadedBy: 'User' }];
+        const updatedResults = ti.attributeResults.map(arr => {
+          if (arr.attributeId !== attr.id) return arr;
+          const updatedRounds = (arr.rounds || []).map(r => r.roundNumber === active.roundNumber ? { ...r, evidenceIds: [...r.evidenceIds.filter(id => id !== evId), evId] } : r);
+          return { ...arr, rounds: updatedRounds };
         });
-        return { ...ti, evidence: newEvidence, attributeResults: updatedResults };
+        return { ...ti, evidence, attributeResults: updatedResults };
       });
       return { ...prev, execution: { ...prev.execution, testItems: updatedItems } };
     });
   };
 
-  const applyBulkMappings = () => {
-    if (!bulkMappings) return;
-    const nowTs = new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-    const applicable = bulkMappings.filter(m => m.matchedItemId && m.mappedAttrIds.length > 0);
-    onUpdateControl(prev => {
-      let updatedItems = [...prev.execution.testItems];
-      for (const mapping of applicable) {
-        const evId = `ev-bulk-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-        const ev: Evidence = { id: evId, fileName: mapping.fileName, evidenceType: mapping.evidenceType, mappedAttributeIds: mapping.mappedAttrIds, uploadedAt: nowTs, uploadedBy: 'User' };
-        updatedItems = updatedItems.map(ti => {
-          if (ti.id !== mapping.matchedItemId) return ti;
-          return {
-            ...ti,
-            evidence: [...ti.evidence, ev],
-            attributeResults: ti.attributeResults.map(ar => mapping.mappedAttrIds.includes(ar.attributeId) ? { ...ar, evidenceIds: [...ar.evidenceIds, evId] } : ar),
-          };
-        });
-      }
-      return { ...prev, execution: { ...prev.execution, testItems: updatedItems } };
-    });
-    const skipped = bulkMappings.length - applicable.length;
-    if (skipped > 0 && applicable.length > 0) {
-      // Keep unmatched in review
-      setBulkMappings(bulkMappings.filter(m => !m.matchedItemId || m.mappedAttrIds.length === 0));
-    } else {
-      setBulkMappings(null);
-    }
-  };
-
-  // Check if there are automated attributes that haven't been tested yet
-  const autoAttrs = ctrl.attributes.filter(a => a.type === 'AUTOMATED');
-  const hasUntested = items.some(ti =>
-    ti.attributeResults.some(ar => {
-      const attr = ctrl.attributes.find(a => a.id === ar.attributeId);
-      return attr?.type === 'AUTOMATED' && ar.result === AttrResult.NOT_TESTED;
-    })
-  );
-
-  const runAutomatedChecks = () => {
-    const pop = ctrl.execution.population;
-    const now = new Date().toISOString();
-    onUpdateControl(prev => {
-      const updatedItems = prev.execution.testItems.map(ti => {
-        const rowData: Record<string, unknown> = (pop && ti.sourceRow !== null && pop.rows[ti.sourceRow])
-          ? pop.rows[ti.sourceRow]
-          : {};
-        const newEvidence: Evidence[] = [...ti.evidence];
-        const updatedResults = ti.attributeResults.map(ar => {
-          const attr = prev.attributes.find(a => a.id === ar.attributeId);
-          if (!attr || attr.type !== 'AUTOMATED') return ar;
-          if (ar.result !== AttrResult.NOT_TESTED) return ar;
-          const wfMapping = prev.workflowMappings.find(wm => wm.mappedAttributeIds.includes(attr.id));
-          const wfName = wfMapping?.workflowName || 'Automated Workflow';
+  // Auto-run for AUTOMATED attribute
+  const runAutoForRound = () => {
+    setRunning(true);
+    setTimeout(() => {
+      onUpdateControl(prev => {
+        const ar = prev.execution.attributeRounds?.[attr.id] || [];
+        const active = ar[ar.length - 1];
+        if (!active) return prev;
+        const now = new Date().toISOString();
+        const wf = prev.workflowMappings.find(wm => wm.mappedAttributeIds.includes(attr.id));
+        const wfName = wf?.workflowName || 'Automated Workflow';
+        const pop = prev.execution.population;
+        const updatedItems = prev.execution.testItems.map(ti => {
+          if (!active.sampleIds.includes(ti.id)) return ti;
+          const rowData: Record<string, unknown> = (pop && ti.sourceRow !== null && pop.rows[ti.sourceRow]) ? pop.rows[ti.sourceRow] : {};
           const check = runAutoCheck(attr.name, rowData);
-          // Create system evidence for this automated check
-          const sysEvId = `ev-sys-${ti.id}-${attr.id}`;
-          if (!newEvidence.some(e => e.id === sysEvId)) {
-            newEvidence.push({
-              id: sysEvId,
-              fileName: check.pass ? `Workflow Run Log — ${wfName}` : `Exception Report — ${attr.name}`,
-              evidenceType: check.pass ? 'Workflow Run Log' : 'Exception Report',
-              mappedAttributeIds: [attr.id],
-              uploadedAt: now,
-              uploadedBy: 'System',
-            });
-          }
-          return {
-            ...ar,
-            result: check.pass ? AttrResult.PASS : AttrResult.FAIL,
-            source: AttrSource.AUTO,
-            notes: `Auto-tested by ${wfName}. ${check.notes}`,
-            testedAt: now,
-            testedBy: wfName,
-            evidenceIds: [...ar.evidenceIds, sysEvId],
-          };
+          const sysEvId = `ev-sys-r${active.roundNumber}-${attr.id}-${ti.id}`;
+          const newEvidence = ti.evidence.some(e => e.id === sysEvId) ? ti.evidence : [...ti.evidence, { id: sysEvId, fileName: check.pass ? `Workflow Run Log — ${wfName}` : `Exception Report — ${attr.name}`, evidenceType: check.pass ? 'Workflow Run Log' : 'Exception Report', mappedAttributeIds: [attr.id], uploadedAt: now, uploadedBy: 'System' }];
+          const updatedResults = ti.attributeResults.map(arr => {
+            if (arr.attributeId !== attr.id) return arr;
+            const updatedRounds = (arr.rounds || []).map(r => r.roundNumber === active.roundNumber ? {
+              ...r,
+              result: check.pass ? AttrResult.PASS : AttrResult.FAIL,
+              notes: `Auto-tested by ${wfName}. ${check.notes}`,
+              testedAt: now, testedBy: wfName,
+              evidenceIds: [...new Set([...r.evidenceIds, sysEvId])],
+            } : r);
+            return { ...arr, source: AttrSource.AUTO, rounds: updatedRounds };
+          });
+          return { ...ti, evidence: newEvidence, attributeResults: updatedResults };
         });
-        const updatedItem = { ...ti, attributeResults: updatedResults, evidence: newEvidence };
-        updatedItem.sampleResult = deriveSampleResult(updatedItem, prev.attributes);
-        return updatedItem;
+        let next = { ...prev, execution: { ...prev.execution, testItems: updatedItems } };
+        next = updateRoundCounts(next, attr.id, active.roundNumber);
+        next = recomputeTopLevelResult(next);
+        return next;
       });
+      setRunning(false);
+    }, 1600);
+  };
 
-      const totalChecks = updatedItems.length * prev.attributes.length;
-      const completedChecks = updatedItems.reduce((s, ti) =>
-        s + ti.attributeResults.filter(r => r.result !== AttrResult.NOT_TESTED).length, 0);
-      let newStatus = prev.execution.status;
-      if (completedChecks > 0 && completedChecks < totalChecks) newStatus = ControlExecStatus.TESTING_IN_PROGRESS;
-      else if (completedChecks === totalChecks && totalChecks > 0) newStatus = ControlExecStatus.TESTING_COMPLETE;
-
-      return { ...prev, execution: { ...prev.execution, testItems: updatedItems, status: newStatus } };
+  // Set manual sample result inside the active round
+  const setManualResult = (sampleId: string, result: AttrResult, notes: string) => {
+    onUpdateControl(prev => {
+      const ar = prev.execution.attributeRounds?.[attr.id] || [];
+      const active = ar[ar.length - 1];
+      if (!active) return prev;
+      const now = new Date().toISOString();
+      const updatedItems = prev.execution.testItems.map(ti => {
+        if (ti.id !== sampleId) return ti;
+        const updatedResults = ti.attributeResults.map(arr => {
+          if (arr.attributeId !== attr.id) return arr;
+          const updatedRounds = (arr.rounds || []).map(r => r.roundNumber === active.roundNumber ? { ...r, result, notes, testedAt: now, testedBy: 'Current User' } : r);
+          return { ...arr, source: AttrSource.MANUAL, rounds: updatedRounds };
+        });
+        return { ...ti, attributeResults: updatedResults };
+      });
+      let next = { ...prev, execution: { ...prev.execution, testItems: updatedItems } };
+      next = updateRoundCounts(next, attr.id, active.roundNumber);
+      next = recomputeTopLevelResult(next);
+      return next;
     });
   };
 
-  // Group attributes by assertion for rendering
-  const assertionGroups: { assertionName: string; attrs: Attribute[] }[] = [];
-  const groupMap = new Map<string, Attribute[]>();
-  for (const attr of ctrl.attributes) {
-    if (!groupMap.has(attr.assertionName)) groupMap.set(attr.assertionName, []);
-    groupMap.get(attr.assertionName)!.push(attr);
-  }
-  for (const [name, attrs] of groupMap) assertionGroups.push({ assertionName: name, attrs });
-
-  // Sample result display
-  const getSampleDisplayStatus = (item: TestItem) => {
-    if (item.sampleResult === 'PASS') return { label: 'Passed', cls: 'bg-emerald-50 text-emerald-700' };
-    if (item.sampleResult === 'FAIL') return { label: 'Failed', cls: 'bg-red-50 text-red-700' };
-    // Check if evidence is attached for all required attributes
-    const requiredAttrs = ctrl.attributes.filter(a => a.required);
-    const allEvidenceReady = requiredAttrs.length > 0 && requiredAttrs.every(a => {
-      const ar = item.attributeResults.find(r => r.attributeId === a.id);
-      return ar && ar.evidenceIds.length > 0;
+  const startNextRound = () => {
+    onUpdateControl(prev => {
+      const ar = prev.execution.attributeRounds?.[attr.id] || [];
+      const active = ar[ar.length - 1];
+      if (!active) return prev;
+      // Failed sample IDs in active round
+      const failedIds = active.sampleIds.filter(sid => {
+        const ti = prev.execution.testItems.find(t => t.id === sid);
+        const a = ti?.attributeResults.find(x => x.attributeId === attr.id);
+        const r = a?.rounds?.find(x => x.roundNumber === active.roundNumber);
+        return r?.result === AttrResult.FAIL;
+      });
+      if (failedIds.length === 0) return prev;
+      const nextRoundNumber = active.roundNumber + 1;
+      const newRound: AttributeRound = {
+        roundNumber: nextRoundNumber, sampleIds: failedIds, startedAt: new Date().toISOString(), completedAt: null,
+        populationOverrideRef: null,
+        passCount: 0, failCount: 0, pendingCount: failedIds.length,
+      };
+      // Add per-sample round entries
+      const updatedItems = prev.execution.testItems.map(ti => {
+        if (!failedIds.includes(ti.id)) return ti;
+        const updatedResults = ti.attributeResults.map(arr => {
+          if (arr.attributeId !== attr.id) return arr;
+          const updatedRounds = [...(arr.rounds || []), { roundNumber: nextRoundNumber, result: AttrResult.NOT_TESTED, evidenceIds: [], notes: '', testedAt: null, testedBy: null }];
+          return { ...arr, rounds: updatedRounds };
+        });
+        return { ...ti, attributeResults: updatedResults };
+      });
+      // Recompute top-level result -> NOT_TESTED for these samples since new round is pending
+      const items2 = updatedItems.map(ti => {
+        if (!failedIds.includes(ti.id)) return ti;
+        return {
+          ...ti,
+          attributeResults: ti.attributeResults.map(arr => arr.attributeId === attr.id ? { ...arr, result: AttrResult.NOT_TESTED, notes: '', testedAt: null, testedBy: null, evidenceIds: [] } : arr),
+        };
+      });
+      return {
+        ...prev,
+        execution: {
+          ...prev.execution,
+          testItems: items2,
+          attributeRounds: { ...prev.execution.attributeRounds, [attr.id]: [...ar, newRound] },
+          status: ControlExecStatus.TESTING_IN_PROGRESS,
+        },
+      };
     });
-    if (allEvidenceReady) return { label: 'Evidence Ready', cls: 'bg-emerald-50 text-emerald-600' };
-    if (item.evidence.length > 0) return { label: 'Evidence Partial', cls: 'bg-amber-50 text-amber-600' };
-    return { label: 'Pending', cls: 'bg-gray-100 text-gray-500' };
   };
 
   return (
     <div className="space-y-4">
-      {/* Progress Panel */}
-      <div className="rounded-lg border border-border-light bg-surface-2/20 p-4">
-        <div className="grid grid-cols-6 gap-3">
-          {[
-            { label: 'Samples', value: items.length, color: 'text-text' },
-            { label: 'Total Checks', value: progress.totalAttributeChecks, color: 'text-text' },
-            { label: 'Completed', value: progress.completedAttributeChecks, color: progress.completedAttributeChecks > 0 ? 'text-emerald-700' : 'text-gray-400' },
-            { label: 'Manual Pending', value: progress.manualPending, color: progress.manualPending > 0 ? 'text-amber-700' : 'text-emerald-700' },
-            { label: 'Auto Pending', value: progress.automatedPending, color: progress.automatedPending > 0 ? 'text-blue-700' : 'text-emerald-700' },
-            { label: 'Failed', value: progress.failedAttributeChecks, color: progress.failedAttributeChecks > 0 ? 'text-red-700' : 'text-gray-400' },
-          ].map(s => (
-            <div key={s.label}>
-              <span className={`text-[18px] font-bold ${s.color} block tabular-nums`}>{s.value}</span>
-              <span className="text-[9px] text-gray-400 font-medium">{s.label}</span>
+      {/* Attribute header */}
+      <div className="rounded-xl border border-border-light bg-white px-5 py-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap mb-1">
+              <span className="text-[10px] font-mono text-gray-400">{attr.id}</span>
+              <span className={`px-1.5 h-4 rounded text-[8px] font-bold inline-flex items-center ${attr.type === 'AUTOMATED' ? 'bg-evidence-50 text-evidence-700' : 'bg-gray-100 text-gray-600'}`}>
+                {attr.type === 'AUTOMATED' ? 'AUTO' : 'MANUAL'}
+              </span>
+              {attr.required && <span className="px-1.5 h-4 rounded text-[8px] font-bold bg-red-50 text-red-600 inline-flex items-center">Required</span>}
+              <span className="px-1.5 h-4 rounded text-[8px] font-bold bg-primary/10 text-primary inline-flex items-center">{attr.assertionName}</span>
             </div>
-          ))}
-        </div>
-        {progress.totalAttributeChecks > 0 && (
-          <div className="mt-3">
-            <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
-              <div className="h-full rounded-full bg-gradient-to-r from-primary to-primary/70 transition-all" style={{ width: `${progress.completionPercent}%` }} />
-            </div>
-            <span className="text-[10px] text-gray-400 mt-1 block">{progress.completionPercent}% complete</span>
+            <h4 className="text-[14px] font-bold text-text">{attr.name}</h4>
+            {attr.description && <p className="text-[11px] text-text-muted mt-1 leading-relaxed">{attr.description}</p>}
+            {attr.requiredEvidenceTypes.length > 0 && (
+              <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                <span className="text-[9px] text-gray-400 font-semibold uppercase">Required evidence:</span>
+                {attr.requiredEvidenceTypes.map(t => (
+                  <span key={t} className="text-[9px] text-text-secondary bg-surface-2 px-1.5 py-0.5 rounded">{t}</span>
+                ))}
+              </div>
+            )}
           </div>
-        )}
-      </div>
-
-      {/* Bulk Upload + Helper */}
-      <div className="flex items-center justify-between -mt-1">
-        <p className="text-[10px] text-gray-400 flex-1">Upload a folder or multiple evidence files. The system will auto-match files to samples and attributes based on file names.</p>
-        <div className="flex items-center gap-1.5 shrink-0">
-          <button onClick={handleBulkFolderUpload}
-            className="px-3 py-1.5 rounded-lg text-[10px] font-semibold bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer transition-colors flex items-center gap-1.5">
-            <Upload size={11} />Upload Evidence Folder
-          </button>
-          <button onClick={handleBulkMultiFileSelect}
-            className="px-2 py-1.5 rounded-lg text-[9px] font-medium text-gray-500 hover:text-primary hover:bg-primary/5 cursor-pointer transition-colors">
-            or select files
-          </button>
         </div>
       </div>
 
-      {/* Bulk Upload Review Panel */}
-      {bulkMappings && (
-        <div className="rounded-xl border border-primary/20 bg-white p-4 space-y-3 shadow-sm">
-          <div className="flex items-center justify-between">
-            <h5 className="text-[12px] font-bold text-text">{bulkMappings.length} file{bulkMappings.length !== 1 ? 's' : ''} — review mappings</h5>
-            <div className="flex items-center gap-3 text-[9px]">
-              <span className="text-emerald-700 font-semibold">{bulkMappings.filter(m => deriveBulkStatus(m) === 'Matched').length} matched</span>
-              <span className="text-amber-600 font-semibold">{bulkMappings.filter(m => deriveBulkStatus(m) === 'Needs Review').length} needs review</span>
-              <span className="text-gray-400">{bulkMappings.filter(m => deriveBulkStatus(m) === 'Unmatched').length} unmatched</span>
-            </div>
-          </div>
-          {bulkMappings.some(m => deriveBulkStatus(m) === 'Unmatched') && (
-            <div className="rounded-lg border border-amber-200/50 bg-amber-50/20 px-3 py-2 text-[10px] text-amber-700 flex items-center gap-1.5">
-              <AlertTriangle size={10} />Some files could not be matched. Please select sample and attributes manually.
-            </div>
-          )}
-          <div className="rounded-lg border border-border-light overflow-hidden" style={{ maxHeight: 320, overflowY: 'auto' }}>
-            <table className="w-full text-[10px]">
-              <thead className="sticky top-0 bg-white z-10"><tr className="border-b border-border-light">
-                <th className="px-2 py-1.5 text-left text-[8px] font-semibold text-gray-400 uppercase">File</th>
-                <th className="px-2 py-1.5 text-left text-[8px] font-semibold text-gray-400 uppercase w-[90px]">Sample</th>
-                <th className="px-2 py-1.5 text-left text-[8px] font-semibold text-gray-400 uppercase w-[100px]">Evidence Type</th>
-                <th className="px-2 py-1.5 text-left text-[8px] font-semibold text-gray-400 uppercase w-[140px]">Mapped Attributes</th>
-                <th className="px-2 py-1.5 text-center text-[8px] font-semibold text-gray-400 uppercase w-[65px]">Status</th>
-              </tr></thead>
-              <tbody>
-                {bulkMappings.map((m, i) => {
-                  const st = deriveBulkStatus(m);
-                  return (
-                  <tr key={i} className={`border-b border-border-light/50 ${st === 'Unmatched' ? 'bg-red-50/10' : ''}`}>
-                    <td className="px-2 py-1.5">
-                      <span className="text-text block truncate max-w-[160px]">{m.fileName}</span>
-                      {m.relativePath !== m.fileName && <span className="text-[8px] text-gray-400 block truncate max-w-[160px]">{m.relativePath}</span>}
-                    </td>
-                    <td className="px-2 py-1.5">
-                      <select value={m.matchedItemId} onChange={e => {
-                        const item = items.find(ti => ti.id === e.target.value);
-                        setBulkMappings(prev => prev!.map((x, j) => j === i ? { ...x, matchedItemId: e.target.value, matchedItemRef: item?.referenceId || '' } : x));
-                      }} className="w-full px-1 py-0.5 border border-border rounded text-[9px] bg-white outline-none cursor-pointer">
-                        <option value="">—</option>
-                        {items.map(ti => <option key={ti.id} value={ti.id}>{ti.referenceId}</option>)}
-                      </select>
-                    </td>
-                    <td className="px-2 py-1.5">
-                      <select value={m.evidenceType} onChange={e => {
-                        const newType = e.target.value;
-                        const newAttrs = bulkInferAttrMapping(newType, ctrl.attributes);
-                        setBulkMappings(prev => prev!.map((x, j) => j === i ? { ...x, evidenceType: newType, mappedAttrIds: newAttrs } : x));
-                      }} className="w-full px-1 py-0.5 border border-border rounded text-[9px] bg-white outline-none cursor-pointer">
-                        {BULK_EV_TYPE_KEYWORDS.map(([t]) => <option key={t} value={t}>{t}</option>)}
-                        <option value="Other">Other</option>
-                      </select>
-                    </td>
-                    <td className="px-2 py-1.5">
-                      <div className="flex flex-wrap gap-0.5">
-                        {ctrl.attributes.map(a => {
-                          const selected = m.mappedAttrIds.includes(a.id);
-                          return (
-                            <button key={a.id} onClick={() => {
-                              setBulkMappings(prev => prev!.map((x, j) => {
-                                if (j !== i) return x;
-                                const ids = selected ? x.mappedAttrIds.filter(id => id !== a.id) : [...x.mappedAttrIds, a.id];
-                                return { ...x, mappedAttrIds: ids };
-                              }));
-                            }} className={`px-1 py-0.5 rounded text-[7px] font-bold cursor-pointer transition-colors ${selected ? 'bg-primary/15 text-primary ring-1 ring-primary/30' : 'bg-gray-50 text-gray-400 hover:bg-gray-100'}`}>
-                              {a.name.length > 12 ? a.name.slice(0, 11) + '…' : a.name}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </td>
-                    <td className="px-2 py-1.5 text-center">
-                      <span className={`px-1 py-0.5 rounded text-[7px] font-bold ${st === 'Matched' ? 'bg-emerald-50 text-emerald-700' : st === 'Needs Review' ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-600'}`}>{st}</span>
-                    </td>
-                  </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <button onClick={applyBulkMappings}
-                disabled={bulkMappings.every(m => deriveBulkStatus(m) === 'Unmatched')}
-                className="px-3 py-1.5 rounded-lg bg-primary hover:bg-primary/90 text-white text-[11px] font-semibold cursor-pointer transition-colors flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed">
-                <CheckCircle2 size={11} />Apply {bulkMappings.filter(m => deriveBulkStatus(m) === 'Matched').length} Matched
-              </button>
-              <button onClick={() => setBulkMappings(null)}
-                className="px-3 py-1.5 rounded-lg border border-border text-[11px] font-medium text-text-secondary hover:bg-white cursor-pointer transition-colors">Cancel</button>
-            </div>
-            <span className="text-[9px] text-gray-400">{bulkMappings.filter(m => deriveBulkStatus(m) !== 'Matched').length} file{bulkMappings.filter(m => deriveBulkStatus(m) !== 'Matched').length !== 1 ? 's' : ''} need attention</span>
-          </div>
-        </div>
+      {/* Rounds (latest at bottom). Past rounds compact, active round expanded. */}
+      {rounds.map((rnd, idx) => {
+        const isActive = idx === rounds.length - 1 && rnd.pendingCount > 0;
+        return (
+          <RoundCard key={rnd.roundNumber}
+            attr={attr}
+            round={rnd}
+            isActive={isActive}
+            items={items}
+            ctrl={ctrl}
+            running={running}
+            onUploadEvidence={uploadEvidenceForActiveRound}
+            onRunAuto={runAutoForRound}
+            onSetManualResult={setManualResult}
+            onStartNextRound={startNextRound}
+          />
+        );
+      })}
+
+      {/* If latest round is complete and has failures, show CTA to start next round */}
+      {activeRound && activeRound.completedAt && activeRound.failCount > 0 && (
+        <button onClick={startNextRound}
+          className="w-full rounded-xl border-2 border-dashed border-amber-300/60 bg-amber-50/30 py-4 hover:bg-amber-50/60 cursor-pointer transition-colors flex items-center justify-center gap-2">
+          <RotateCcw size={13} className="text-amber-600" />
+          <span className="text-[12px] font-semibold text-amber-700">Start Round {activeRound.roundNumber + 1} for {activeRound.failCount} failed sample{activeRound.failCount !== 1 ? 's' : ''}</span>
+        </button>
       )}
 
-      {/* Evidence Readiness + Run Automated Checks */}
-      {(() => {
-        const evMatrix = deriveEvidenceMatrixReadiness(ctrl);
-        return (
-          <>
-            {/* Evidence readiness progress */}
-            {evMatrix.totalRequiredSlots > 0 && (
-              <div className={`flex items-center justify-between rounded-lg border px-4 py-2.5 ${evMatrix.isReady ? 'border-emerald-200/50 bg-emerald-50/20' : 'border-amber-200/50 bg-amber-50/20'}`}>
-                <div className="flex items-center gap-2">
-                  {evMatrix.isReady ? <CheckCircle2 size={13} className="text-emerald-600 shrink-0" /> : <AlertTriangle size={13} className="text-amber-600 shrink-0" />}
-                  <span className={`text-[11px] font-medium ${evMatrix.isReady ? 'text-emerald-700' : 'text-amber-700'}`}>
-                    Evidence attached: {evMatrix.completedSlots} / {evMatrix.totalRequiredSlots}
-                  </span>
-                  {!evMatrix.isReady && <span className="text-[10px] text-amber-600">({evMatrix.missingSlots} missing)</span>}
-                </div>
-              </div>
-            )}
+      {/* If latest round complete and all passing, success ribbon */}
+      {activeRound && activeRound.completedAt && activeRound.failCount === 0 && (
+        <div className="rounded-xl border border-emerald-200/60 bg-emerald-50/40 px-5 py-3 flex items-center gap-2">
+          <CheckCircle2 size={14} className="text-emerald-600" />
+          <span className="text-[12px] text-emerald-700 font-medium">Attribute complete — all samples passed across {rounds.length} round{rounds.length !== 1 ? 's' : ''}.</span>
+        </div>
+      )}
+    </div>
+  );
+}
 
-            {/* Run Automated Checks */}
-            {running && (
-              <div className="rounded-xl border-2 border-blue-200/50 bg-blue-50/20 p-6 text-center">
-                <Loader2 size={28} className="mx-auto text-blue-600 animate-spin mb-3" />
-                <h5 className="text-[14px] font-bold text-blue-800 mb-1">Running Automated Checks...</h5>
-                <p className="text-[11px] text-blue-600">Executing workflows on {items.length} samples × {autoAttrs.length} automated attributes</p>
-                <div className="mt-3 h-1.5 bg-blue-100 rounded-full overflow-hidden max-w-xs mx-auto">
-                  <div className="h-full rounded-full bg-blue-500 animate-pulse" style={{ width: '60%' }} />
-                </div>
-              </div>
-            )}
+// ─── Round Card ───────────────────────────────────────────────────────────
+function RoundCard({ attr, round, isActive, items, ctrl, running, onUploadEvidence, onRunAuto, onSetManualResult, onStartNextRound }: {
+  attr: Attribute;
+  round: AttributeRound;
+  isActive: boolean;
+  items: TestItem[];
+  ctrl: ExecutionControl;
+  running: boolean;
+  onUploadEvidence: () => void;
+  onRunAuto: () => void;
+  onSetManualResult: (sampleId: string, result: AttrResult, notes: string) => void;
+  onStartNextRound: () => void;
+}) {
+  void onStartNextRound;  // wired from parent caller; kept here for prop completeness
+  const [expanded, setExpanded] = useState(isActive);
 
-            {!running && autoAttrs.length > 0 && hasUntested && (
-              <div className={`flex items-center justify-between rounded-lg border px-4 py-3 ${evMatrix.isReady ? 'border-blue-200/50 bg-blue-50/20' : 'border-gray-200/50 bg-gray-50/30'}`}>
-                <div>
-                  <span className={`text-[12px] font-semibold ${evMatrix.isReady ? 'text-blue-800' : 'text-gray-500'}`}>
-                    {autoAttrs.length} automated attribute{autoAttrs.length !== 1 ? 's' : ''} ready
-                  </span>
-                  {!evMatrix.isReady && evMatrix.totalRequiredSlots > 0 && (
-                    <span className="text-[10px] text-gray-400 block mt-0.5">Upload evidence for all required sample attributes before running automated checks.</span>
-                  )}
-                </div>
-                <button onClick={() => {
-                    setRunning(true);
-                    setTimeout(() => { runAutomatedChecks(); setRunning(false); }, 7000);
-                  }}
-                  disabled={!evMatrix.isReady && evMatrix.totalRequiredSlots > 0}
-                  className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[12px] font-semibold cursor-pointer transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:hover:bg-gray-300">
-                  <Play size={13} />Run Automated Checks
-                </button>
-              </div>
-            )}
+  // Pull samples in scope
+  const scopeItems = items.filter(i => round.sampleIds.includes(i.id));
 
-            {!running && autoAttrs.length > 0 && !hasUntested && (
-              <div className="flex items-center gap-2 rounded-lg border border-emerald-200/50 bg-emerald-50/20 px-4 py-2.5">
-                <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
-                <span className="text-[11px] text-emerald-700">All automated checks completed across {items.length} test items.</span>
-              </div>
-            )}
-          </>
-        );
-      })()}
+  // Determine per-sample state in this round
+  type Slot = { item: TestItem; roundEntry: { result: AttrResult; evidenceIds: string[]; notes: string } | null };
+  const slots: Slot[] = scopeItems.map(item => {
+    const ar = item.attributeResults.find(r => r.attributeId === attr.id);
+    const re = ar?.rounds?.find(r => r.roundNumber === round.roundNumber) ?? null;
+    return { item, roundEntry: re };
+  });
 
-      {/* Per-Sample Testing */}
-      <div className="space-y-2">
-        {items.map((item, sampleIdx) => {
-          const isExpanded = expandedSampleId === item.id;
-          return (
-            <div key={item.id} className="rounded-lg border border-border-light overflow-hidden">
-              {/* Sample Header */}
-              <button onClick={() => setExpandedSampleId(isExpanded ? null : item.id)}
-                className="w-full px-4 py-3 flex items-center justify-between bg-white hover:bg-surface-2/30 transition-colors cursor-pointer text-left">
-                <div className="flex items-center gap-3">
-                  <span className="text-[11px] text-gray-400 tabular-nums w-6">{sampleIdx + 1}</span>
-                  <span className="text-[12px] font-mono text-gray-500">{item.referenceId}</span>
-                  <span className="text-[11px] text-text-muted truncate max-w-[200px]">{item.description}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  {retestCompletedIds.has(item.id) && (
-                    <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-amber-50 text-amber-600 flex items-center gap-0.5"><RotateCcw size={7} />Retested</span>
-                  )}
-                  {(() => { const s = getSampleDisplayStatus(item); return (
-                    <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${s.cls}`}>{s.label}</span>
-                  ); })()}
-                  <span className="text-[10px] text-gray-400 tabular-nums">
-                    {item.attributeResults.filter(r => r.result !== AttrResult.NOT_TESTED).length}/{item.attributeResults.length}
-                  </span>
-                  {isExpanded ? <ChevronRight size={12} className="text-gray-400 rotate-90" /> : <ChevronRight size={12} className="text-gray-400" />}
-                </div>
-              </button>
+  const evidenceReady = slots.every(s => (s.roundEntry?.evidenceIds.length || 0) > 0);
+  const allTested = slots.every(s => s.roundEntry?.result && s.roundEntry.result !== AttrResult.NOT_TESTED);
 
-              {/* Expanded: attribute groups */}
-              {isExpanded && (
-                <div className="border-t border-border-light bg-surface-2/10 px-4 py-3 space-y-3">
-                  {assertionGroups.map(group => (
-                    <div key={group.assertionName}>
-                      <div className="flex items-center gap-1.5 mb-2">
-                        <Shield size={10} className="text-primary" />
-                        <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{group.assertionName}</span>
-                        <span className="text-[9px] text-gray-400">({group.attrs.length})</span>
-                      </div>
-                      <div className="space-y-1">
-                        {group.attrs.map(attr => {
-                          const ar = item.attributeResults.find(r => r.attributeId === attr.id);
-                          const result = ar?.result || AttrResult.NOT_TESTED;
-                          const notes = ar?.notes || '';
-                          const isManual = attr.type === 'MANUAL';
-                          const isAuto = attr.type === 'AUTOMATED';
-                          const evidenceCount = ar?.evidenceIds.length || 0;
-                          const wfMapping = ctrl.workflowMappings.find(wm => wm.mappedAttributeIds.includes(attr.id));
+  // Step indicators
+  const step1Done = true;  // population inherited (or could be overridden — left for follow-up)
+  const step2Done = evidenceReady;
+  const step3Done = allTested;
+  const step4Done = !!round.completedAt;
 
-                          return (
-                            <AttributeTestRow
-                              key={attr.id}
-                              attr={attr}
-                              result={result}
-                              notes={notes}
-                              isManual={isManual}
-                              isAuto={isAuto}
-                              evidenceCount={evidenceCount}
-                              workflowName={wfMapping?.workflowName}
-                              onSave={(r, n) => updateAttributeResult(item.id, attr.id, r, n)}
-                              onAttachEvidence={(fileName, evType) => attachEvidence(item.id, attr.id, fileName, evType)}
-                            />
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+  const borderCls = isActive ? 'border-primary/30 shadow-sm' : 'border-border-light';
+  const headerBg = round.completedAt ? (round.failCount > 0 ? 'bg-red-50/30' : 'bg-emerald-50/30') : 'bg-primary/5';
+
+  return (
+    <div className={`rounded-xl border ${borderCls} overflow-hidden bg-white`}>
+      <button onClick={() => setExpanded(v => !v)}
+        className={`w-full flex items-center justify-between px-5 py-3 cursor-pointer text-left transition-colors ${headerBg} hover:brightness-[0.99]`}>
+        <div className="flex items-center gap-3">
+          <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[12px] font-bold ${round.completedAt ? (round.failCount > 0 ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700') : 'bg-primary/15 text-primary'}`}>
+            {round.roundNumber}
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-[12px] font-bold text-text">Round {round.roundNumber}</span>
+              {isActive && <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-primary text-white">Active</span>}
+              {round.completedAt && round.failCount === 0 && <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-emerald-100 text-emerald-700">Passed</span>}
+              {round.completedAt && round.failCount > 0 && <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-red-100 text-red-700">Failed</span>}
+            </div>
+            <div className="text-[10px] text-text-muted mt-0.5">
+              <span>{round.sampleIds.length} sample{round.sampleIds.length !== 1 ? 's' : ''} in scope</span>
+              {round.completedAt && (
+                <>
+                  <span className="text-gray-300 mx-1.5">·</span>
+                  <span className="text-emerald-600 font-semibold">{round.passCount} pass</span>
+                  {round.failCount > 0 && <><span className="text-gray-300 mx-1.5">·</span><span className="text-red-600 font-semibold">{round.failCount} fail</span></>}
+                </>
+              )}
+              {!round.completedAt && round.pendingCount > 0 && (
+                <>
+                  <span className="text-gray-300 mx-1.5">·</span>
+                  <span className="text-amber-600 font-semibold">{round.pendingCount} pending</span>
+                </>
               )}
             </div>
-          );
-        })}
-      </div>
-
-      {/* Retest + Next CTA */}
-      {allComplete && !retestMode && !running && (
-        <div className="space-y-3">
-          {/* Show retested badge on samples that were retested */}
-          {retestCompletedIds.size > 0 && (
-            <div className="rounded-lg border border-amber-200/50 bg-amber-50/20 px-4 py-2.5 flex items-center gap-2">
-              <RotateCcw size={12} className="text-amber-600 shrink-0" />
-              <span className="text-[11px] text-amber-700">{retestCompletedIds.size} sample{retestCompletedIds.size !== 1 ? 's were' : ' was'} retested with fresh evidence.</span>
-            </div>
-          )}
-          <div className="rounded-lg border border-primary/15 bg-primary/5 p-4 flex items-center justify-between">
-            <div>
-              <span className="text-[12px] font-semibold text-primary block">Testing Complete</span>
-              <span className="text-[10px] text-primary/70">All attribute testing complete. Proceed to working paper or retest selected samples.</span>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <button onClick={() => { setRetestMode('select'); setRetestIds(new Set()); }}
-                className="px-3 py-1.5 rounded-lg border border-primary/20 text-primary text-[11px] font-semibold cursor-pointer hover:bg-primary/10 transition-colors flex items-center gap-1">
-                <RotateCcw size={11} />Retest Samples
-              </button>
-              <button onClick={() => onNavigate('working-paper')}
-                className="px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white text-[12px] font-semibold cursor-pointer transition-colors flex items-center gap-1.5">
-                Working Paper<ChevronRight size={11} />
-              </button>
-            </div>
           </div>
         </div>
-      )}
+        {expanded ? <ChevronRight size={12} className="text-gray-400 rotate-90" /> : <ChevronRight size={12} className="text-gray-400" />}
+      </button>
 
-      {/* Retest Step 1: Select samples */}
-      {retestMode === 'select' && !running && (
-        <div className="rounded-xl border-2 border-amber-200/50 bg-amber-50/10 p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <h5 className="text-[13px] font-bold text-amber-800">Step 1: Select Samples to Retest</h5>
-              <p className="text-[10px] text-amber-600 mt-0.5">Choose which samples need to be retested with fresh evidence.</p>
+      {expanded && (
+        <div className="border-t border-border-light px-5 py-4 space-y-4">
+          {/* Step 1 — Population */}
+          <RoundStep number={1} title="Define population" done={step1Done} active={!step1Done}>
+            <div className="text-[11px] text-text-muted">
+              {round.roundNumber === 1 ? (
+                <>Using the control's full population ({ctrl.execution.population?.rowCount ?? round.sampleIds.length} items). All {round.sampleIds.length} samples are in scope.</>
+              ) : (
+                <>Inherited from Round {round.roundNumber - 1}. Scope: <strong className="text-text">{round.sampleIds.length} failed sample{round.sampleIds.length !== 1 ? 's' : ''}</strong>.</>
+              )}
+              <span className="text-gray-300 mx-2">·</span>
+              <button className="text-primary hover:underline cursor-pointer text-[10px]" onClick={() => {/* override population - prototype only */}}>
+                Override for this attribute
+              </button>
             </div>
-            <span className="text-[11px] font-semibold text-amber-700">{retestIds.size} / {items.length} selected</span>
-          </div>
-          <div className="space-y-1">
-            {items.map((item, i) => {
-              const selected = retestIds.has(item.id);
-              const ds = getSampleDisplayStatus(item);
-              return (
-                <label key={item.id} className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors ${selected ? 'bg-amber-50 border border-amber-200/50' : 'border border-border-light hover:bg-surface-2/30'}`}>
-                  <input type="checkbox" checked={selected} onChange={() => setRetestIds(prev => { const n = new Set(prev); if (n.has(item.id)) n.delete(item.id); else n.add(item.id); return n; })}
-                    className="w-4 h-4 rounded border-gray-300 accent-primary cursor-pointer" />
-                  <span className="text-[11px] text-gray-400 tabular-nums w-5">{i + 1}</span>
-                  <span className="text-[11px] font-mono text-gray-500">{item.referenceId}</span>
-                  <span className="text-[11px] text-text flex-1">{item.description}</span>
-                  <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold ${ds.cls}`}>{ds.label}</span>
-                </label>
-              );
-            })}
-          </div>
-          <div className="flex items-center gap-2 pt-1">
-            <button onClick={() => setRetestIds(new Set(items.map(i => i.id)))} className="text-[10px] text-primary font-semibold cursor-pointer hover:underline">Select All</button>
-            <button onClick={() => setRetestIds(new Set())} className="text-[10px] text-gray-500 font-medium cursor-pointer hover:underline">Deselect All</button>
-          </div>
-          <div className="flex items-center gap-2">
-            <button onClick={() => {
-                if (retestIds.size === 0) return;
-                // Clear results + evidence for selected samples
-                onUpdateControl(prev => ({
-                  ...prev,
-                  execution: {
-                    ...prev.execution,
-                    status: ControlExecStatus.TESTING_IN_PROGRESS,
-                    testItems: prev.execution.testItems.map(ti => {
-                      if (!retestIds.has(ti.id)) return ti;
-                      return {
-                        ...ti,
-                        sampleResult: SampleResult.PENDING,
-                        evidence: ti.evidence.filter(e => e.uploadedBy === 'System'),
-                        attributeResults: ti.attributeResults.map(ar => ({ ...ar, result: AttrResult.NOT_TESTED, notes: '', testedAt: null, testedBy: null, evidenceIds: ar.evidenceIds.filter(eid => eid.startsWith('ev-sys-')) })),
-                      };
-                    }),
-                  },
-                }));
-                setRetestMode('evidence');
-              }}
-              disabled={retestIds.size === 0}
-              className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-[12px] font-semibold cursor-pointer transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed">
-              Next: Upload Evidence<ChevronRight size={12} />
-            </button>
-            <button onClick={() => setRetestMode(null)} className="px-3 py-1.5 rounded-lg border border-border text-[11px] font-medium text-text-secondary hover:bg-white cursor-pointer transition-colors">Cancel</button>
-          </div>
-        </div>
-      )}
+          </RoundStep>
 
-      {/* Retest Step 2: Upload evidence for selected samples */}
-      {retestMode === 'evidence' && !running && (
-        <div className="rounded-xl border-2 border-blue-200/50 bg-blue-50/10 p-4 space-y-3">
-          <div>
-            <h5 className="text-[13px] font-bold text-blue-800">Step 2: Upload Evidence for Retested Samples</h5>
-            <p className="text-[10px] text-blue-600 mt-0.5">Upload fresh evidence for the {retestIds.size} selected sample{retestIds.size !== 1 ? 's' : ''}. Click upload to auto-attach evidence, then run retest.</p>
-          </div>
-          {/* Show selected samples with evidence status */}
-          <div className="space-y-1">
-            {items.filter(ti => retestIds.has(ti.id)).map((item, i) => {
-              const ds = getSampleDisplayStatus(item);
-              return (
-                <div key={item.id} className="flex items-center gap-3 px-3 py-2 rounded-lg border border-border-light">
-                  <span className="text-[11px] text-gray-400 tabular-nums w-5">{i + 1}</span>
-                  <span className="text-[11px] font-mono text-gray-500">{item.referenceId}</span>
-                  <span className="text-[11px] text-text flex-1">{item.description}</span>
-                  <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold ${ds.cls}`}>{ds.label}</span>
-                </div>
-              );
-            })}
-          </div>
-          <div className="flex items-center gap-2">
-            <button onClick={() => {
-                // Auto-attach evidence for retested samples only
-                const now = new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-                onUpdateControl(prev => ({
-                  ...prev,
-                  execution: {
-                    ...prev.execution,
-                    testItems: prev.execution.testItems.map(ti => {
-                      if (!retestIds.has(ti.id)) return ti;
-                      const newEvidence = [...ti.evidence];
-                      const updatedResults = ti.attributeResults.map(ar => {
-                        const attr = prev.attributes.find(a => a.id === ar.attributeId);
-                        if (!attr || !attr.required) return ar;
-                        if (ar.evidenceIds.some(eid => !eid.startsWith('ev-sys-'))) return ar;
-                        const evId = `ev-retest-${ti.id}-${attr.id}`;
-                        if (!newEvidence.some(e => e.id === evId)) {
-                          newEvidence.push({ id: evId, fileName: `${ti.referenceId}_${attr.name.replace(/\s+/g, '_').toLowerCase()}_retest.pdf`, evidenceType: attr.requiredEvidenceTypes[0] || 'Supporting Document', mappedAttributeIds: [attr.id], uploadedAt: now, uploadedBy: 'User' });
-                        }
-                        return { ...ar, evidenceIds: [...ar.evidenceIds.filter(eid => eid.startsWith('ev-sys-')), evId] };
-                      });
-                      return { ...ti, evidence: newEvidence, attributeResults: updatedResults };
-                    }),
-                  },
-                }));
-              }}
-              className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-semibold cursor-pointer transition-colors flex items-center gap-1.5">
-              <Upload size={11} />Upload Fresh Evidence
-            </button>
-          </div>
-          {/* Check if evidence is ready for retested samples */}
-          {(() => {
-            const retestItems = items.filter(ti => retestIds.has(ti.id));
-            const requiredAttrs = ctrl.attributes.filter(a => a.required);
-            const allReady = retestItems.every(ti => requiredAttrs.every(a => {
-              const ar = ti.attributeResults.find(r => r.attributeId === a.id);
-              return ar && ar.evidenceIds.length > 0;
-            }));
-            return allReady ? (
-              <div className="flex items-center gap-2 pt-1">
-                <button onClick={() => {
-                    setRetestMode(null);
-                    setRunning(true);
-                    setTimeout(() => {
-                      runAutomatedChecks();
-                      setRunning(false);
-                      setRetestCompletedIds(prev => new Set([...prev, ...retestIds]));
-                    }, 7000);
-                  }}
-                  className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-[12px] font-semibold cursor-pointer transition-colors flex items-center gap-1.5">
-                  <Play size={12} />Run Retest
+          {/* Step 2 — Evidence */}
+          <RoundStep number={2} title="Upload evidence" done={step2Done} active={!step2Done}>
+            <div className="space-y-2">
+              <p className="text-[11px] text-text-muted">Upload one file per sample, or upload a folder and let auto-matching attach them.</p>
+              <div className="flex items-center gap-2">
+                <button onClick={onUploadEvidence}
+                  disabled={!isActive || step2Done}
+                  className="px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-[11px] font-semibold cursor-pointer hover:bg-primary/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5">
+                  <Upload size={11} />Upload evidence ({round.sampleIds.length} files)
                 </button>
-                <button onClick={() => setRetestMode(null)} className="px-3 py-1.5 rounded-lg border border-border text-[11px] font-medium text-text-secondary hover:bg-white cursor-pointer transition-colors">Cancel</button>
+                <span className="text-[10px] text-text-muted">
+                  {slots.filter(s => (s.roundEntry?.evidenceIds.length || 0) > 0).length} / {slots.length} samples have evidence
+                </span>
+              </div>
+            </div>
+          </RoundStep>
+
+          {/* Step 3 — Run / Test */}
+          <RoundStep number={3} title={attr.type === 'AUTOMATED' ? 'Run automated check' : 'Test each sample'} done={step3Done} active={step2Done && !step3Done}>
+            {attr.type === 'AUTOMATED' ? (
+              <div className="space-y-2">
+                {running && (
+                  <div className="rounded-lg border border-blue-200/50 bg-blue-50/20 px-4 py-3 flex items-center gap-2">
+                    <Loader2 size={13} className="text-blue-600 animate-spin" />
+                    <span className="text-[11px] font-medium text-blue-700">Running workflow on {round.sampleIds.length} samples…</span>
+                  </div>
+                )}
+                {!running && (
+                  <div className="flex items-center gap-2">
+                    <button onClick={onRunAuto}
+                      disabled={!step2Done || step3Done}
+                      className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-semibold cursor-pointer transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:hover:bg-gray-300">
+                      <Play size={11} />Run automated check
+                    </button>
+                    {step3Done && <span className="text-[10px] text-emerald-600 font-medium">Completed</span>}
+                  </div>
+                )}
               </div>
             ) : (
-              <p className="text-[10px] text-blue-500">Upload evidence for all required attributes on selected samples to enable retest.</p>
-            );
-          })()}
+              <SampleResultGrid attr={attr} slots={slots} disabled={!step2Done} onSetResult={onSetManualResult} />
+            )}
+          </RoundStep>
+
+          {/* Step 4 — Result summary */}
+          <RoundStep number={4} title="Result" done={step4Done} active={step3Done && !step4Done}>
+            {step4Done ? (
+              <div className="rounded-lg bg-surface-2/30 px-3 py-2 text-[11px]">
+                <div className="flex items-center gap-3">
+                  <span><strong className="text-emerald-700">{round.passCount}</strong> pass</span>
+                  {round.failCount > 0 && <span><strong className="text-red-600">{round.failCount}</strong> fail</span>}
+                  <span className="text-gray-300">·</span>
+                  <span className="text-text-muted">Round {round.roundNumber} closed {new Date(round.completedAt!).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                </div>
+                {round.failCount > 0 && (
+                  <p className="mt-2 text-[10px] text-text-muted">{round.failCount} sample{round.failCount !== 1 ? 's' : ''} failed. You can start a new round with fresh evidence for those samples.</p>
+                )}
+              </div>
+            ) : (
+              <p className="text-[10px] text-text-muted italic">Finish testing all samples in scope to close this round.</p>
+            )}
+          </RoundStep>
         </div>
       )}
+    </div>
+  );
+}
+
+function RoundStep({ number, title, done, active, children }: {
+  number: number;
+  title: string;
+  done: boolean;
+  active: boolean;
+  children: React.ReactNode;
+}) {
+  const dotCls = done ? 'bg-emerald-500 text-white' : active ? 'bg-primary text-white' : 'bg-gray-200 text-gray-400';
+  return (
+    <div className="flex gap-3">
+      <div className="flex flex-col items-center shrink-0">
+        <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${dotCls}`}>
+          {done ? <Check size={10} /> : number}
+        </div>
+        <div className={`w-px flex-1 mt-1 ${done ? 'bg-emerald-200' : 'bg-border'}`} />
+      </div>
+      <div className="flex-1 min-w-0 pb-4">
+        <h6 className={`text-[11px] font-bold uppercase tracking-wider mb-1.5 ${active ? 'text-primary' : done ? 'text-text' : 'text-text-muted'}`}>
+          Step {number} · {title}
+        </h6>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// ─── Per-Sample Result Grid (MANUAL attributes) ───────────────────────────
+function SampleResultGrid({ attr, slots, disabled, onSetResult }: {
+  attr: Attribute;
+  slots: { item: TestItem; roundEntry: { result: AttrResult; evidenceIds: string[]; notes: string } | null }[];
+  disabled: boolean;
+  onSetResult: (sampleId: string, result: AttrResult, notes: string) => void;
+}) {
+  void attr;
+  return (
+    <div className="rounded-lg border border-border-light overflow-hidden">
+      <table className="w-full text-[10px]">
+        <thead>
+          <tr className="bg-surface-2/40 border-b border-border-light">
+            <th className="px-3 py-1.5 text-left text-[9px] font-semibold text-gray-400 uppercase">#</th>
+            <th className="px-3 py-1.5 text-left text-[9px] font-semibold text-gray-400 uppercase">Sample</th>
+            <th className="px-3 py-1.5 text-left text-[9px] font-semibold text-gray-400 uppercase">Evidence</th>
+            <th className="px-3 py-1.5 text-left text-[9px] font-semibold text-gray-400 uppercase">Result</th>
+          </tr>
+        </thead>
+        <tbody>
+          {slots.map((s, idx) => {
+            const ev = s.roundEntry?.evidenceIds.length || 0;
+            const result = s.roundEntry?.result || AttrResult.NOT_TESTED;
+            return (
+              <tr key={s.item.id} className="border-b border-border-light/70 last:border-b-0 hover:bg-surface-2/30">
+                <td className="px-3 py-1.5 text-text-muted tabular-nums">{idx + 1}</td>
+                <td className="px-3 py-1.5"><span className="font-mono text-text">{s.item.referenceId}</span></td>
+                <td className="px-3 py-1.5">
+                  {ev > 0 ? (
+                    <span className="inline-flex items-center gap-0.5 text-emerald-600">
+                      <Paperclip size={8} />{ev} file{ev !== 1 ? 's' : ''}
+                    </span>
+                  ) : (
+                    <span className="text-gray-300">None</span>
+                  )}
+                </td>
+                <td className="px-3 py-1.5">
+                  <div className="flex items-center gap-1">
+                    <button disabled={disabled || ev === 0}
+                      onClick={() => onSetResult(s.item.id, AttrResult.PASS, '')}
+                      className={`px-1.5 py-0.5 rounded text-[9px] font-bold cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${result === AttrResult.PASS ? 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-300' : 'bg-gray-100 text-gray-500 hover:bg-emerald-50'}`}>
+                      Pass
+                    </button>
+                    <button disabled={disabled || ev === 0}
+                      onClick={() => onSetResult(s.item.id, AttrResult.FAIL, 'Evidence did not support assertion')}
+                      className={`px-1.5 py-0.5 rounded text-[9px] font-bold cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${result === AttrResult.FAIL ? 'bg-red-100 text-red-700 ring-1 ring-red-300' : 'bg-gray-100 text-gray-500 hover:bg-red-50'}`}>
+                      Fail
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }

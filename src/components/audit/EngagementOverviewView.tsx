@@ -47,6 +47,7 @@ interface Props {
   onBack: () => void;
   onOpenExecution: (engagementId: string) => void;
   onOpenCaseManagement: (engagementId: string) => void;
+  onOpenRacmFullEditor?: () => void;
 }
 
 // ─── Tabs per engagement type ─────────────────────────────────────────────────
@@ -185,7 +186,7 @@ function healthTier(pct: number): { bar: string; text: string } {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function EngagementDetailView({ engagementId, onBack, onOpenExecution, onOpenCaseManagement }: Props) {
+export default function EngagementDetailView({ engagementId, onBack, onOpenExecution, onOpenCaseManagement, onOpenRacmFullEditor }: Props) {
   const { addToast } = useToast();
   const engagement = useMemo(() => ENGAGEMENTS.find(e => e.id === engagementId), [engagementId]);
 
@@ -381,7 +382,7 @@ export default function EngagementDetailView({ engagementId, onBack, onOpenExecu
             )}
             {/* ═══ RACM (Compliance / IA) ═══ */}
             {activeTab === 'racm' && (
-              <RACMTab engagement={eng} />
+              <RACMTab engagement={eng} onOpenFullEditor={onOpenRacmFullEditor} />
             )}
 
             {/* ═══ CONTROLS (Compliance / IA) ═══ */}

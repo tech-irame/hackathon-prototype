@@ -2,13 +2,71 @@
 // All controls start fresh: NOT_STARTED, no population, no test items,
 // no evidence, no attribute results, no review, no conclusion.
 
-import type { EngagementExecution, ExecutionControl, ControlExecutionState } from './types';
+import type { EngagementExecution, ExecutionControl, ControlExecutionState, TestItem, AttributeResult } from './types';
 import {
   ControlExecStatus, ImportanceClass, NatureClass, AutomationClass,
-  AttributeType, ReviewStatus, WorkingPaperStatus,
+  AttributeType, ReviewStatus, WorkingPaperStatus, AttrResult, AttrSource, SampleResult, ExecutionMode,
 } from './types';
 
 // ─── Helper: create fresh execution state ─────────────────────────────────
+
+/**
+ * Pre-seed test items + population for one control so the new Attribute Testing
+ * step is demonstrable without first walking the upload + sampling flow.
+ * Used only by `exec-c001`.
+ */
+function seededExecution(attrIds: string[]): ControlExecutionState {
+  const departments = ['Engineering', 'Marketing', 'Operations', 'Finance', 'Sales', 'HR', 'Legal', 'IT'];
+  const rows = departments.map((dept, i) => ({
+    rowIndex: i + 1,
+    department: dept,
+    fyBudget: 1_250_000 + i * 175_000,
+    capex: 320_000 + i * 40_000,
+    opex: 930_000 + i * 135_000,
+    submitter: `Dept Head ${i + 1}`,
+    submittedOn: `2025-0${(i % 9) + 1}-${15 + (i % 10)}`,
+  }));
+  const testItems: TestItem[] = rows.map((r, idx) => {
+    const attrResults: AttributeResult[] = attrIds.map(aid => ({
+      attributeId: aid,
+      result: AttrResult.NOT_TESTED,
+      source: AttrSource.MANUAL,
+      evidenceIds: [],
+      notes: '',
+      testedAt: null,
+      testedBy: null,
+    }));
+    return {
+      id: `ti-c001-${idx + 1}`,
+      referenceId: `BUD-${(idx + 1).toString().padStart(3, '0')}`,
+      description: `${r.department} FY26 budget — $${(r.fyBudget / 1000).toFixed(0)}k total`,
+      sourceRow: idx,
+      evidence: [],
+      attributeResults: attrResults,
+      sampleResult: SampleResult.PENDING,
+    };
+  });
+  return {
+    status: ControlExecStatus.TEST_ITEMS_READY,
+    population: {
+      id: 'pop-c001-fy26',
+      source: 'budget_submissions_fy26.xlsx',
+      rows,
+      rowCount: rows.length,
+      locked: true,
+      lockedAt: '2026-04-08T09:00:00Z',
+      checksum: 'sha256:c001fy26seed',
+      testUnit: 'Department budget submission',
+    },
+    executionMode: ExecutionMode.FULL_RUN,
+    testItems,
+    review: {
+      status: ReviewStatus.NOT_SUBMITTED, submittedAt: null, reviewedAt: null, reviewer: '', comments: '',
+    },
+    workingPaper: { status: WorkingPaperStatus.NOT_GENERATED, generatedAt: null, finalDownloadEnabled: false },
+    conclusion: { value: null, reason: '', generatedAt: null },
+  };
+}
 
 function freshExecution(): ControlExecutionState {
   return {
@@ -97,7 +155,7 @@ const CONTROLS: ExecutionControl[] = [
         mappedAttributeIds: ['attr-c001-01', 'attr-c001-02', 'attr-c001-03', 'attr-c001-04'],
       },
     ],
-    execution: freshExecution(),
+    execution: seededExecution(['attr-c001-01', 'attr-c001-02', 'attr-c001-03', 'attr-c001-04']),
   },
 
   // ── C002: Hybrid Control ────────────────────────────────────────────────

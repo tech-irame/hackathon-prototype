@@ -2,18 +2,15 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Building2, Calendar, Layers, Search, ArrowLeft,
-  ChevronRight, Columns, Plus, X, Trash2,
+  ChevronRight, Plus, X, Trash2,
   FileText, Shield, AlertTriangle, Workflow, Zap,
   Upload, CheckCircle2, User, Clock,
 } from 'lucide-react';
 import { BUSINESS_PROCESSES, RACMS } from '../../data/mockData';
 import Orb from '../shared/Orb';
 import { useToast } from '../shared/Toast';
-import AuditPlanningView from './AuditPlanningView';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
-
-type ViewMode = 'processes' | 'engagements' | 'split';
 
 interface SubProcess { name: string; description: string; }
 
@@ -32,8 +29,6 @@ interface BPItem {
 interface Props {
   selectedBPId: string | null;
   onSelectBP: (id: string | null) => void;
-  onNavigateToExecution?: (engagementId: string) => void;
-  initialTab?: ViewMode;
 }
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -46,17 +41,14 @@ const selectCls = inputCls + ' cursor-pointer appearance-none';
 const labelCls = 'text-[12px] font-semibold text-text-muted block mb-1.5';
 
 function racmsForProcess(bpId: string) { return RACMS.filter(r => r.bpId === bpId).length; }
-const ENG_COUNTS: Record<string, number> = { P2P: 3, O2C: 1, R2R: 2, S2C: 1, ITGC: 1, Cross: 0 };
-function engagementsForProcess(abbr: string) { return ENG_COUNTS[abbr] || 0; }
 
 // IDs from the original seed data
 const SEED_IDS = new Set(BUSINESS_PROCESSES.map(bp => bp.id));
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
-export default function ProgramsView({ onSelectBP, onNavigateToExecution, initialTab = 'processes' }: Props) {
+export default function ProgramsView({ onSelectBP }: Props) {
   const { addToast } = useToast();
-  const [viewMode, setViewMode] = useState<ViewMode>(initialTab);
   const [search, setSearch] = useState('');
   const [processes, setProcesses] = useState<BPItem[]>(
     BUSINESS_PROCESSES.map(bp => ({ ...bp, status: 'Active' as const }))
@@ -100,11 +92,6 @@ export default function ProgramsView({ onSelectBP, onNavigateToExecution, initia
     );
   }
 
-  const viewModes: { id: ViewMode; label: string; icon: React.ElementType }[] = [
-    { id: 'processes', label: 'Process View', icon: Building2 },
-    { id: 'engagements', label: 'Engagement View', icon: Calendar },
-  ];
-
   return (
     <div className="h-full overflow-y-auto bg-white bg-mesh-gradient relative">
       <Orb hoverIntensity={0.06} rotateOnHover hue={275} opacity={0.05} />
@@ -116,113 +103,60 @@ export default function ProgramsView({ onSelectBP, onNavigateToExecution, initia
               <div className="p-1.5 rounded-lg bg-gradient-to-br from-primary to-primary-medium text-white"><Layers size={16} /></div>
               <h1 className="text-xl font-bold text-text">Process Hub</h1>
             </div>
-            <p className="text-sm text-text-secondary mt-1 ml-9">Manage business processes, RACMs, and audit engagements in one place.</p>
+            <p className="text-sm text-text-secondary mt-1 ml-9">Manage business processes and their RACMs. Engagements live under the dedicated <strong className="text-text-secondary">Engagements</strong> entry in the sidebar.</p>
           </div>
         </div>
 
-        {/* Tabs + Search + New Process */}
-        <div className="flex items-center justify-between border-b border-border-light mb-5">
-          <div className="flex items-center">
-            {viewModes.map(vm => (
-              <button key={vm.id} onClick={() => { setViewMode(vm.id); setSearch(''); }}
-                className={`flex items-center gap-1.5 px-5 py-2.5 text-[13px] font-medium border-b-2 transition-colors cursor-pointer ${
-                  viewMode === vm.id ? 'border-primary text-primary' : 'border-transparent text-text-muted hover:text-text-secondary'
-                }`}>
-                <vm.icon size={14} />{vm.label}
-              </button>
-            ))}
+        {/* Toolbar — Search + New Process */}
+        <div className="flex items-center justify-end gap-3 mb-5">
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+            <input type="text" placeholder="Search processes..." value={search} onChange={e => setSearch(e.target.value)}
+              className="pl-9 pr-3 py-2 text-[12px] border border-border rounded-lg bg-white text-text placeholder:text-text-muted outline-none focus:border-primary/40 transition-colors w-48" />
           </div>
-          <div className="flex items-center gap-3 mb-1">
-            {viewMode === 'processes' && (
-              <>
-                <div className="relative">
-                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
-                  <input type="text" placeholder="Search processes..." value={search} onChange={e => setSearch(e.target.value)}
-                    className="pl-9 pr-3 py-2 text-[12px] border border-border rounded-lg bg-white text-text placeholder:text-text-muted outline-none focus:border-primary/40 transition-colors w-48" />
-                </div>
-                <button onClick={() => setShowCreateDrawer(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-[13px] font-semibold transition-colors cursor-pointer shrink-0">
-                  <Plus size={14} />New Process
-                </button>
-              </>
-            )}
-          </div>
+          <button onClick={() => setShowCreateDrawer(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-[13px] font-semibold transition-colors cursor-pointer shrink-0">
+            <Plus size={14} />New Process
+          </button>
         </div>
 
-        {/* ── Process View ── */}
-        {viewMode === 'processes' && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15 }}>
-            {filteredProcesses.length === 0 ? (
-              <div className="glass-card rounded-xl p-12 text-center"><Building2 size={32} className="text-text-muted mx-auto mb-3" /><p className="text-[14px] font-semibold text-text mb-1">No processes found</p><p className="text-[12px] text-text-muted">Try adjusting your search.</p></div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {filteredProcesses.map((bp, i) => (
-                  <motion.div key={bp.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 + i * 0.04 }}
-                    onClick={() => handleProcessClick(bp)} className="glass-card rounded-2xl p-5 hover:border-primary/20 hover:shadow-sm transition-all cursor-pointer group">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-[13px] font-bold" style={{ background: bp.color }}>{bp.abbr}</div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[14px] font-semibold text-text">{bp.name}</span>
-                            {bp.status === 'Draft' && <span className="px-1.5 h-4 rounded text-[9px] font-bold bg-gray-100 text-gray-500">Draft</span>}
-                          </div>
-                          <div className="text-[11px] text-text-muted">{bp.abbr}</div>
+        {/* ── Process Grid ── */}
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15 }}>
+          {filteredProcesses.length === 0 ? (
+            <div className="glass-card rounded-xl p-12 text-center"><Building2 size={32} className="text-text-muted mx-auto mb-3" /><p className="text-[14px] font-semibold text-text mb-1">No processes found</p><p className="text-[12px] text-text-muted">Try adjusting your search.</p></div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {filteredProcesses.map((bp, i) => (
+                <motion.div key={bp.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 + i * 0.04 }}
+                  onClick={() => handleProcessClick(bp)} className="glass-card rounded-2xl p-5 hover:border-primary/20 hover:shadow-sm transition-all cursor-pointer group">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-[13px] font-bold" style={{ background: bp.color }}>{bp.abbr}</div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[14px] font-semibold text-text">{bp.name}</span>
+                          {bp.status === 'Draft' && <span className="px-1.5 h-4 rounded text-[9px] font-bold bg-gray-100 text-gray-500">Draft</span>}
                         </div>
-                      </div>
-                      <ChevronRight size={16} className="text-text-muted group-hover:text-primary transition-colors" />
-                    </div>
-                    <div className="grid grid-cols-5 gap-3">
-                      {[{ label: 'Risks', value: bp.risks }, { label: 'Controls', value: bp.controls }, { label: 'RACMs', value: racmsForProcess(bp.id) }, { label: 'Engagements', value: engagementsForProcess(bp.abbr) }].map(m => (
-                        <div key={m.label} className="text-center"><div className="text-[15px] font-bold text-text">{m.value}</div><div className="text-[10px] text-text-muted">{m.label}</div></div>
-                      ))}
-                      <div className="text-center">
-                        <div className={`text-[15px] font-bold ${bp.coverage >= 70 ? 'text-compliant-700' : bp.coverage >= 50 ? 'text-mitigated-700' : bp.coverage > 0 ? 'text-risk-700' : 'text-text-muted'}`}>{bp.coverage}%</div>
-                        <div className="text-[10px] text-text-muted">Coverage</div>
+                        <div className="text-[11px] text-text-muted">{bp.abbr}</div>
                       </div>
                     </div>
-                    <div className="mt-3"><div className="h-1.5 bg-surface-3 rounded-full overflow-hidden"><div className="h-full rounded-full transition-all duration-500" style={{ width: `${bp.coverage}%`, background: bp.color }} /></div></div>
-                  </motion.div>
-                ))}
-              </div>
-            )}
-          </motion.div>
-        )}
-
-        {/* ── Engagement View ── */}
-        {viewMode === 'engagements' && (
-          <AuditPlanningView embedded onNavigateToExecution={onNavigateToExecution} />
-        )}
-
-        {/* ── Split View ── */}
-        {viewMode === 'split' && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15 }}>
-            <div className="flex gap-5" style={{ minHeight: 420 }}>
-              <div className="w-[320px] shrink-0 space-y-2.5">
-                <div className="text-[11px] font-bold text-text-muted uppercase tracking-wide px-1 mb-1">Business Processes</div>
-                {processes.map((bp, i) => {
-                  const engCount = engagementsForProcess(bp.abbr);
-                  return (
-                    <motion.div key={bp.id} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.04 + i * 0.03 }}
-                      onClick={() => handleProcessClick(bp)}
-                      className="glass-card rounded-xl p-4 transition-all cursor-pointer hover:border-primary/15">
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="w-9 h-9 rounded-lg flex items-center justify-center text-white text-[12px] font-bold" style={{ background: bp.color }}>{bp.abbr}</div>
-                        <div className="flex-1 min-w-0"><div className="text-[13px] font-semibold text-text">{bp.name}</div><div className="text-[10px] text-text-muted">{engCount} engagement{engCount !== 1 ? 's' : ''}</div></div>
-                        <div className={`text-[14px] font-bold tabular-nums ${bp.coverage >= 70 ? 'text-compliant-700' : bp.coverage >= 50 ? 'text-mitigated-700' : bp.coverage > 0 ? 'text-risk-700' : 'text-text-muted'}`}>{bp.coverage}%</div>
-                      </div>
-                      <div className="flex items-center gap-4 text-[10px] text-text-muted"><span>{bp.risks} risks</span><span>{bp.controls} controls</span><span>{racmsForProcess(bp.id)} RACMs</span></div>
-                      <div className="mt-2.5"><div className="h-1 bg-surface-3 rounded-full overflow-hidden"><div className="h-full rounded-full transition-all duration-500" style={{ width: `${bp.coverage}%`, background: bp.color }} /></div></div>
-                    </motion.div>
-                  );
-                })}
-              </div>
-              <div className="flex-1 min-w-0">
-                <AuditPlanningView embedded onNavigateToExecution={onNavigateToExecution} />
-              </div>
+                    <ChevronRight size={16} className="text-text-muted group-hover:text-primary transition-colors" />
+                  </div>
+                  <div className="grid grid-cols-4 gap-3">
+                    {[{ label: 'Risks', value: bp.risks }, { label: 'Controls', value: bp.controls }, { label: 'RACMs', value: racmsForProcess(bp.id) }].map(m => (
+                      <div key={m.label} className="text-center"><div className="text-[15px] font-bold text-text">{m.value}</div><div className="text-[10px] text-text-muted">{m.label}</div></div>
+                    ))}
+                    <div className="text-center">
+                      <div className={`text-[15px] font-bold ${bp.coverage >= 70 ? 'text-compliant-700' : bp.coverage >= 50 ? 'text-mitigated-700' : bp.coverage > 0 ? 'text-risk-700' : 'text-text-muted'}`}>{bp.coverage}%</div>
+                      <div className="text-[10px] text-text-muted">Coverage</div>
+                    </div>
+                  </div>
+                  <div className="mt-3"><div className="h-1.5 bg-surface-3 rounded-full overflow-hidden"><div className="h-full rounded-full transition-all duration-500" style={{ width: `${bp.coverage}%`, background: bp.color }} /></div></div>
+                </motion.div>
+              ))}
             </div>
-          </motion.div>
-        )}
+          )}
+        </motion.div>
       </div>
 
       {/* Create drawer */}
