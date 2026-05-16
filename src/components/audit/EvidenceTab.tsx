@@ -158,6 +158,21 @@ const PASS_RATIONALES = ['All evidence files present and consistent with policy'
 const FAIL_RATIONALES = ['Sample missing approval signature', 'Amount exceeds tolerance vs PO', 'Vendor mismatch vs master', 'Approval timestamp out of sequence'];
 const HOLD_RATIONALES = ['Evidence legibility low — manual confirmation needed', 'Filename suggests duplicate'];
 
+/**
+ * Pre-built validation workflows available in the demo library. In production
+ * these would be drawn from the org's workflow registry; here we hard-code
+ * a small representative set so the per-attribute picker has options.
+ */
+const AVAILABLE_VALIDATION_WORKFLOWS: ValidationWorkflow[] = [
+  { id: 'vw-ocr-signature',     name: 'OCR + Signature Detect',        description: 'Detects handwritten or digital signatures on uploaded PDFs and verifies presence against a reference.', status: 'ACTIVE' },
+  { id: 'vw-amount-tolerance',  name: 'Amount Tolerance Check',        description: 'Validates invoice amount matches PO within configured tolerance band.', status: 'ACTIVE' },
+  { id: 'vw-kyc-cross-ref',     name: 'KYC Cross-Reference',           description: 'Extracts PAN/GST from uploaded docs and cross-references against ERP vendor master.', status: 'ACTIVE' },
+  { id: 'vw-erp-log-parse',     name: 'ERP Audit Log Parser',          description: 'Parses ERP audit-log screenshots; extracts approver IDs, timestamps, and segregation-of-duties checks.', status: 'ACTIVE' },
+  { id: 'vw-sanctions-screen',  name: 'Sanctions Screening Validator', description: 'Verifies a fresh sanctions screening was run within the required window before vendor activation.', status: 'ACTIVE' },
+  { id: 'vw-three-way-match',   name: 'Three-Way Match Validator',     description: 'Cross-references PO, GRN, and invoice line items; flags mismatches and tolerances.', status: 'ACTIVE' },
+  { id: 'vw-policy-attest',     name: 'Policy Attestation Validator',  description: 'Checks signature, date, and signatory role on policy attestation cover sheets.', status: 'ACTIVE' },
+];
+
 function deterministicAiVerdict(seed: string): { v: AiVerdict; confidence: number; rationale: string } {
   const r = rng(`ai-${seed}`);
   const roll = r();
@@ -321,7 +336,9 @@ export default function EvidenceTab({ engagement, onLaunchWorkflowBuilder }: Pro
   const [samplingByCtrl, setSamplingByCtrl] = useState<Record<string, SamplingConfig>>(seeded.sampling);
   const [samplesByCtrl, setSamplesByCtrl] = useState<Record<string, GeneratedSample[]>>(seeded.samples);
   const [genericByCtrl, setGenericByCtrl] = useState<Record<string, Record<string, GenericResult>>>(seeded.genericResults);
-  const [validationWorkflowsByCtrl, setValidationWorkflowsByCtrl] = useState<Record<string, ValidationWorkflow[]>>({});
+  /** Validation workflow attached to each attribute. Key: `${controlId}::${attrId}`. */
+  const [validationWorkflowByAttr, setValidationWorkflowByAttr] = useState<Record<string, ValidationWorkflow>>({});
+  const [workflowPickerOpenFor, setWorkflowPickerOpenFor] = useState<string | null>(null);
   const [aiRunningByCtrl, setAiRunningByCtrl] = useState<Record<string, boolean>>({});
   const [roundsByCtrlAttr, setRoundsByCtrlAttr] = useState<Record<string, AttributeRound[]>>({}); // key: `${controlId}::${attrId}`
   const [expandedAttrByCtrl, setExpandedAttrByCtrl] = useState<Record<string, string | null>>({});
@@ -590,9 +607,18 @@ export default function EvidenceTab({ engagement, onLaunchWorkflowBuilder }: Pro
     });
   };
 
-  const onAddValidationWorkflow = (ctrl: DistinctControl) => {
+  const onSelectAttrWorkflow = (ctrl: DistinctControl, attr: ControlAttribute, wf: ValidationWorkflow) => {
+    setValidationWorkflowByAttr(prev => ({ ...prev, [`${ctrl.controlId}::${attr.id}`]: wf }));
+    setWorkflowPickerOpenFor(null);
+    pushEvent(ctrl.controlId, { actor: 'human', actorName: CURRENT_USER.name, icon: 'gear', type: 'workflow_attached', text: `Validation workflow '${wf.name}' attached to ${attr.id}` });
+  };
+  const onClearAttrWorkflow = (ctrl: DistinctControl, attr: ControlAttribute) => {
+    setValidationWorkflowByAttr(prev => { const n = { ...prev }; delete n[`${ctrl.controlId}::${attr.id}`]; return n; });
+  };
+  const onBuildAttrWorkflow = (ctrl: DistinctControl, attr: ControlAttribute) => {
+    setWorkflowPickerOpenFor(null);
     if (onLaunchWorkflowBuilder) {
-      onLaunchWorkflowBuilder(`Build a workflow that validates uploaded evidence for control ${ctrl.controlId} (${ctrl.description}). The workflow should accept evidence files for each sample × attribute, extract relevant fields (OCR if needed), evaluate them against the control's assertions, and emit Pass/Fail with a short reason.`);
+      onLaunchWorkflowBuilder(`Build a validation workflow for attribute ${attr.id} of control ${ctrl.controlId} (${ctrl.description}). Attribute: ${attr.description}. Required evidence: ${attr.requiredEvidence.join(', ')}. The workflow should take uploaded files for this attribute, extract relevant fields, run the test procedure (${attr.testProcedure}), and emit Pass/Fail with a short reason.`);
     } else {
       addToast({ type: 'info', message: 'Workflow builder is not available in this context.' });
     }
@@ -735,12 +761,20 @@ export default function EvidenceTab({ engagement, onLaunchWorkflowBuilder }: Pro
                               {isExpanded && (
                                 <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.18, ease: [0.2, 0, 0, 1] }}
                                   className="overflow-hidden border-t border-canvas-border">
-                                  <div className="p-4 bg-canvas/40 space-y-4">
-                                    {/* Step 1 — Population */}
+                                  <div className="px-6 py-6 bg-canvas/40 space-y-6">
+                                    {/* Checkpoint progress strip */}
+                                    <CheckpointHeader phases={[
+                                      { label: 'Population',       done: controlStepDone(ctrl, 1) },
+                                      { label: 'Sampling',         done: controlStepDone(ctrl, 2) },
+                                      { label: 'Attribute Testing', done: ctrl.attributes.every(a => attrDone(ctrl, a)) },
+                                      { label: 'Working Paper',    done: false },
+                                    ]} />
+
+                                    {/* Checkpoint 1 — Population */}
                                     <PopulationSection ctrl={ctrl} population={populationsByCtrl[ctrl.controlId]}
                                       onUpload={() => onUploadPopulation(ctrl)} onReplace={() => onReplacePopulation(ctrl)} />
 
-                                    {/* Step 2 — Sampling */}
+                                    {/* Checkpoint 2 — Sampling */}
                                     <SamplingSection ctrl={ctrl} disabled={!ctrlHasPop(ctrl.controlId)}
                                       config={samplingByCtrl[ctrl.controlId]} samples={samplesByCtrl[ctrl.controlId] || []}
                                       sampleBasedCount={sampleBasedAttrs(ctrl).length}
@@ -748,52 +782,67 @@ export default function EvidenceTab({ engagement, onLaunchWorkflowBuilder }: Pro
                                       onGenerate={() => onGenerateSamples(ctrl)}
                                       onBuildWorkflow={() => onAddSamplingWorkflow(ctrl)} />
 
-                                    {/* Step 3 — Validation workflows */}
-                                    <ValidationWorkflowsSection ctrl={ctrl} workflows={validationWorkflowsByCtrl[ctrl.controlId] || []}
-                                      onAdd={() => onAddValidationWorkflow(ctrl)}
-                                      onRemove={(wfId) => setValidationWorkflowsByCtrl(prev => ({ ...prev, [ctrl.controlId]: (prev[ctrl.controlId] || []).filter(w => w.id !== wfId) }))} />
+                                    {/* Checkpoint 3 — Attribute Testing */}
+                                    <SectionShell num={3} title="Attribute Testing" sub="Each attribute has its own evidence + validation workflow + result. Sample-based attributes loop over the shared sample set; generic attributes are single-shot.">
+                                      <div className="space-y-3">
+                                        {ctrl.attributes.length === 0 && <p className="text-[11px] text-text-muted">No attributes defined.</p>}
+                                        {ctrl.attributes.map(attr => {
+                                          const wfKey = `${ctrl.controlId}::${attr.id}`;
+                                          const wf = validationWorkflowByAttr[wfKey];
+                                          const pickerOpen = workflowPickerOpenFor === wfKey;
+                                          return attrScope(attr) === 'GENERIC' ? (
+                                            <GenericAttrSection key={attr.id} ctrl={ctrl} attr={attr}
+                                              expanded={expandedAttrByCtrl[ctrl.controlId] === attr.id}
+                                              onToggle={() => toggleAttr(ctrl.controlId, attr.id)}
+                                              result={genericAttrResult(ctrl, attr)}
+                                              running={!!aiRunningByCtrl[`${ctrl.controlId}::${attr.id}`]}
+                                              validationWorkflow={wf}
+                                              pickerOpen={pickerOpen}
+                                              onTogglePicker={() => setWorkflowPickerOpenFor(pickerOpen ? null : wfKey)}
+                                              onSelectWorkflow={(picked) => onSelectAttrWorkflow(ctrl, attr, picked)}
+                                              onClearWorkflow={() => onClearAttrWorkflow(ctrl, attr)}
+                                              onBuildWorkflow={() => onBuildAttrWorkflow(ctrl, attr)}
+                                              onUploadEvidence={(et) => onUploadGenericEvidence(ctrl, attr, et)}
+                                              onReplaceEvidence={() => onReplaceGenericEvidence(ctrl, attr)}
+                                              onRunAi={() => onRunAttrAi(ctrl, attr)}
+                                              onSetHumanVerdict={(v) => setGenericByCtrl(prev => { const m = { ...(prev[ctrl.controlId] || {}) }; const cur = m[attr.id] || { evidence: {}, useAi: true, humanVerdict: 'Pass' as HumanVerdict, humanRemark: '', aiVerdict: null, aiConfidence: 0, aiRationale: '' }; m[attr.id] = { ...cur, useAi: false, humanVerdict: v }; return { ...prev, [ctrl.controlId]: m }; })}
+                                            />
+                                          ) : (
+                                            <SampleBasedAttrSection key={attr.id} ctrl={ctrl} attr={attr}
+                                              expanded={expandedAttrByCtrl[ctrl.controlId] === attr.id}
+                                              onToggle={() => toggleAttr(ctrl.controlId, attr.id)}
+                                              samples={samplesByCtrl[ctrl.controlId] || []}
+                                              rounds={roundsByCtrlAttr[`${ctrl.controlId}::${attr.id}`] || []}
+                                              disabled={!ctrlHasSampling(ctrl.controlId)}
+                                              running={!!aiRunningByCtrl[`${ctrl.controlId}::${attr.id}`]}
+                                              evidenceReady={sampleAttrEvidenceReady(ctrl, attr)}
+                                              allTested={sampleAttrAllTested(ctrl, attr)}
+                                              passCount={sampleAttrPasses(ctrl, attr).length}
+                                              failCount={sampleAttrFails(ctrl, attr).length}
+                                              validationWorkflow={wf}
+                                              pickerOpen={pickerOpen}
+                                              onTogglePicker={() => setWorkflowPickerOpenFor(pickerOpen ? null : wfKey)}
+                                              onSelectWorkflow={(picked) => onSelectAttrWorkflow(ctrl, attr, picked)}
+                                              onClearWorkflow={() => onClearAttrWorkflow(ctrl, attr)}
+                                              onBuildWorkflow={() => onBuildAttrWorkflow(ctrl, attr)}
+                                              onUploadEvidence={(sid, et) => onUploadSampleEvidence(ctrl, attr, sid, et)}
+                                              onRemoveEvidence={(sid, et) => onRemoveSampleEvidence(ctrl, attr, sid, et)}
+                                              onRunAi={() => onRunAttrAi(ctrl, attr)}
+                                              onOverride={(sid, patch) => onOverrideSample(ctrl, attr, sid, patch)}
+                                              onStartRound={() => onStartRound(ctrl, attr)}
+                                            />
+                                          );
+                                        })}
+                                      </div>
+                                    </SectionShell>
 
-                                    {/* Attributes */}
-                                    <div>
-                                      <div className="flex items-center justify-between mb-2">
-                                        <h5 className="text-[12px] font-bold text-text uppercase tracking-wider">Attributes ({ctrl.attributes.length})</h5>
-                                        <span className="text-[10px] text-text-muted">
-                                          {sampleBasedAttrs(ctrl).length} sample-based · {genericAttrs(ctrl).length} generic
-                                        </span>
-                                      </div>
-                                      <div className="space-y-2">
-                                        {ctrl.attributes.map(attr => attrScope(attr) === 'GENERIC' ? (
-                                          <GenericAttrSection key={attr.id} ctrl={ctrl} attr={attr}
-                                            expanded={expandedAttrByCtrl[ctrl.controlId] === attr.id}
-                                            onToggle={() => toggleAttr(ctrl.controlId, attr.id)}
-                                            result={genericAttrResult(ctrl, attr)}
-                                            running={!!aiRunningByCtrl[`${ctrl.controlId}::${attr.id}`]}
-                                            onUploadEvidence={(et) => onUploadGenericEvidence(ctrl, attr, et)}
-                                            onReplaceEvidence={() => onReplaceGenericEvidence(ctrl, attr)}
-                                            onRunAi={() => onRunAttrAi(ctrl, attr)}
-                                            onSetHumanVerdict={(v) => setGenericByCtrl(prev => { const m = { ...(prev[ctrl.controlId] || {}) }; const cur = m[attr.id] || { evidence: {}, useAi: true, humanVerdict: 'Pass' as HumanVerdict, humanRemark: '', aiVerdict: null, aiConfidence: 0, aiRationale: '' }; m[attr.id] = { ...cur, useAi: false, humanVerdict: v }; return { ...prev, [ctrl.controlId]: m }; })}
-                                          />
-                                        ) : (
-                                          <SampleBasedAttrSection key={attr.id} ctrl={ctrl} attr={attr}
-                                            expanded={expandedAttrByCtrl[ctrl.controlId] === attr.id}
-                                            onToggle={() => toggleAttr(ctrl.controlId, attr.id)}
-                                            samples={samplesByCtrl[ctrl.controlId] || []}
-                                            rounds={roundsByCtrlAttr[`${ctrl.controlId}::${attr.id}`] || []}
-                                            disabled={!ctrlHasSampling(ctrl.controlId)}
-                                            running={!!aiRunningByCtrl[`${ctrl.controlId}::${attr.id}`]}
-                                            evidenceReady={sampleAttrEvidenceReady(ctrl, attr)}
-                                            allTested={sampleAttrAllTested(ctrl, attr)}
-                                            passCount={sampleAttrPasses(ctrl, attr).length}
-                                            failCount={sampleAttrFails(ctrl, attr).length}
-                                            onUploadEvidence={(sid, et) => onUploadSampleEvidence(ctrl, attr, sid, et)}
-                                            onRemoveEvidence={(sid, et) => onRemoveSampleEvidence(ctrl, attr, sid, et)}
-                                            onRunAi={() => onRunAttrAi(ctrl, attr)}
-                                            onOverride={(sid, patch) => onOverrideSample(ctrl, attr, sid, patch)}
-                                            onStartRound={() => onStartRound(ctrl, attr)}
-                                          />
-                                        ))}
-                                      </div>
-                                    </div>
+                                    {/* Checkpoint 4 — Working Paper */}
+                                    <WorkingPaperCheckpoint ctrl={ctrl}
+                                      attrsDone={ctrl.attributes.filter(a => attrDone(ctrl, a)).length}
+                                      attrsTotal={ctrl.attributes.length}
+                                      failedSampleAttrs={ctrl.attributes.filter(a => attrScope(a) === 'SAMPLE_BASED' && sampleAttrFails(ctrl, a).length > 0).length}
+                                      onGenerate={() => addToast({ type: 'success', message: `Generating ${ctrl.controlId}-Working-Paper.pdf …` })}
+                                    />
 
                                     {/* Audit trail (compact) */}
                                     {(auditTrails[ctrl.controlId]?.length || 0) > 0 && (
@@ -1031,13 +1080,19 @@ function ValidationWorkflowsSection({ ctrl, workflows, onAdd, onRemove }: {
 
 // ─── Section: Sample-based attribute ─────────────────────────────────────────
 
-function SampleBasedAttrSection({ ctrl, attr, expanded, onToggle, samples, rounds, disabled, running, evidenceReady, allTested, passCount, failCount, onUploadEvidence, onRemoveEvidence, onRunAi, onOverride, onStartRound }: {
+function SampleBasedAttrSection({ ctrl, attr, expanded, onToggle, samples, rounds, disabled, running, evidenceReady, allTested, passCount, failCount, validationWorkflow, pickerOpen, onTogglePicker, onSelectWorkflow, onClearWorkflow, onBuildWorkflow, onUploadEvidence, onRemoveEvidence, onRunAi, onOverride, onStartRound }: {
   ctrl: DistinctControl; attr: ControlAttribute;
   expanded: boolean; onToggle: () => void;
   samples: GeneratedSample[]; rounds: AttributeRound[];
   disabled: boolean; running: boolean;
   evidenceReady: boolean; allTested: boolean;
   passCount: number; failCount: number;
+  validationWorkflow: ValidationWorkflow | undefined;
+  pickerOpen: boolean;
+  onTogglePicker: () => void;
+  onSelectWorkflow: (wf: ValidationWorkflow) => void;
+  onClearWorkflow: () => void;
+  onBuildWorkflow: () => void;
   onUploadEvidence: (sid: string, et: string) => void;
   onRemoveEvidence: (sid: string, et: string) => void;
   onRunAi: () => void;
@@ -1070,7 +1125,7 @@ function SampleBasedAttrSection({ ctrl, attr, expanded, onToggle, samples, round
       </button>
 
       {expanded && !disabled && (
-        <div className="border-t border-canvas-border px-4 py-4 space-y-3">
+        <div className="border-t border-canvas-border px-5 py-5 space-y-4">
           {/* Description + required evidence */}
           <DescriptionBlock attr={attr} />
 
@@ -1079,6 +1134,10 @@ function SampleBasedAttrSection({ ctrl, attr, expanded, onToggle, samples, round
             <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider block mb-1">Test procedure</span>
             <p className="text-[11px] text-text-secondary leading-relaxed">{attr.testProcedure}</p>
           </div>
+
+          {/* Validation workflow selector */}
+          <WorkflowPicker workflow={validationWorkflow} open={pickerOpen} onToggle={onTogglePicker}
+            onSelect={onSelectWorkflow} onClear={onClearWorkflow} onBuild={onBuildWorkflow} />
 
           {/* Per-sample table */}
           <div className="rounded-lg border border-canvas-border overflow-hidden">
@@ -1152,10 +1211,11 @@ function SampleBasedAttrSection({ ctrl, attr, expanded, onToggle, samples, round
             ) : (
               <button onClick={onRunAi} disabled={!evidenceReady}
                 className="px-3 py-1.5 rounded-lg bg-evidence-600 hover:bg-evidence-700 text-white text-[11px] font-semibold cursor-pointer transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed">
-                <Sparkles size={11} />{allTested ? 'Re-run AI validation' : 'Run AI validation'}
+                <Sparkles size={11} />{allTested ? 'Re-run' : 'Run'} {validationWorkflow ? validationWorkflow.name : 'AI validation'}
               </button>
             )}
-            {!evidenceReady && <span className="text-[10px] text-text-muted">Upload all required evidence to enable AI run.</span>}
+            {!evidenceReady && <span className="text-[10px] text-text-muted">Upload all required evidence to enable validation.</span>}
+            {evidenceReady && !validationWorkflow && <span className="text-[10px] text-text-muted">No workflow attached — defaults to generic AI validation.</span>}
           </div>
 
           {/* Round trigger */}
@@ -1182,10 +1242,16 @@ function SampleBasedAttrSection({ ctrl, attr, expanded, onToggle, samples, round
 
 // ─── Section: Generic attribute ──────────────────────────────────────────────
 
-function GenericAttrSection({ ctrl, attr, expanded, onToggle, result, running, onUploadEvidence, onReplaceEvidence, onRunAi, onSetHumanVerdict }: {
+function GenericAttrSection({ ctrl, attr, expanded, onToggle, result, running, validationWorkflow, pickerOpen, onTogglePicker, onSelectWorkflow, onClearWorkflow, onBuildWorkflow, onUploadEvidence, onReplaceEvidence, onRunAi, onSetHumanVerdict }: {
   ctrl: DistinctControl; attr: ControlAttribute;
   expanded: boolean; onToggle: () => void;
   result: GenericResult | undefined; running: boolean;
+  validationWorkflow: ValidationWorkflow | undefined;
+  pickerOpen: boolean;
+  onTogglePicker: () => void;
+  onSelectWorkflow: (wf: ValidationWorkflow) => void;
+  onClearWorkflow: () => void;
+  onBuildWorkflow: () => void;
   onUploadEvidence: (et: string) => void;
   onReplaceEvidence: () => void;
   onRunAi: () => void;
@@ -1219,12 +1285,16 @@ function GenericAttrSection({ ctrl, attr, expanded, onToggle, result, running, o
       </button>
 
       {expanded && (
-        <div className="border-t border-canvas-border px-4 py-4 space-y-3">
+        <div className="border-t border-canvas-border px-5 py-5 space-y-4">
           <DescriptionBlock attr={attr} />
           <div className="rounded-lg bg-canvas/30 border border-canvas-border px-3 py-2.5">
             <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider block mb-1">Test procedure</span>
             <p className="text-[11px] text-text-secondary leading-relaxed">{attr.testProcedure}</p>
           </div>
+
+          {/* Validation workflow selector */}
+          <WorkflowPicker workflow={validationWorkflow} open={pickerOpen} onToggle={onTogglePicker}
+            onSelect={onSelectWorkflow} onClear={onClearWorkflow} onBuild={onBuildWorkflow} />
 
           {/* Evidence uploads (one per required evidence type) */}
           <div className="rounded-lg border border-canvas-border overflow-hidden">
@@ -1261,7 +1331,7 @@ function GenericAttrSection({ ctrl, attr, expanded, onToggle, result, running, o
             ) : (
               <button onClick={onRunAi} disabled={!evComplete}
                 className="px-3 py-1.5 rounded-lg bg-evidence-600 hover:bg-evidence-700 text-white text-[11px] font-semibold cursor-pointer transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed">
-                <Sparkles size={11} />Run AI validation
+                <Sparkles size={11} />Run {validationWorkflow ? validationWorkflow.name : 'AI validation'}
               </button>
             )}
             <span className="ml-auto flex items-center gap-1">
@@ -1340,6 +1410,158 @@ function DescriptionBlock({ attr }: { attr: ControlAttribute }): JSX.Element {
               </div>
             </div>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Checkpoint header (horizontal strip with 4 phases) ──────────────────────
+
+function CheckpointHeader({ phases }: { phases: { label: string; done: boolean }[] }): JSX.Element {
+  return (
+    <div className="rounded-2xl border border-canvas-border bg-white px-5 py-4">
+      <div className="flex items-center gap-2">
+        {phases.map((p, i) => {
+          const active = !p.done && (i === 0 || phases[i - 1]!.done);
+          return (
+            <div key={p.label} className="flex items-center gap-2 flex-1">
+              <div className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold border-2 ${
+                p.done ? 'bg-compliant-500 border-compliant-500 text-white'
+                  : active ? 'bg-brand-50 border-brand-500 text-brand-700'
+                  : 'bg-canvas border-canvas-border text-text-muted'
+              }`}>{p.done ? <Check size={12} /> : i + 1}</div>
+              <div className="min-w-0 flex-1">
+                <div className={`text-[11px] font-bold tracking-wide ${
+                  p.done ? 'text-compliant-700' : active ? 'text-brand-700' : 'text-text-muted'
+                }`}>
+                  {p.label}
+                </div>
+                <div className="text-[9px] text-text-muted uppercase tracking-wider">
+                  {p.done ? 'Complete' : active ? 'In progress' : 'Locked'}
+                </div>
+              </div>
+              {i < phases.length - 1 && (
+                <div className={`hidden sm:block flex-shrink-0 w-8 h-px ${phases[i + 1]!.done || (active && p.done) ? 'bg-compliant-300' : 'bg-canvas-border'}`} />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Working Paper checkpoint ────────────────────────────────────────────────
+
+function WorkingPaperCheckpoint({ ctrl, attrsDone, attrsTotal, failedSampleAttrs, onGenerate }: {
+  ctrl: DistinctControl;
+  attrsDone: number;
+  attrsTotal: number;
+  failedSampleAttrs: number;
+  onGenerate: () => void;
+}): JSX.Element {
+  void ctrl;
+  const ready = attrsDone === attrsTotal && attrsTotal > 0;
+  return (
+    <SectionShell num={4} title="Working Paper" sub="The auditable record. Generated when every attribute has a result.">
+      <div className="space-y-3">
+        <div className="grid grid-cols-3 gap-3">
+          <SummaryTile label="Attributes complete" value={`${attrsDone}/${attrsTotal}`} tone={ready ? 'text-compliant-700' : 'text-text-muted'} />
+          <SummaryTile label="Failures" value={failedSampleAttrs} tone={failedSampleAttrs > 0 ? 'text-risk-700' : 'text-compliant-700'} />
+          <SummaryTile label="Status" value={ready ? 'Ready' : 'Pending'} tone={ready ? 'text-compliant-700' : 'text-mitigated-700'} />
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={onGenerate} disabled={!ready}
+            className="px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-[11px] font-semibold cursor-pointer transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed">
+            <Download size={11} />Generate working paper (PDF)
+          </button>
+          {!ready && <span className="text-[10px] text-text-muted">Finish testing all {attrsTotal} attribute{attrsTotal !== 1 ? 's' : ''} to enable.</span>}
+        </div>
+      </div>
+    </SectionShell>
+  );
+}
+
+function SummaryTile({ label, value, tone }: { label: string; value: number | string; tone: string }): JSX.Element {
+  return (
+    <div className="rounded-lg border border-canvas-border bg-canvas/40 px-3 py-2">
+      <div className="text-[9px] uppercase tracking-wider font-bold text-text-muted mb-0.5">{label}</div>
+      <div className={`text-[16px] font-bold tabular-nums leading-none ${tone}`}>{value}</div>
+    </div>
+  );
+}
+
+// ─── Per-attribute validation workflow picker ────────────────────────────────
+
+function WorkflowPicker({ workflow, open, onToggle, onSelect, onClear, onBuild }: {
+  workflow: ValidationWorkflow | undefined;
+  open: boolean;
+  onToggle: () => void;
+  onSelect: (wf: ValidationWorkflow) => void;
+  onClear: () => void;
+  onBuild: () => void;
+}): JSX.Element {
+  return (
+    <div className="relative">
+      <div className={`rounded-lg border ${workflow ? 'border-evidence-100 bg-evidence-50/20' : 'border-mitigated-100 bg-mitigated-50/20'} px-3 py-2.5 flex items-center gap-3`}>
+        <div className={`shrink-0 w-7 h-7 rounded-lg flex items-center justify-center ${workflow ? 'bg-evidence-100' : 'bg-mitigated-100'}`}>
+          <WorkflowIcon size={12} className={workflow ? 'text-evidence-700' : 'text-mitigated-700'} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-[9px] font-bold uppercase tracking-wider text-text-muted mb-0.5">Validation workflow</div>
+          {workflow ? (
+            <>
+              <div className="text-[12px] font-semibold text-text truncate">{workflow.name}</div>
+              <div className="text-[10px] text-text-muted truncate">{workflow.description}</div>
+            </>
+          ) : (
+            <>
+              <div className="text-[12px] font-semibold text-mitigated-700">Not configured</div>
+              <div className="text-[10px] text-text-muted">Pick a prebuilt validator or build one in chat — optional but improves auto-validation.</div>
+            </>
+          )}
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          {workflow && (
+            <button onClick={onClear} className="text-[10px] text-text-muted hover:text-risk-600 cursor-pointer px-1.5 py-1">Clear</button>
+          )}
+          <button onClick={onToggle}
+            className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold cursor-pointer transition-colors flex items-center gap-1 ${
+              workflow ? 'border border-canvas-border text-text-secondary hover:bg-white'
+                : 'bg-mitigated-600 hover:bg-mitigated-700 text-white'
+            }`}>
+            {workflow ? 'Change' : 'Select'}<ChevronDown size={9} />
+          </button>
+        </div>
+      </div>
+
+      {open && (
+        <div className="absolute z-30 top-full mt-1 right-0 left-0 max-h-[280px] overflow-y-auto rounded-xl border border-canvas-border bg-white shadow-xl">
+          <div className="px-3 py-2 border-b border-canvas-border bg-canvas/40">
+            <h6 className="text-[10px] font-bold text-text uppercase tracking-wider">Pick a validation workflow</h6>
+            <p className="text-[9px] text-text-muted mt-0.5">Picks a prebuilt validator for this attribute. The selected workflow runs whenever you click <em>Run validation</em>.</p>
+          </div>
+          <div className="p-1.5 space-y-0.5">
+            {AVAILABLE_VALIDATION_WORKFLOWS.map(wf => (
+              <button key={wf.id} onClick={() => onSelect(wf)}
+                className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-canvas/60 transition-colors cursor-pointer">
+                <div className="flex items-start gap-2">
+                  <WorkflowIcon size={11} className="text-evidence-700 mt-0.5 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[11.5px] font-semibold text-text">{wf.name}</div>
+                    <div className="text-[10px] text-text-muted leading-snug">{wf.description}</div>
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+          <div className="px-2 py-2 border-t border-canvas-border bg-canvas/40">
+            <button onClick={onBuild}
+              className="w-full px-3 py-1.5 rounded-lg bg-brand-50 hover:bg-brand-100 text-brand-700 text-[11px] font-semibold cursor-pointer transition-colors flex items-center justify-center gap-1.5">
+              <Wand2 size={11} />Build a new workflow with IRA
+            </button>
+          </div>
         </div>
       )}
     </div>
