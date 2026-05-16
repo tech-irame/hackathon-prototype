@@ -7,7 +7,7 @@ import {
   Shield, Search as SearchIcon, Settings, Clock, Check,
   Wand2, MoreHorizontal, LogOut, HelpCircle, ExternalLink,
   ClipboardCheck, FileText, Target, Layers, Bell,
-  Inbox, GitCompare, FlaskConical
+  Inbox, GitCompare, FlaskConical, TrendingUp,
 } from 'lucide-react';
 import type { View } from '../../hooks/useAppState';
 
@@ -326,9 +326,6 @@ export default function Sidebar({ view, setView, expanded, toggleSidebar, unread
 
           <NavItem icon={Calendar} label="Audit Planning" active={view === 'audit-planning'} expanded={isExpanded} onClick={() => setView('audit-planning')} />
           <NavItem icon={ClipboardCheck} label="Engagements" active={view === 'engagements' || view === 'engagement-overview' || view === 'engagement-case-management'} expanded={isExpanded} onClick={() => setView('engagements')} />
-          <NavItem icon={Inbox} label="My Queue" active={view === 'my-queue'} expanded={isExpanded} onClick={() => setView('my-queue')} />
-          <NavItem icon={GitCompare} label="Engagement Compare" active={view === 'engagement-compare'} expanded={isExpanded} onClick={() => setView('engagement-compare')} />
-          <NavItem icon={FlaskConical} label="Closed-Case Sampling" active={view === 'closed-case-sampling'} expanded={isExpanded} onClick={() => setView('closed-case-sampling')} />
           <NavItem icon={Layers} label="Process Hub" active={view === 'programs' || view === 'business-processes' || view === 'bp-detail'} expanded={isExpanded} onClick={() => setView('programs')} />
 
           {/* ── GLOBAL ── */}
@@ -346,6 +343,7 @@ export default function Sidebar({ view, setView, expanded, toggleSidebar, unread
           <Divider label="System" expanded={isExpanded} />
 
           <NavItem icon={Database} label="Knowledge Hub" active={view === 'knowledge-hub' || view === 'data-sources' || view === 'configuration'} expanded={isExpanded} onClick={() => setView('knowledge-hub')} />
+          <NavItem icon={TrendingUp} label="Platform Usage" active={view === 'platform-usage'} expanded={isExpanded} onClick={() => setView('platform-usage')} />
           <NavItem icon={Settings} label="Admin" active={adminViews.includes(view)} expanded={isExpanded} onClick={() => setView('admin-users')} />
 
         </div>

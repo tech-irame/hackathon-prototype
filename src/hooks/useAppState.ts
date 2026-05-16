@@ -55,6 +55,7 @@ export type View =
   | 'configuration'
   | 'data-sources'
   | 'knowledge-hub'
+  | 'platform-usage'
   | 'admin-users'
   | 'admin-roles'
   | 'admin-settings'

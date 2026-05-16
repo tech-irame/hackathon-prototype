@@ -46,6 +46,7 @@ import EvidenceView from './components/execution/EvidenceView';
 import AIConciergeView from './components/intelligence/AIConciergeView';
 import WorkflowBuilderJourney from './components/concierge-workflow-builder/WorkflowBuilderJourney';
 import AdminView from './components/admin/AdminView';
+import PlatformUsageView from './components/admin/PlatformUsageView';
 import FindingsView from './components/execution/FindingsView';
 import WorkflowExecutor from './components/workflow/WorkflowExecutor';
 import WorkflowEditInChatJourney from './components/workflow-edit-in-chat/WorkflowEditInChatJourney';
@@ -672,6 +673,10 @@ export default function App() {
             onOpenTrace={(id) => openExecutionPanel('traceability', id)}
           />
         );
+
+      // System
+      case 'platform-usage':
+        return <PlatformUsageView />;
 
       // Admin
       case 'admin-users':

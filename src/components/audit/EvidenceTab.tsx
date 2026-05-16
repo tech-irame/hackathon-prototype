@@ -1301,20 +1301,15 @@ function SampleBasedAttrSection({ ctrl, attr, expanded, onToggle, samples, round
           </div>
 
           {/* Actions */}
-          <div className="flex items-center gap-2">
-            {running ? (
-              <span className="px-3 py-1.5 rounded-lg bg-evidence-50 text-evidence-700 text-[11px] font-semibold inline-flex items-center gap-1.5">
-                <Sparkles size={11} className="animate-pulse" />Validating samples…
-              </span>
-            ) : (
-              <button onClick={onRunAi} disabled={!evidenceReady}
-                className="px-3 py-1.5 rounded-lg bg-evidence-600 hover:bg-evidence-700 text-white text-[11px] font-semibold cursor-pointer transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed">
-                <Sparkles size={11} />{allTested ? 'Re-run' : 'Run'} {validationWorkflow ? validationWorkflow.name : 'AI validation'}
-              </button>
-            )}
-            {!evidenceReady && <span className="text-[10px] text-text-muted">Upload all required evidence to enable validation.</span>}
-            {evidenceReady && !validationWorkflow && <span className="text-[10px] text-text-muted">No workflow attached — defaults to generic AI validation.</span>}
-          </div>
+          <RunValidationBar
+            running={running}
+            evidenceReady={evidenceReady}
+            allTested={allTested}
+            validationWorkflow={validationWorkflow}
+            onRunAi={onRunAi}
+            onBuildWorkflow={onBuildWorkflow}
+            onPickWorkflow={onTogglePicker}
+          />
 
           {/* Round trigger */}
           {allTested && failCount > 0 && (
@@ -1421,26 +1416,23 @@ function GenericAttrSection({ ctrl, attr, expanded, onToggle, result, running, v
           </div>
 
           {/* Actions */}
+          <RunValidationBar
+            running={running}
+            evidenceReady={evComplete}
+            allTested={!!effective}
+            validationWorkflow={validationWorkflow}
+            onRunAi={onRunAi}
+            onBuildWorkflow={onBuildWorkflow}
+            onPickWorkflow={onTogglePicker}
+          />
           <div className="flex items-center gap-2">
-            {running ? (
-              <span className="px-3 py-1.5 rounded-lg bg-evidence-50 text-evidence-700 text-[11px] font-semibold inline-flex items-center gap-1.5">
-                <Sparkles size={11} className="animate-pulse" />Validating…
-              </span>
-            ) : (
-              <button onClick={onRunAi} disabled={!evComplete}
-                className="px-3 py-1.5 rounded-lg bg-evidence-600 hover:bg-evidence-700 text-white text-[11px] font-semibold cursor-pointer transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed">
-                <Sparkles size={11} />Run {validationWorkflow ? validationWorkflow.name : 'AI validation'}
-              </button>
-            )}
-            <span className="ml-auto flex items-center gap-1">
-              <span className="text-[10px] text-text-muted mr-1">Override:</span>
-              <button onClick={() => onSetHumanVerdict('Pass')} disabled={!evComplete}
-                className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-compliant-50 text-compliant-700 hover:bg-compliant-100 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">Pass</button>
-              <button onClick={() => onSetHumanVerdict('Fail')} disabled={!evComplete}
-                className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-risk-50 text-risk-700 hover:bg-risk-100 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">Fail</button>
-            </span>
+            <span className="text-[10px] text-text-muted mr-1">Manual override:</span>
+            <button onClick={() => onSetHumanVerdict('Pass')} disabled={!evComplete}
+              className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-compliant-50 text-compliant-700 hover:bg-compliant-100 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">Pass</button>
+            <button onClick={() => onSetHumanVerdict('Fail')} disabled={!evComplete}
+              className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-risk-50 text-risk-700 hover:bg-risk-100 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">Fail</button>
             {effective === 'Fail' && (
-              <button onClick={onReplaceEvidence} className="text-[10px] text-mitigated-700 hover:underline cursor-pointer inline-flex items-center gap-0.5"><RotateCcw size={9} />Replace evidence and retry</button>
+              <button onClick={onReplaceEvidence} className="ml-auto text-[10px] text-mitigated-700 hover:underline cursor-pointer inline-flex items-center gap-0.5"><RotateCcw size={9} />Replace evidence and retry</button>
             )}
           </div>
 
@@ -1862,6 +1854,69 @@ function RailGroup({ label, tone, count, children }: { label: string; tone: stri
         <span className="text-[10px] text-text-muted tabular-nums">{count}</span>
       </div>
       {children}
+    </div>
+  );
+}
+
+// ─── Run-validation bar (handles configured vs unconfigured cases) ──────────
+
+function RunValidationBar({ running, evidenceReady, allTested, validationWorkflow, onRunAi, onBuildWorkflow, onPickWorkflow }: {
+  running: boolean;
+  evidenceReady: boolean;
+  allTested: boolean;
+  validationWorkflow: ValidationWorkflow | undefined;
+  onRunAi: () => void;
+  onBuildWorkflow: () => void;
+  onPickWorkflow: () => void;
+}): JSX.Element {
+  // Banner row + button row, so the auditor always sees which validator will run.
+  const validatorName = validationWorkflow ? validationWorkflow.name : 'Generic AI validation';
+  const validatorBlurb = validationWorkflow
+    ? validationWorkflow.description
+    : 'A built-in lightweight LLM checker that scans each uploaded file and returns a Pass/Fail. Lower precision than a custom workflow.';
+
+  return (
+    <div className="rounded-xl border border-evidence-100 bg-evidence-50/20 px-3 py-2.5 space-y-2.5">
+      <div className="flex items-start gap-2.5">
+        <div className="shrink-0 w-7 h-7 rounded-lg bg-evidence-100 flex items-center justify-center"><Sparkles size={12} className="text-evidence-700" /></div>
+        <div className="flex-1 min-w-0">
+          <div className="text-[9px] font-bold text-text-muted uppercase tracking-wider mb-0.5">Will run on click</div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[12px] font-semibold text-text truncate">{validatorName}</span>
+            {!validationWorkflow && <span className="px-1.5 py-0.5 rounded text-[8.5px] font-bold bg-mitigated-50 text-mitigated-700 border border-mitigated-100">Fallback</span>}
+          </div>
+          <p className="text-[10px] text-text-muted mt-0.5 leading-snug">{validatorBlurb}</p>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 flex-wrap">
+        {running ? (
+          <span className="px-3 py-1.5 rounded-lg bg-evidence-100 text-evidence-700 text-[11px] font-semibold inline-flex items-center gap-1.5">
+            <Sparkles size={11} className="animate-pulse" />Running {validatorName}…
+          </span>
+        ) : (
+          <button onClick={onRunAi} disabled={!evidenceReady}
+            className="px-3 py-1.5 rounded-lg bg-evidence-600 hover:bg-evidence-700 text-white text-[11px] font-semibold cursor-pointer transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed">
+            <Sparkles size={11} />{allTested ? 'Re-run' : 'Run'} {validatorName}
+          </button>
+        )}
+
+        {!validationWorkflow && !running && (
+          <>
+            <span className="text-text-muted text-[10px]">or</span>
+            <button onClick={onPickWorkflow}
+              className="px-2.5 py-1 rounded-lg border border-evidence-200 bg-white text-evidence-700 text-[10.5px] font-semibold cursor-pointer hover:bg-evidence-50 transition-colors flex items-center gap-1">
+              Pick a workflow
+            </button>
+            <button onClick={onBuildWorkflow}
+              className="px-2.5 py-1 rounded-lg border border-brand-200 bg-white text-brand-700 text-[10.5px] font-semibold cursor-pointer hover:bg-brand-50 transition-colors flex items-center gap-1">
+              <Wand2 size={10} />Build new with IRA
+            </button>
+          </>
+        )}
+
+        {!evidenceReady && !running && <span className="text-[10px] text-text-muted ml-auto">Upload all required evidence to enable.</span>}
+      </div>
     </div>
   );
 }
