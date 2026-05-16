@@ -69,9 +69,9 @@ User-facing label: **Project**
 |-----|--------|-------------|
 | Overview | Implemented | — |
 | Workflows | Implemented — Workflow Library-style table with search/select-all/detail view, Create Workflow CTA, Run Selected CTA via BulkExecuteModal, in-tab workflow detail (Overview/Runs/Configuration), run history | **Reuses Workflow Library BulkExecuteModal** |
-| Output Review | Implemented — bulk exception triage, deficiency classification | — |
+| Output Review | Implemented — workflow-grouped outputs/exceptions, per-workflow accordion with expand/collapse, workflow detail drilldown panel, bulk exception triage, deficiency classification | — |
 | Cases / Exceptions | Implemented — embedded ManageExceptionsView | **Reuses ManageExceptionsView** |
-| Reports | Implemented — draft generation, finalize, deficiency/remediation summary | — |
+| Reports | Implemented — platform-style report with purple gradient header/FloatingLines, executive summary stat cards, workflow-wise sections with outputs/findings/exceptions/cases, key metrics, recommendations. Apply Template/Share/Download placeholders. Data from V3 state only. | **Reuses FloatingLines from platform** |
 | Schedule | Implemented — recurring config, activate/pause/resume/disable | — |
 
 **E2E QA**: Passed. Full workflows-to-schedule flow verified with reused system components.
@@ -178,6 +178,7 @@ This avoids duplicating execution and case management UX inside V3.
 8. **Dead props** — `casesState`/`onUpdateCases` are passed to AutomationCasesTab but unused after ManageExceptionsView replacement.
 9. **No real integrations** — no email sending, file upload to backend, scheduler execution, report export, or Case Management API.
 10. **Mock data** — all workflow execution outputs and exceptions are simulated based on workflow name keyword matching.
+11. **Report actions are placeholders** — Apply Template, Share, and Download buttons in the automation Reports tab are visual placeholders that show alerts. No real PDF/export functionality is connected.
 
 ---
 
