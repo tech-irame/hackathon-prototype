@@ -5,7 +5,8 @@
 import type { EngagementExecution, ExecutionControl, ControlExecutionState, TestItem, AttributeResult } from './types';
 import {
   ControlExecStatus, ImportanceClass, NatureClass, AutomationClass,
-  AttributeType, ReviewStatus, WorkingPaperStatus, AttrResult, AttrSource, SampleResult, ExecutionMode,
+  AttributeType, AttrScope, SamplingMethod,
+  ReviewStatus, WorkingPaperStatus, AttrResult, AttrSource, SampleResult, ExecutionMode,
 } from './types';
 
 // ─── Helper: create fresh execution state ─────────────────────────────────
@@ -15,7 +16,7 @@ import {
  * step is demonstrable without first walking the upload + sampling flow.
  * Used only by `exec-c001`.
  */
-function seededExecution(attrIds: string[]): ControlExecutionState {
+function seededExecution(attrIds: string[], opts?: { skipSampling?: boolean }): ControlExecutionState {
   const departments = ['Engineering', 'Marketing', 'Operations', 'Finance', 'Sales', 'HR', 'Legal', 'IT'];
   const rows = departments.map((dept, i) => ({
     rowIndex: i + 1,
@@ -46,6 +47,7 @@ function seededExecution(attrIds: string[]): ControlExecutionState {
       sampleResult: SampleResult.PENDING,
     };
   });
+  const samplingDone = !opts?.skipSampling;
   return {
     status: ControlExecStatus.TEST_ITEMS_READY,
     population: {
@@ -59,7 +61,16 @@ function seededExecution(attrIds: string[]): ControlExecutionState {
       testUnit: 'Department budget submission',
     },
     executionMode: ExecutionMode.FULL_RUN,
-    testItems,
+    testItems: samplingDone ? testItems : [],
+    sampling: samplingDone ? {
+      method: SamplingMethod.RANDOM,
+      sampleSize: testItems.length,
+      generatedAt: '2026-04-08T09:15:00Z',
+      sampleItemIds: testItems.map(t => t.id),
+    } : null,
+    /** Empty list so the user sees the "No workflows configured" empty state + CTA. */
+    validationWorkflows: [],
+    genericResults: {},
     review: {
       status: ReviewStatus.NOT_SUBMITTED, submittedAt: null, reviewedAt: null, reviewer: '', comments: '',
     },
@@ -115,34 +126,45 @@ const CONTROLS: ExecutionControl[] = [
     attributes: [
       {
         id: 'attr-c001-01', name: 'Budget reflects historical spending data',
-        description: 'Verify budget references prior year actuals and trend analysis.',
+        description: 'For each department in the sample, confirm the FY26 budget references prior-year actuals and a trend rationale.',
         assertionId: 'asr-c001-acc', assertionName: 'Accuracy',
-        type: AttributeType.MANUAL, required: true,
+        type: AttributeType.MANUAL, scope: AttrScope.SAMPLE_BASED, required: true,
         requiredEvidenceTypes: ['Budget workbook', 'Prior year actuals'],
+        evidenceDescriptions: [
+          'Department budget workbook for FY26 with line-item detail.',
+          'Prior-year actual spending report (FY25) used as baseline.',
+        ],
         workflowId: 'wf-budget-review',
       },
       {
         id: 'attr-c001-02', name: 'Budget includes anticipated OPEX and CAPEX requirements',
-        description: 'Confirm both operating and capital expenditure categories are present.',
+        description: 'For each department in the sample, confirm both OPEX and CAPEX categories are present and break out by line item.',
         assertionId: 'asr-c001-comp', assertionName: 'Completeness',
-        type: AttributeType.MANUAL, required: true,
+        type: AttributeType.MANUAL, scope: AttrScope.SAMPLE_BASED, required: true,
         requiredEvidenceTypes: ['Budget workbook'],
+        evidenceDescriptions: ['Department budget workbook showing OPEX + CAPEX tabs.'],
         workflowId: 'wf-budget-review',
       },
       {
         id: 'attr-c001-03', name: 'Budget aligns with approved project plans',
-        description: 'Cross-reference budget line items against approved project charters.',
+        description: 'For each department in the sample, cross-reference budget line items against approved project charters.',
         assertionId: 'asr-c001-val', assertionName: 'Validity',
-        type: AttributeType.MANUAL, required: true,
+        type: AttributeType.MANUAL, scope: AttrScope.SAMPLE_BASED, required: true,
         requiredEvidenceTypes: ['Project charter', 'Budget workbook'],
+        evidenceDescriptions: [
+          'Approved project charter for projects funded in this budget.',
+          'Department budget workbook with project line items.',
+        ],
         workflowId: 'wf-budget-review',
       },
+      // GENERIC attribute — control-level check, no sample loop.
       {
-        id: 'attr-c001-04', name: 'Budget aligns with strategic priorities',
-        description: 'Verify budget allocations reflect board-approved strategic objectives.',
+        id: 'attr-c001-04', name: 'Master budget signed off by CFO',
+        description: 'Confirm the consolidated FY26 procurement budget has been signed and dated by the CFO at the engagement level. One signed document covers the whole control.',
         assertionId: 'asr-c001-val', assertionName: 'Validity',
-        type: AttributeType.MANUAL, required: true,
-        requiredEvidenceTypes: ['Strategic plan', 'Budget workbook'],
+        type: AttributeType.MANUAL, scope: AttrScope.GENERIC, required: true,
+        requiredEvidenceTypes: ['CFO-signed budget cover sheet'],
+        evidenceDescriptions: ['Single signed cover sheet for the consolidated FY26 procurement budget, signed and dated by the CFO.'],
         workflowId: 'wf-budget-review',
       },
     ],
@@ -177,33 +199,33 @@ const CONTROLS: ExecutionControl[] = [
     attributes: [
       {
         id: 'attr-c002-01', name: 'PO exists for invoice',
-        description: 'Verify a valid, approved Purchase Order exists for every invoice submitted for payment.',
+        description: 'For each sampled invoice, verify a valid, approved Purchase Order exists in the ERP.',
         assertionId: 'asr-c002-exist', assertionName: 'Existence',
-        type: AttributeType.AUTOMATED, required: true,
+        type: AttributeType.AUTOMATED, scope: AttrScope.SAMPLE_BASED, required: true,
         requiredEvidenceTypes: ['PO document'],
         workflowId: 'wf-po-validation',
       },
       {
         id: 'attr-c002-02', name: 'GRN exists for invoice',
-        description: 'Confirm a Goods Receipt Note exists matching the invoice line items.',
+        description: 'For each sampled invoice, confirm a GRN exists matching the line items.',
         assertionId: 'asr-c002-comp', assertionName: 'Completeness',
-        type: AttributeType.AUTOMATED, required: true,
+        type: AttributeType.AUTOMATED, scope: AttrScope.SAMPLE_BASED, required: true,
         requiredEvidenceTypes: ['GRN document'],
         workflowId: 'wf-grn-matching',
       },
       {
         id: 'attr-c002-03', name: 'Invoice amount matches PO amount',
-        description: 'Validate invoice total matches PO total within configured tolerance.',
+        description: 'For each sampled invoice, confirm the invoice total matches the PO total within tolerance.',
         assertionId: 'asr-c002-acc', assertionName: 'Accuracy',
-        type: AttributeType.AUTOMATED, required: true,
+        type: AttributeType.AUTOMATED, scope: AttrScope.SAMPLE_BASED, required: true,
         requiredEvidenceTypes: ['Invoice document', 'PO document'],
         workflowId: 'wf-invoice-match',
       },
       {
         id: 'attr-c002-04', name: 'Payment approval exists',
-        description: 'Confirm appropriate payment approval was obtained before release per delegation matrix.',
+        description: 'For each sampled invoice, confirm appropriate payment approval was obtained before release per delegation matrix.',
         assertionId: 'asr-c002-auth', assertionName: 'Authorization',
-        type: AttributeType.MANUAL, required: true,
+        type: AttributeType.MANUAL, scope: AttrScope.SAMPLE_BASED, required: true,
         requiredEvidenceTypes: ['Approval log'],
         workflowId: 'wf-payment-approval',
       },
@@ -258,25 +280,25 @@ const CONTROLS: ExecutionControl[] = [
     attributes: [
       {
         id: 'attr-c003-01', name: 'Duplicate invoice number check',
-        description: 'System scans for exact invoice number matches across vendors and periods.',
+        description: 'For each sampled invoice, system scans for exact invoice number matches across vendors and periods.',
         assertionId: 'asr-c003-acc', assertionName: 'Accuracy',
-        type: AttributeType.AUTOMATED, required: true,
+        type: AttributeType.AUTOMATED, scope: AttrScope.SAMPLE_BASED, required: true,
         requiredEvidenceTypes: ['System log'],
         workflowId: 'wf-dup-detector',
       },
       {
         id: 'attr-c003-02', name: 'Vendor + amount duplicate check',
-        description: 'System flags invoices with matching vendor ID and amount within configurable window.',
+        description: 'For each sampled invoice, system flags matching vendor ID + amount within configurable window.',
         assertionId: 'asr-c003-acc', assertionName: 'Accuracy',
-        type: AttributeType.AUTOMATED, required: true,
+        type: AttributeType.AUTOMATED, scope: AttrScope.SAMPLE_BASED, required: true,
         requiredEvidenceTypes: ['System log'],
         workflowId: 'wf-dup-detector',
       },
       {
         id: 'attr-c003-03', name: 'Duplicate override authorization',
-        description: 'Verify that any duplicate override was authorized by an appropriate approver.',
+        description: 'For each duplicate override in the period, verify it was authorized by an appropriate approver.',
         assertionId: 'asr-c003-val', assertionName: 'Validity',
-        type: AttributeType.AUTOMATED, required: true,
+        type: AttributeType.AUTOMATED, scope: AttrScope.SAMPLE_BASED, required: true,
         requiredEvidenceTypes: ['Override log', 'Approval log'],
         workflowId: 'wf-override-monitor',
       },

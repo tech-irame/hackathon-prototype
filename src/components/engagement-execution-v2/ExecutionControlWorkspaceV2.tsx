@@ -11,8 +11,9 @@ import {
   Play, Layers, Settings, Workflow, Plus, Trash2, Database, Shuffle, Paperclip, Download,
   Send, RotateCcw, Link2, Loader2, ArrowLeft, Check,
 } from 'lucide-react';
+import AttributeTestingStepV2 from './AttributeTestingStepV2';
 import type { ExecutionControl, Attribute, Assertion, WorkflowMapping, TestItem, AttributeResult, PopulationSnapshot, Evidence, AttributeRound } from './types';
-import { ControlExecStatus, AttrResult, AttrSource, SampleResult, ExecutionMode, ReviewStatus, WorkingPaperStatus, AttributeType } from './types';
+import { ControlExecStatus, AttrResult, AttrSource, SampleResult, ExecutionMode, ReviewStatus, WorkingPaperStatus, AttributeType, AttrScope, SamplingMethod } from './types';
 import {
   EXEC_STATUS_DISPLAY, CONCLUSION_DISPLAY, CONTROL_TYPE_DISPLAY,
 } from './executionState';
@@ -53,11 +54,12 @@ interface Props {
   onClose: () => void;
   onUpdateControl: (updater: (ctrl: ExecutionControl) => ExecutionControl) => void;
   initialStepId?: string | null;
+  onLaunchWorkflowBuilder?: (seedPrompt: string) => void;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────
 
-export default function ExecutionControlWorkspaceV2({ ctrl, onClose, onUpdateControl, initialStepId }: Props) {
+export default function ExecutionControlWorkspaceV2({ ctrl, onClose, onUpdateControl, initialStepId, onLaunchWorkflowBuilder }: Props) {
   const controlType = deriveControlType(ctrl);
   const coverage = deriveWorkflowCoverage(ctrl);
   const nextAction = deriveNextAction(ctrl);
@@ -140,7 +142,7 @@ export default function ExecutionControlWorkspaceV2({ ctrl, onClose, onUpdateCon
         ) : activeStepId === 'samples' && activeAvailability.enabled ? (
           <UnifiedSamplesStep ctrl={ctrl} controlType={controlType} onUpdateControl={onUpdateControl} onNavigate={setActiveStepId} />
         ) : activeStepId === 'attr-testing' && activeAvailability.enabled ? (
-          <AttributeTestingStep ctrl={ctrl} onUpdateControl={onUpdateControl} onNavigate={setActiveStepId} />
+          <AttributeTestingStepV2 ctrl={ctrl} onUpdateControl={onUpdateControl} onNavigate={setActiveStepId} onLaunchWorkflowBuilder={onLaunchWorkflowBuilder} />
         ) : activeStepId === 'working-paper' && activeAvailability.enabled ? (
           <WorkingPaperStep ctrl={ctrl} controlType={controlType} onNavigate={setActiveStepId} />
         ) : activeStepId === 'review' && activeAvailability.enabled ? (
@@ -209,7 +211,7 @@ function OverviewStep({ ctrl, controlType, coverage, nextAction, onNavigate, onU
     const id = `attr-${Date.now()}`;
     const newAttr: Attribute = {
       id, name: attrName.trim(), description: attrDesc, assertionId: asr.id, assertionName: asr.name,
-      type: attrType as any, required: attrRequired, requiredEvidenceTypes: attrEvTypes, workflowId: attrWfId || undefined,
+      type: attrType as any, scope: AttrScope.SAMPLE_BASED, required: attrRequired, requiredEvidenceTypes: attrEvTypes, workflowId: attrWfId || undefined,
     };
     onUpdateControl(prev => {
       const updated = { ...prev, attributes: [...prev.attributes, newAttr] };

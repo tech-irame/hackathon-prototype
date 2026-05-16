@@ -25,11 +25,12 @@ import ExecutionControlWorkspaceV2 from './ExecutionControlWorkspaceV2';
 interface Props {
   engagementId?: string;
   onBack: () => void;
+  onLaunchWorkflowBuilder?: (seedPrompt: string) => void;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────
 
-export default function EngagementExecutionV2({ engagementId, onBack }: Props) {
+export default function EngagementExecutionV2({ engagementId, onBack, onLaunchWorkflowBuilder }: Props) {
   const [engagement, setEngagement] = useState<EngagementExecution>(MOCK_ENGAGEMENT_V2);
 
   const updateControl = (controlId: string, updater: (ctrl: ExecutionControl) => ExecutionControl) => {
@@ -216,6 +217,7 @@ export default function EngagementExecutionV2({ engagementId, onBack }: Props) {
             onClose={() => { setSelectedControlId(null); setInitialStepId(null); }}
             onUpdateControl={(updater) => updateControl(selectedControl.id, updater)}
             initialStepId={initialStepId}
+            onLaunchWorkflowBuilder={onLaunchWorkflowBuilder}
           />
         )}
 

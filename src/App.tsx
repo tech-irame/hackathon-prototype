@@ -441,6 +441,7 @@ export default function App() {
           <EngagementExecutionV2
             engagementId={state.selectedEngagementId ?? undefined}
             onBack={() => setView(engagementBackView)}
+            onLaunchWorkflowBuilder={launchWorkflowBuilderWithPrompt}
           />
         );
 

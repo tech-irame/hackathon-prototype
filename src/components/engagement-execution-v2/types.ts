@@ -30,6 +30,59 @@ export type AutomationClass = typeof AutomationClass[keyof typeof AutomationClas
 export const AttributeType = { AUTOMATED: 'AUTOMATED', MANUAL: 'MANUAL' } as const;
 export type AttributeType = typeof AttributeType[keyof typeof AttributeType];
 
+/**
+ * Attribute scope: does this attribute loop over the control's samples
+ * (SAMPLE_BASED) or is it a single control-level check (GENERIC)?
+ * Drives whether the per-attribute card uses a per-sample table or a one-shot upload.
+ */
+export const AttrScope = { SAMPLE_BASED: 'SAMPLE_BASED', GENERIC: 'GENERIC' } as const;
+export type AttrScope = typeof AttrScope[keyof typeof AttrScope];
+
+/** Sampling method picked at the control level. */
+export const SamplingMethod = {
+  RANDOM: 'RANDOM',
+  STATISTICAL: 'STATISTICAL',
+  COLUMN_FILTER: 'COLUMN_FILTER',
+  WORKFLOW: 'WORKFLOW',
+} as const;
+export type SamplingMethod = typeof SamplingMethod[keyof typeof SamplingMethod];
+
+/** Sampling configuration at the control level. */
+export interface SamplingConfig {
+  method: SamplingMethod;
+  /** Target sample size — applies to RANDOM, STATISTICAL, COLUMN_FILTER. */
+  sampleSize: number;
+  /** Human-readable filter description shown on the card. Used for COLUMN_FILTER. */
+  filterDescription?: string;
+  /** Reference to the workflow that generates the sample list. Used for WORKFLOW. */
+  samplingWorkflowId?: string;
+  samplingWorkflowName?: string;
+  /** ISO timestamp when the sample set was generated. Null = not generated yet. */
+  generatedAt: string | null;
+  /** Generated TestItem IDs that comprise the sample. */
+  sampleItemIds: string[];
+}
+
+/** A workflow that validates uploaded evidence for a control. */
+export interface ValidationWorkflow {
+  id: string;
+  name: string;
+  /** Short description of what the workflow checks (e.g. "OCR PDF + verify CFO signature"). */
+  description: string;
+  /** ISO timestamp of the last run, null if never run. */
+  lastRunAt: string | null;
+  status: 'DRAFT' | 'ACTIVE' | 'ERROR';
+}
+
+/** Single-shot result for a generic-scope attribute (no sample loop). */
+export interface GenericAttributeResult {
+  result: AttrResult;
+  evidenceIds: string[];
+  notes: string;
+  testedAt: string | null;
+  testedBy: string | null;
+}
+
 export const ExecutionMode = { FULL_RUN: 'FULL_RUN', SAMPLING: 'SAMPLING' } as const;
 export type ExecutionMode = typeof ExecutionMode[keyof typeof ExecutionMode];
 
@@ -70,9 +123,21 @@ export interface Attribute {
   description: string;
   assertionId: string;
   assertionName: string;
+  /** Automation type — MANUAL = auditor evaluates, AUTOMATED = workflow evaluates. */
   type: AttributeType;
+  /**
+   * Sampling scope — SAMPLE_BASED means the attribute is checked against every sample
+   * in the control's sample set. GENERIC means the attribute is a single control-level
+   * check with one evidence upload + one Pass/Fail.
+   */
+  scope: AttrScope;
   required: boolean;
   requiredEvidenceTypes: string[];
+  /**
+   * Per-evidence-type guidance. Index-aligned with requiredEvidenceTypes.
+   * Shown next to the upload control so the user knows what to attach.
+   */
+  evidenceDescriptions?: string[];
   workflowId?: string;
 }
 
@@ -184,8 +249,14 @@ export interface ControlExecutionState {
   review: ReviewState;
   workingPaper: WorkingPaper;
   conclusion: Conclusion;
-  /** Per-attribute round metadata. Keyed by attributeId. */
+  /** Per-attribute round metadata. Keyed by attributeId. SAMPLE_BASED attrs only. */
   attributeRounds?: Record<string, AttributeRound[]>;
+  /** Control-level sampling config + generated sample item IDs. */
+  sampling?: SamplingConfig | null;
+  /** Workflows that validate uploaded evidence for this control. */
+  validationWorkflows?: ValidationWorkflow[];
+  /** Single-shot results for GENERIC-scope attributes. Keyed by attributeId. */
+  genericResults?: Record<string, GenericAttributeResult>;
 }
 
 export interface ExecutionControl {
