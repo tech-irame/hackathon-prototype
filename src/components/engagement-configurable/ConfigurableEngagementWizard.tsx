@@ -1,10 +1,11 @@
 // ─── Configurable Engagement V3 — Creation Wizard ─────────────────────────
-// 4-step wizard: Choose Work Type → Details → Pattern Setup → Review & Create
-// Not wired to app routing yet. Local state only.
+// Modal-based creation wizard: Choose Work Type → Details → Pattern Setup → Review & Create
+// Landing pages (ComplianceEngagementView, AutomationPortfolioView) and workspaces remain full-page.
 // See docs/CONFIGURABLE_ENGAGEMENT_V3_MEMORY.md for product rules.
 
 import React, { useState, useMemo } from 'react';
-import { ChevronRight, ChevronLeft, CheckCircle2, Info } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { ChevronRight, ChevronLeft, CheckCircle2, Info, X, Check } from 'lucide-react';
 import type { EngagementPatternType, EngagementConfig, ConfigurableEngagement, ValidationResult } from './configurableEngagementTypes';
 import ConfigurableEngagementWorkspace from './ConfigurableEngagementWorkspace';
 import {
@@ -18,6 +19,7 @@ import { PatternSelectionStep, CommonDetailsStep, PatternConfigStep, ReviewCreat
 import type { CommonDetails } from './components';
 import AutomationPortfolioView from './AutomationPortfolioView';
 import ComplianceEngagementView from './ComplianceEngagementView';
+import EngagementExecutionV2 from '../engagement-execution-v2/EngagementExecutionV2';
 
 // ─── Step definitions ─────────────────────────────────────────────────────
 
@@ -93,11 +95,12 @@ export default function ConfigurableEngagementWizard({ onNavigateToView }: Wizar
   const [selectedPattern, setSelectedPattern] = useState<EngagementPatternType | null>(null);
   const [details, setDetails] = useState<CommonDetails>(DEFAULT_DETAILS);
   const [config, setConfig] = useState<EngagementConfig>(getDefaultConfig(EPT.COMPLIANCE_CONTROL_TESTING));
-  const [isCreated, setIsCreated] = useState(false);
   const [createdEngagement, setCreatedEngagement] = useState<ConfigurableEngagement | null>(null);
   const [showPortfolio, setShowPortfolio] = useState(false);
   const [showComplianceView, setShowComplianceView] = useState(false);
   const [openedFromPortfolio, setOpenedFromPortfolio] = useState(false);
+  const [openedFromComplianceView, setOpenedFromComplianceView] = useState(false);
+  const [showWizardModal, setShowWizardModal] = useState(false);
 
   // When pattern changes, reset config to defaults
   const handlePatternSelect = (pt: EngagementPatternType) => {
@@ -140,13 +143,49 @@ export default function ConfigurableEngagementWizard({ onNavigateToView }: Wizar
 
   const reviewerRequired = selectedPattern === EPT.COMPLIANCE_CONTROL_TESTING;
 
-  // Step navigation
+  // ── Open wizard modal ──────────────────────────────────────────────────
+
+  const openWizardModal = (pattern: EngagementPatternType, startStep = 1) => {
+    setSelectedPattern(pattern);
+    setConfig(getDefaultConfig(pattern));
+    setDetails(DEFAULT_DETAILS);
+    setCreatedEngagement(null);
+    setCurrentStep(startStep);
+    setShowWizardModal(true);
+  };
+
+  // ── Close wizard modal safely ──────────────────────────────────────────
+
+  const closeWizardModal = () => {
+    setShowWizardModal(false);
+  };
+
+  // ── Step navigation inside modal ───────────────────────────────────────
+
   const canGoNext = () => {
     if (currentStep === 0) return !!selectedPattern;
     if (currentStep === 1) return !!details.name.trim() && !!details.owner.trim() && !!details.description.trim();
-    if (currentStep === 2) return true; // validation shown on review step
+    if (currentStep === 2) return true;
     return false;
   };
+
+  const handleModalBack = () => {
+    if (currentStep <= 1) {
+      closeWizardModal();
+      return;
+    }
+    setCurrentStep(s => Math.max(0, s - 1));
+  };
+
+  const handleModalNext = () => {
+    if (currentStep === 0 && selectedPattern) {
+      setCurrentStep(1);
+      return;
+    }
+    setCurrentStep(s => Math.min(3, s + 1));
+  };
+
+  // ── Create engagement and close modal ──────────────────────────────────
 
   const handleCreate = () => {
     if (!validation.isValid || !draftEngagement) return;
@@ -166,35 +205,41 @@ export default function ConfigurableEngagementWizard({ onNavigateToView }: Wizar
       })),
     };
     setCreatedEngagement(eng);
-    setIsCreated(true);
+    setShowWizardModal(false);
+    setShowComplianceView(false);
+    setShowPortfolio(false);
   };
+
+  // ── Back from workspace ────────────────────────────────────────────────
 
   const handleBackToWizard = () => {
     if (openedFromPortfolio) {
-      // Back from workspace opened via portfolio card → return to portfolio
       setCreatedEngagement(null);
-      setIsCreated(false);
       setOpenedFromPortfolio(false);
       setShowPortfolio(true);
       return;
     }
     if (createdEngagement?.patternType === EPT.WORKFLOW_AUTOMATION_PROJECT) {
-      // Back from workspace created via portfolio Create CTA → return to portfolio
       setCreatedEngagement(null);
-      setIsCreated(false);
       setShowPortfolio(true);
       return;
     }
-    if (createdEngagement?.patternType === EPT.COMPLIANCE_CONTROL_TESTING) {
-      // Back from compliance workspace → return to compliance engagement view
+    if (openedFromComplianceView || createdEngagement?.patternType === EPT.COMPLIANCE_CONTROL_TESTING) {
       setCreatedEngagement(null);
-      setIsCreated(false);
+      setOpenedFromComplianceView(false);
       setShowComplianceView(true);
       return;
     }
+    // IA or other — back to hub
     setCreatedEngagement(null);
-    setIsCreated(false);
-    setCurrentStep(3); // go back to review step
+  };
+
+  // ── Landing page handlers ──────────────────────────────────────────────
+
+  const handleOpenFromComplianceView = (eng: ConfigurableEngagement) => {
+    setCreatedEngagement(eng);
+    setOpenedFromComplianceView(true);
+    setShowComplianceView(false);
   };
 
   const handleOpenFromPortfolio = (eng: ConfigurableEngagement) => {
@@ -203,165 +248,210 @@ export default function ConfigurableEngagementWizard({ onNavigateToView }: Wizar
     setShowPortfolio(false);
   };
 
-  const handleCreateFromPortfolio = () => {
-    setShowPortfolio(false);
-    setSelectedPattern(EPT.WORKFLOW_AUTOMATION_PROJECT);
-    setConfig(getDefaultConfig(EPT.WORKFLOW_AUTOMATION_PROJECT));
-    setCurrentStep(1); // skip pattern selection, go to details
+  // ── Modal title ────────────────────────────────────────────────────────
+
+  const modalTitle = useMemo(() => {
+    if (!selectedPattern) return 'Create Engagement';
+    if (selectedPattern === EPT.COMPLIANCE_CONTROL_TESTING) return 'Plan Engagement';
+    if (selectedPattern === EPT.INTERNAL_AUDIT_ASSIGNMENT) return 'Create Audit Assignment';
+    return 'Create Automation Project';
+  }, [selectedPattern]);
+
+  // ── Hub: pattern selection (landing page for Work Type) ────────────────
+
+  const renderHub = () => (
+    <div className="max-w-2xl mx-auto py-8 px-4">
+      <PatternSelectionStep
+        selectedPattern={selectedPattern}
+        onSelect={(pt) => {
+          handlePatternSelect(pt);
+          if (pt === EPT.COMPLIANCE_CONTROL_TESTING) {
+            setShowComplianceView(true);
+          } else if (pt === EPT.WORKFLOW_AUTOMATION_PROJECT) {
+            setShowPortfolio(true);
+          } else {
+            openWizardModal(pt);
+          }
+        }}
+      />
+    </div>
+  );
+
+  // ── Determine base view ────────────────────────────────────────────────
+  // Priority: workspace > landing pages > hub
+
+  const renderBaseView = () => {
+    // Workspace views (after engagement opened or created)
+    if (createdEngagement && openedFromComplianceView) {
+      return (
+        <EngagementExecutionV2
+          engagementId={createdEngagement.id}
+          onBack={handleBackToWizard}
+        />
+      );
+    }
+    if (createdEngagement) {
+      const isAutomation = createdEngagement.patternType === EPT.WORKFLOW_AUTOMATION_PROJECT;
+      const isCompliance = createdEngagement.patternType === EPT.COMPLIANCE_CONTROL_TESTING;
+      const backLabel = openedFromPortfolio || isAutomation ? 'Back to Automation Projects' : isCompliance ? 'Back to Engagement View' : undefined;
+      return (
+        <div>
+          <div className="flex items-start gap-2 px-4 py-2.5 mb-4 rounded-lg bg-blue-50 border border-blue-200 text-[11px] text-blue-700">
+            <Info size={13} className="shrink-0 mt-0.5" />
+            <span>{openedFromPortfolio ? 'Viewing automation project from portfolio. State is local and not persisted.' : 'Draft created locally. This workspace is dev-only and not persisted. Changes will be lost on page refresh.'}</span>
+          </div>
+          <ConfigurableEngagementWorkspace
+            engagement={createdEngagement}
+            onBack={handleBackToWizard}
+            backLabel={backLabel}
+          />
+        </div>
+      );
+    }
+
+    // Landing pages
+    if (showComplianceView) {
+      return (
+        <ComplianceEngagementView
+          onOpenEngagement={handleOpenFromComplianceView}
+          onCreateNew={() => openWizardModal(EPT.COMPLIANCE_CONTROL_TESTING)}
+          onBack={() => { setShowComplianceView(false); }}
+        />
+      );
+    }
+    if (showPortfolio) {
+      return (
+        <AutomationPortfolioView
+          onOpenProject={handleOpenFromPortfolio}
+          onCreateNew={() => openWizardModal(EPT.WORKFLOW_AUTOMATION_PROJECT)}
+          onBack={() => { setShowPortfolio(false); }}
+        />
+      );
+    }
+
+    // Default: Work Type hub
+    return renderHub();
   };
 
-  // ── Compliance Engagement View (shown after selecting Compliance work type) ──
-  if (showComplianceView) {
-    return (
-      <ComplianceEngagementView
-        onOpenEngagement={(eng) => {
-          setCreatedEngagement(eng);
-          setShowComplianceView(false);
-        }}
-        onCreateNew={() => {
-          setShowComplianceView(false);
-          setSelectedPattern(EPT.COMPLIANCE_CONTROL_TESTING);
-          setConfig(getDefaultConfig(EPT.COMPLIANCE_CONTROL_TESTING));
-          setDetails(DEFAULT_DETAILS);
-          setIsCreated(false);
-          setCreatedEngagement(null);
-          setCurrentStep(1);
-        }}
-        onBack={() => { setShowComplianceView(false); setCurrentStep(0); }}
-      />
-    );
-  }
-
-  // ── Portfolio view (shown after selecting Automation Project work type) ──
-  if (showPortfolio) {
-    return (
-      <AutomationPortfolioView
-        onOpenProject={handleOpenFromPortfolio}
-        onCreateNew={handleCreateFromPortfolio}
-        onBack={() => { setShowPortfolio(false); setCurrentStep(0); }}
-      />
-    );
-  }
-
-  // ── Workspace view after creation ──
-  if (createdEngagement) {
-    const isAutomation = createdEngagement.patternType === EPT.WORKFLOW_AUTOMATION_PROJECT;
-    const isCompliance = createdEngagement.patternType === EPT.COMPLIANCE_CONTROL_TESTING;
-    const backLabel = openedFromPortfolio || isAutomation ? 'Back to Automation Projects' : isCompliance ? 'Back to Engagement View' : undefined;
-    return (
-      <div>
-        <div className="flex items-start gap-2 px-4 py-2.5 mb-4 rounded-lg bg-blue-50 border border-blue-200 text-[11px] text-blue-700">
-          <Info size={13} className="shrink-0 mt-0.5" />
-          <span>{openedFromPortfolio ? 'Viewing automation project from portfolio. State is local and not persisted.' : 'Draft created locally. This workspace is dev-only and not persisted. Changes will be lost on page refresh.'}</span>
-        </div>
-        <ConfigurableEngagementWorkspace
-          engagement={createdEngagement}
-          onBack={handleBackToWizard}
-          backLabel={backLabel}
-        />
-      </div>
-    );
-  }
+  // ── Render ─────────────────────────────────────────────────────────────
 
   return (
-    <div className="max-w-2xl mx-auto py-8 px-4">
-      {/* Step indicator */}
-      <div className="flex items-center gap-1 mb-8">
-        {STEPS.map((step, i) => {
-          const isActive = i === currentStep;
-          const isDone = i < currentStep;
-          return (
-            <React.Fragment key={step.id}>
-              {i > 0 && <div className={`flex-1 h-px ${isDone ? 'bg-primary' : 'bg-border-light'}`} />}
-              <button
-                onClick={() => { if (isDone && !isCreated) setCurrentStep(i); }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold transition-all ${
-                  isActive ? 'bg-primary text-white' :
-                  isDone ? 'bg-primary/10 text-primary cursor-pointer hover:bg-primary/20' :
-                  'bg-gray-100 text-gray-400'
-                } ${isDone && !isCreated ? 'cursor-pointer' : ''}`}
-              >
-                {isDone ? <CheckCircle2 size={11} /> : <span className="w-4 h-4 rounded-full bg-white/20 inline-flex items-center justify-center text-[9px]">{i + 1}</span>}
-                {step.label}
-              </button>
-            </React.Fragment>
-          );
-        })}
-      </div>
+    <>
+      {renderBaseView()}
 
-      {/* Step content */}
-      <div className="mb-6">
-        {currentStep === 0 && (
-          <PatternSelectionStep selectedPattern={selectedPattern} onSelect={handlePatternSelect} />
-        )}
-        {currentStep === 1 && selectedPattern && (
-          <CommonDetailsStep
-            patternType={selectedPattern}
-            details={details}
-            onChange={setDetails}
-            reviewerRequired={reviewerRequired}
-          />
-        )}
-        {currentStep === 2 && selectedPattern && (
-          <PatternConfigStep
-            patternType={selectedPattern}
-            config={config}
-            onChange={setConfig}
-          />
-        )}
-        {currentStep === 3 && selectedPattern && (
-          <ReviewCreateStep
-            patternType={selectedPattern}
-            details={details}
-            config={config}
-            validation={validation}
-            isCreated={isCreated}
-            onCreate={handleCreate}
-          />
-        )}
-      </div>
-
-      {/* Navigation */}
-      {!isCreated && (
-        <div className="flex items-center justify-between">
-          <button
-            onClick={() => {
-              if (currentStep === 1 && selectedPattern === EPT.WORKFLOW_AUTOMATION_PROJECT) {
-                setShowPortfolio(true);
-                return;
-              }
-              if (currentStep === 1 && selectedPattern === EPT.COMPLIANCE_CONTROL_TESTING) {
-                setShowComplianceView(true);
-                return;
-              }
-              setCurrentStep(s => Math.max(0, s - 1));
-            }}
-            disabled={currentStep === 0}
-            className="flex items-center gap-1 px-4 py-2 rounded-lg border border-border-light text-[12px] font-medium text-text-muted hover:bg-surface-2/30 cursor-pointer transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+      {/* ── Modal Wizard Overlay ── */}
+      <AnimatePresence>
+        {showWizardModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center"
+            onClick={closeWizardModal}
           >
-            <ChevronLeft size={13} />{currentStep === 1 && selectedPattern === EPT.WORKFLOW_AUTOMATION_PROJECT ? 'Back to Projects' : currentStep === 1 && selectedPattern === EPT.COMPLIANCE_CONTROL_TESTING ? 'Back to Engagements' : 'Back'}
-          </button>
-          {currentStep < 3 && (
-            <button
-              onClick={() => {
-                if (currentStep === 0 && selectedPattern === EPT.WORKFLOW_AUTOMATION_PROJECT) {
-                  setShowPortfolio(true);
-                  return;
-                }
-                if (currentStep === 0 && selectedPattern === EPT.COMPLIANCE_CONTROL_TESTING) {
-                  setShowComplianceView(true);
-                  return;
-                }
-                setCurrentStep(s => Math.min(3, s + 1));
-              }}
-              disabled={!canGoNext()}
-              className="flex items-center gap-1 px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white text-[12px] font-semibold cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 16 }}
+              transition={{ duration: 0.18 }}
+              role="dialog"
+              aria-modal="true"
+              aria-label={modalTitle}
+              className="relative bg-white rounded-2xl shadow-2xl w-[720px] max-h-[90vh] overflow-hidden flex flex-col"
+              onClick={e => e.stopPropagation()}
             >
-              Next<ChevronRight size={13} />
-            </button>
-          )}
-        </div>
-      )}
-    </div>
+              {/* Header */}
+              <div className="px-6 py-4 border-b border-border-light flex items-center justify-between shrink-0">
+                <h3 className="text-[16px] font-semibold text-text">{modalTitle}</h3>
+                <button onClick={closeWizardModal} className="p-1.5 hover:bg-surface-2 rounded-md transition-colors cursor-pointer" aria-label="Close">
+                  <X size={16} className="text-text-muted" />
+                </button>
+              </div>
+
+              {/* Stepper */}
+              <div className="px-6 py-3 border-b border-border-light shrink-0">
+                <div className="flex items-center w-full">
+                  {STEPS.map((step, idx) => {
+                    const isActive = idx === currentStep;
+                    const isDone = idx < currentStep;
+                    return (
+                      <React.Fragment key={step.id}>
+                        {idx > 0 && <div className={`flex-1 h-px mx-3 ${isDone ? 'bg-primary' : 'bg-border-light'}`} />}
+                        <div className="flex items-center gap-2 shrink-0">
+                          <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[12px] font-semibold ${
+                            isActive ? 'bg-primary text-white' :
+                            isDone ? 'bg-primary/15 text-primary' :
+                            'bg-surface-2 text-text-muted'
+                          }`}>
+                            {isDone ? <Check size={13} strokeWidth={3} /> : idx + 1}
+                          </div>
+                          <span className={`text-[12px] ${
+                            isActive ? 'text-text font-semibold' :
+                            isDone ? 'text-text' :
+                            'text-text-muted'
+                          }`}>{step.label}</span>
+                        </div>
+                      </React.Fragment>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Body — scrollable */}
+              <div className="flex-1 overflow-y-auto px-6 py-5">
+                {currentStep === 0 && (
+                  <PatternSelectionStep selectedPattern={selectedPattern} onSelect={handlePatternSelect} />
+                )}
+                {currentStep === 1 && selectedPattern && (
+                  <CommonDetailsStep
+                    patternType={selectedPattern}
+                    details={details}
+                    onChange={setDetails}
+                    reviewerRequired={reviewerRequired}
+                  />
+                )}
+                {currentStep === 2 && selectedPattern && (
+                  <PatternConfigStep
+                    patternType={selectedPattern}
+                    config={config}
+                    onChange={setConfig}
+                  />
+                )}
+                {currentStep === 3 && selectedPattern && (
+                  <ReviewCreateStep
+                    patternType={selectedPattern}
+                    details={details}
+                    config={config}
+                    validation={validation}
+                    isCreated={false}
+                    onCreate={handleCreate}
+                  />
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="px-6 py-3 border-t border-border-light shrink-0 flex items-center justify-between">
+                <button
+                  onClick={handleModalBack}
+                  className="flex items-center gap-1 px-4 py-2 rounded-lg border border-border-light text-[12px] font-medium text-text-muted hover:bg-surface-2/30 cursor-pointer transition-colors"
+                >
+                  <ChevronLeft size={13} />{currentStep <= 1 ? 'Cancel' : 'Back'}
+                </button>
+                {currentStep < 3 && (
+                  <button
+                    onClick={handleModalNext}
+                    disabled={!canGoNext()}
+                    className="flex items-center gap-1 px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white text-[12px] font-semibold cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Next<ChevronRight size={13} />
+                  </button>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 }

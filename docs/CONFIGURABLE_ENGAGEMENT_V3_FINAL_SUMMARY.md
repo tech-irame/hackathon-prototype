@@ -28,7 +28,7 @@
 
 User-facing label: **Engagement**
 
-**Navigation**: Work Type Selection → Engagement View (Process Hub-style) → Compliance Workspace. Engagement View shows compliance engagement cards matching Process Hub visual pattern. "Plan Engagement" opens wizard. Back from workspace returns to Engagement View.
+**Navigation**: Work Type Selection → Engagement View (Process Hub-style) → Compliance Workspace. Engagement View shows compliance engagement cards matching Process Hub visual pattern. "Plan Engagement" opens modal wizard (BulkExecuteModal-style). After create, modal closes and workspace opens. Back from workspace returns to Engagement View.
 
 | Tab | Status |
 |-----|--------|
@@ -67,7 +67,7 @@ User-facing label: **Audit Assignment**
 
 User-facing label: **Project**
 
-**Navigation**: Work Type Selection → Automation Projects Portfolio → Project Workspace. Portfolio appears only after selecting Workflow Automation Project. "Back to Work Type" returns to pattern selection. Cards open workspace. "Create Automation Project" opens wizard with pattern pre-selected. Compliance/IA bypass portfolio and go directly to wizard.
+**Navigation**: Work Type Selection → Automation Projects Portfolio → Project Workspace. Portfolio appears only after selecting Workflow Automation Project. "Back to Work Type" returns to pattern selection. Cards open workspace. "Create Automation Project" opens modal wizard with automation pattern pre-selected (starts at Details step). Creation wizard is modal-based while workspace remains full-page. Compliance/IA bypass portfolio.
 
 | Tab | Status | System Reuse |
 |-----|--------|-------------|
@@ -123,7 +123,7 @@ This avoids duplicating execution and case management UX inside V3.
 | `configurableEngagementTypes.ts` | Core types, pattern configs, enums |
 | `engagementPatterns.ts` | Pattern metadata, workspace tabs |
 | `configurableEngagementState.ts` | Validation, readiness helpers |
-| `ConfigurableEngagementWizard.tsx` | 4-step creation wizard |
+| `ConfigurableEngagementWizard.tsx` | Modal-based 4-step creation wizard + view orchestrator |
 | `ConfigurableEngagementWorkspace.tsx` | Workspace shell, all business state |
 | `PatternWorkspaceRenderer.tsx` | Routes 27+ tab IDs to components |
 | `components/` | WorkspaceHeader, WorkspaceTabs, WorkspaceOverview |

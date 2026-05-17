@@ -35,6 +35,7 @@ interface StepDef {
 // Unified steps for all control types — simplified flow
 const EXECUTION_STEPS: StepDef[] = [
   { id: 'overview',       label: 'Overview',          icon: FileText,       availabilityKey: 'overview' },
+  { id: 'request-pbc',    label: 'Request PBC',       icon: Send,           availabilityKey: 'requestPbc' },
   { id: 'samples',        label: 'Samples',           icon: FlaskConical,   availabilityKey: 'samples' },
   { id: 'attr-testing',   label: 'Attribute Testing', icon: ClipboardCheck, availabilityKey: 'attributeTesting' },
   { id: 'working-paper',  label: 'Working Paper',     icon: FileText,       availabilityKey: 'workingPaper' },
@@ -137,6 +138,8 @@ export default function ExecutionControlWorkspaceV2({ ctrl, onClose, onUpdateCon
       <div className="px-6 py-5" style={{ minHeight: 300 }}>
         {activeStepId === 'overview' ? (
           <OverviewStep ctrl={ctrl} controlType={controlType} coverage={coverage} nextAction={nextAction} onNavigate={setActiveStepId} onUpdateControl={onUpdateControl} />
+        ) : activeStepId === 'request-pbc' && activeAvailability.enabled ? (
+          <RequestPBCStep ctrl={ctrl} onNavigate={setActiveStepId} />
         ) : activeStepId === 'samples' && activeAvailability.enabled ? (
           <UnifiedSamplesStep ctrl={ctrl} controlType={controlType} onUpdateControl={onUpdateControl} onNavigate={setActiveStepId} />
         ) : activeStepId === 'attr-testing' && activeAvailability.enabled ? (
@@ -1280,6 +1283,169 @@ function getSampleRowsForControl(ctrlId: string): { refId: string; description: 
     { refId: 'BUD-FIN', description: 'Finance FY26 Budget', value: '₹3,80,000' },
   ];
 }
+
+// ─── Request PBC Step ────────────────────────────────────────────────────
+
+interface PBCRequest {
+  id: string;
+  name: string;
+  description: string;
+  assignee: string;
+  dueDate: string;
+  status: 'Pending' | 'Submitted' | 'Accepted' | 'Rejected';
+  attachments: number;
+}
+
+function RequestPBCStep({ ctrl, onNavigate }: {
+  ctrl: ExecutionControl;
+  onNavigate: (stepId: string) => void;
+}) {
+  const [requests, setRequests] = React.useState<PBCRequest[]>([
+    { id: 'pbc-001', name: 'General Ledger Extract', description: 'Full GL extract for the audit period covering all journal entries', assignee: 'Finance Team', dueDate: '2026-02-15', status: 'Pending', attachments: 0 },
+    { id: 'pbc-002', name: 'Trial Balance', description: 'Period-end trial balance with comparative prior year', assignee: 'Finance Team', dueDate: '2026-02-15', status: 'Pending', attachments: 0 },
+    { id: 'pbc-003', name: 'Policy Documentation', description: 'Current approved policy document for this control area', assignee: 'Compliance Team', dueDate: '2026-02-20', status: 'Pending', attachments: 0 },
+  ]);
+  const [showAddForm, setShowAddForm] = React.useState(false);
+  const [newName, setNewName] = React.useState('');
+  const [newAssignee, setNewAssignee] = React.useState('');
+  const [newDueDate, setNewDueDate] = React.useState('');
+
+  const statusStyles: Record<PBCRequest['status'], string> = {
+    Pending: 'bg-amber-50 text-amber-700',
+    Submitted: 'bg-blue-50 text-blue-700',
+    Accepted: 'bg-emerald-50 text-emerald-700',
+    Rejected: 'bg-red-50 text-red-700',
+  };
+
+  const addRequest = () => {
+    if (!newName.trim()) return;
+    setRequests(prev => [...prev, {
+      id: `pbc-${Date.now()}`,
+      name: newName.trim(),
+      description: '',
+      assignee: newAssignee.trim() || 'Unassigned',
+      dueDate: newDueDate || '—',
+      status: 'Pending',
+      attachments: 0,
+    }]);
+    setNewName('');
+    setNewAssignee('');
+    setNewDueDate('');
+    setShowAddForm(false);
+  };
+
+  const summary = {
+    total: requests.length,
+    pending: requests.filter(r => r.status === 'Pending').length,
+    submitted: requests.filter(r => r.status === 'Submitted').length,
+    accepted: requests.filter(r => r.status === 'Accepted').length,
+  };
+
+  return (
+    <div className="space-y-5">
+      {/* KPI strip */}
+      <div className="grid grid-cols-4 gap-3">
+        {[
+          { label: 'Total Requests', value: summary.total, color: 'text-text' },
+          { label: 'Pending', value: summary.pending, color: 'text-amber-700' },
+          { label: 'Submitted', value: summary.submitted, color: 'text-blue-700' },
+          { label: 'Accepted', value: summary.accepted, color: 'text-emerald-700' },
+        ].map(k => (
+          <div key={k.label} className="bg-surface-2/40 rounded-lg border border-border-light px-3 py-2">
+            <span className={`text-[18px] font-bold ${k.color} block tabular-nums`}>{k.value}</span>
+            <span className="text-[9px] text-gray-400 font-medium">{k.label}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Header with add button */}
+      <div className="flex items-center justify-between">
+        <h4 className="text-[13px] font-bold text-text">PBC Request List</h4>
+        <button onClick={() => setShowAddForm(!showAddForm)}
+          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-primary/10 text-primary text-[10px] font-semibold hover:bg-primary/20 cursor-pointer transition-colors">
+          <Plus size={11} /> Add Request
+        </button>
+      </div>
+
+      {/* Add form */}
+      {showAddForm && (
+        <div className="bg-surface-2/40 rounded-lg border border-border-light p-4 space-y-3">
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="text-[10px] font-medium text-text-muted block mb-1">Request Name *</label>
+              <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="e.g. Bank Reconciliation"
+                className="w-full px-2.5 h-8 rounded-lg border border-border bg-white text-[11px] outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/10" />
+            </div>
+            <div>
+              <label className="text-[10px] font-medium text-text-muted block mb-1">Assignee</label>
+              <input value={newAssignee} onChange={e => setNewAssignee(e.target.value)} placeholder="e.g. Finance Team"
+                className="w-full px-2.5 h-8 rounded-lg border border-border bg-white text-[11px] outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/10" />
+            </div>
+            <div>
+              <label className="text-[10px] font-medium text-text-muted block mb-1">Due Date</label>
+              <input type="date" value={newDueDate} onChange={e => setNewDueDate(e.target.value)}
+                className="w-full px-2.5 h-8 rounded-lg border border-border bg-white text-[11px] outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/10" />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <button onClick={() => setShowAddForm(false)} className="px-3 py-1.5 rounded-lg border border-border-light text-[10px] font-medium text-text-muted hover:bg-surface-2/30 cursor-pointer transition-colors">Cancel</button>
+            <button onClick={addRequest} disabled={!newName.trim()}
+              className="px-3 py-1.5 rounded-lg bg-primary text-white text-[10px] font-semibold hover:bg-primary/90 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed">Add</button>
+          </div>
+        </div>
+      )}
+
+      {/* Request table */}
+      <div className="bg-white rounded-lg border border-border-light overflow-hidden">
+        <table className="w-full text-[11px]">
+          <thead className="bg-surface-2/30 border-b border-border-light">
+            <tr>
+              <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-text-muted">Request</th>
+              <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-text-muted w-[140px]">Assignee</th>
+              <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-text-muted w-[100px]">Due Date</th>
+              <th className="px-3 py-2 text-center text-[10px] font-semibold uppercase tracking-wider text-text-muted w-[90px]">Status</th>
+              <th className="px-3 py-2 text-center text-[10px] font-semibold uppercase tracking-wider text-text-muted w-[80px]">Files</th>
+              <th className="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-wider text-text-muted w-[80px]">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {requests.map(req => (
+              <tr key={req.id} className="border-t border-border-light hover:bg-surface-2/20 transition-colors">
+                <td className="px-3 py-2.5">
+                  <span className="text-[12px] font-medium text-text block">{req.name}</span>
+                  {req.description && <span className="text-[10px] text-text-muted line-clamp-1">{req.description}</span>}
+                </td>
+                <td className="px-3 py-2.5 text-[11px] text-text-muted">{req.assignee}</td>
+                <td className="px-3 py-2.5 text-[11px] text-text-muted tabular-nums">{req.dueDate}</td>
+                <td className="px-3 py-2.5 text-center">
+                  <span className={`px-2 py-0.5 rounded-full text-[9px] font-semibold ${statusStyles[req.status]}`}>{req.status}</span>
+                </td>
+                <td className="px-3 py-2.5 text-center">
+                  <span className={`text-[10px] tabular-nums ${req.attachments === 0 ? 'text-gray-300' : 'text-text'}`}>{req.attachments || '—'}</span>
+                </td>
+                <td className="px-3 py-2.5 text-right">
+                  <button className="px-2 py-1 rounded text-[9px] font-semibold bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer transition-colors">
+                    <Send size={9} className="inline mr-0.5" />Send
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Navigation */}
+      <div className="flex justify-end pt-2">
+        <button onClick={() => onNavigate('samples')}
+          className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-[10px] font-semibold hover:bg-primary/20 cursor-pointer transition-colors">
+          Next: Samples <ChevronRight size={10} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Unified Samples Step ────────────────────────────────────────────────
 
 function UnifiedSamplesStep({ ctrl, controlType, onUpdateControl, onNavigate }: {
   ctrl: ExecutionControl;

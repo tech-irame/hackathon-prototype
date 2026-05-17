@@ -71,17 +71,6 @@ function ComplianceSetup({ config, onChange }: { config: ComplianceConfig; onCha
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className={labelCls}>Audit Period Start <span className="text-red-400">*</span></label>
-          <input type="date" value={config.auditPeriodStart} onChange={e => update('auditPeriodStart', e.target.value)} className={inputCls} />
-        </div>
-        <div>
-          <label className={labelCls}>Audit Period End <span className="text-red-400">*</span></label>
-          <input type="date" value={config.auditPeriodEnd} onChange={e => update('auditPeriodEnd', e.target.value)} className={inputCls} />
-        </div>
-      </div>
-
       <div>
         <label className={labelCls}>Control Scope Source <span className="text-red-400">*</span></label>
         <select value={config.controlScopeSource} onChange={e => update('controlScopeSource', e.target.value as ControlScopeSource)} className={selectCls}>
@@ -122,10 +111,6 @@ function ComplianceSetup({ config, onChange }: { config: ComplianceConfig; onCha
       </div>
 
       <div className="flex items-center gap-4">
-        <label className="flex items-center gap-2 text-[11px] text-text cursor-pointer">
-          <input type="checkbox" checked={config.allowControlLevelOverride} onChange={e => update('allowControlLevelOverride', e.target.checked)} className={checkCls} />
-          Allow control-level override
-        </label>
         <label className="flex items-center gap-2 text-[11px] text-gray-400 cursor-not-allowed">
           <input type="checkbox" checked={config.reviewerRequired} disabled className={checkCls + ' opacity-50'} />
           Reviewer required
@@ -146,17 +131,6 @@ function InternalAuditSetup({ config, onChange }: { config: InternalAuditConfig;
       <div>
         <h3 className="text-[15px] font-bold text-text mb-1">Audit Assignment Setup</h3>
         <p className="text-[12px] text-text-muted">Configure scope, announcement, IDR, and reporting settings.</p>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className={labelCls}>Audit Period Start <span className="text-red-400">*</span></label>
-          <input type="date" value={config.auditPeriodStart} onChange={e => update('auditPeriodStart', e.target.value)} className={inputCls} />
-        </div>
-        <div>
-          <label className={labelCls}>Audit Period End <span className="text-red-400">*</span></label>
-          <input type="date" value={config.auditPeriodEnd} onChange={e => update('auditPeriodEnd', e.target.value)} className={inputCls} />
-        </div>
       </div>
 
       <div>

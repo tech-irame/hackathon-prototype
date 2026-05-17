@@ -33,7 +33,6 @@ export default function ReviewCreateStep({ patternType, details, config, validat
     configEntries.push(
       { label: 'Framework', value: config.framework.replace('_', ' ') },
       { label: 'Audit Type', value: config.auditType },
-      { label: 'Audit Period', value: `${config.auditPeriodStart || '—'} to ${config.auditPeriodEnd || '—'}` },
       { label: 'Control Scope', value: config.controlScopeSource.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase()) },
       { label: 'Testing Method', value: config.defaultTestingInputMethod.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase()) },
       { label: 'Control Override', value: config.allowControlLevelOverride ? 'Allowed' : 'Not allowed' },
@@ -43,7 +42,6 @@ export default function ReviewCreateStep({ patternType, details, config, validat
   if (config.patternType === 'internal_audit_assignment') {
     configEntries.push(
       { label: 'Scope Level', value: config.scopeLevel.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase()) },
-      { label: 'Audit Period', value: `${config.auditPeriodStart || '—'} to ${config.auditPeriodEnd || '—'}` },
       { label: 'Process Owner', value: config.processOwner },
       { label: 'IDR', value: config.idrEnabled ? 'Enabled' : 'Disabled' },
       { label: 'Announcement', value: config.announcementRequired ? 'Required' : 'Not required' },

@@ -58,9 +58,6 @@ export function validateConfigurableEngagementDraft(engagement: ConfigurableEnga
     if (!cfg.framework) {
       errors.push({ field: 'config.framework', message: 'Framework is required.', severity: 'error' });
     }
-    if (!cfg.auditPeriodStart || !cfg.auditPeriodEnd) {
-      errors.push({ field: 'config.auditPeriod', message: 'Audit period start and end are required.', severity: 'error' });
-    }
     if (!cfg.controlScopeSource) {
       errors.push({ field: 'config.controlScopeSource', message: 'Control scope source is required.', severity: 'error' });
     }
@@ -84,9 +81,6 @@ export function validateConfigurableEngagementDraft(engagement: ConfigurableEnga
     }
     if (!cfg.finalReportRequired) {
       errors.push({ field: 'config.finalReportRequired', message: 'Final report should be required for audit assignments.', severity: 'warning' });
-    }
-    if (!cfg.auditPeriodStart || !cfg.auditPeriodEnd) {
-      errors.push({ field: 'config.auditPeriod', message: 'Audit period is required.', severity: 'error' });
     }
   }
 
