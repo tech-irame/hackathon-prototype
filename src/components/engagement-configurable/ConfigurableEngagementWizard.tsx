@@ -76,6 +76,8 @@ const DEFAULT_DETAILS: CommonDetails = {
   entityOrLocation: '',
   plannedStartDate: '',
   plannedEndDate: '',
+  dataPeriodStart: '',
+  dataPeriodEnd: '',
 };
 
 // ─── Component ────────────────────────────────────────────────────────────
@@ -113,6 +115,8 @@ export default function ConfigurableEngagementWizard() {
       stage: 'Draft',
       plannedStartDate: details.plannedStartDate || undefined,
       plannedEndDate: details.plannedEndDate || undefined,
+      dataPeriodStart: details.dataPeriodStart || undefined,
+      dataPeriodEnd: details.dataPeriodEnd || undefined,
       config,
       outputs: [],
       createdAt: new Date().toISOString(),

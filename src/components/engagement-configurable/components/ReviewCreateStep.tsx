@@ -106,6 +106,7 @@ export default function ReviewCreateStep({ patternType, details, config, validat
         <SummaryRow label="Business Process" value={details.businessProcess} />
         <SummaryRow label="Entity / Location" value={details.entityOrLocation} />
         <SummaryRow label="Planned Period" value={details.plannedStartDate && details.plannedEndDate ? `${details.plannedStartDate} to ${details.plannedEndDate}` : ''} />
+        <SummaryRow label="Data Period" value={details.dataPeriodStart && details.dataPeriodEnd ? `${details.dataPeriodStart} to ${details.dataPeriodEnd}` : ''} />
       </div>
 
       {/* Pattern Config */}

@@ -275,7 +275,7 @@ export default function AutomationReportsTab({ engagement, automationState, repo
               <div><span className="text-text-muted block text-[10px] font-medium mb-0.5">Project Name</span><span className="text-text font-semibold">{engagement.name}</span></div>
               <div><span className="text-text-muted block text-[10px] font-medium mb-0.5">Business Process</span><span className="text-text font-semibold">{engagement.businessProcess || 'P2P'}</span></div>
               <div><span className="text-text-muted block text-[10px] font-medium mb-0.5">Entity</span><span className="text-text font-semibold">{engagement.entityOrLocation || '—'}</span></div>
-              <div><span className="text-text-muted block text-[10px] font-medium mb-0.5">Reporting Period</span><span className="text-text font-semibold">{engagement.plannedStartDate || '—'} to {engagement.plannedEndDate || '—'}</span></div>
+              <div><span className="text-text-muted block text-[10px] font-medium mb-0.5">Data Period</span><span className="text-text font-semibold">{engagement.dataPeriodStart || '—'} to {engagement.dataPeriodEnd || '—'}</span></div>
               <div><span className="text-text-muted block text-[10px] font-medium mb-0.5">Run Type</span><span className="text-text font-semibold">{cfg.runType.replace(/_/g, ' ')}{cfg.frequency ? ` (${cfg.frequency})` : ''}</span></div>
               <div><span className="text-text-muted block text-[10px] font-medium mb-0.5">Report Generated</span><span className="text-text font-semibold">{selectedReport.generatedAt}</span></div>
             </div>
@@ -369,23 +369,6 @@ export default function AutomationReportsTab({ engagement, automationState, repo
                           );
                         })}
                       </div>
-                    )}
-                  </div>
-
-                  {/* Findings */}
-                  <div>
-                    <h5 className="text-[11px] font-bold text-text-muted uppercase tracking-wider mb-2">Findings</h5>
-                    {section.findings.length === 0 ? (
-                      <p className="text-[12px] text-text-muted italic">No findings to report.</p>
-                    ) : (
-                      <ul className="space-y-1">
-                        {section.findings.map((f, i) => (
-                          <li key={i} className="flex items-start gap-2 text-[12px] text-text-secondary leading-relaxed">
-                            <span className="text-primary mt-1 shrink-0">•</span>
-                            <span>{f}</span>
-                          </li>
-                        ))}
-                      </ul>
                     )}
                   </div>
 

@@ -194,6 +194,8 @@ export interface ConfigurableEngagement {
   stage: string;
   plannedStartDate?: string;
   plannedEndDate?: string;
+  dataPeriodStart?: string;
+  dataPeriodEnd?: string;
   actualStartDate?: string;
   actualEndDate?: string;
   config: EngagementConfig;

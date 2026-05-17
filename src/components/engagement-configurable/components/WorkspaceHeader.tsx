@@ -60,8 +60,11 @@ export default function WorkspaceHeader({ engagement, onBack, onEditSetup }: Pro
               {engagement.reviewer && <span><span className="text-gray-400">Reviewer:</span> {engagement.reviewer}</span>}
               {engagement.businessProcess && <span><span className="text-gray-400">Process:</span> {engagement.businessProcess}</span>}
               {engagement.entityOrLocation && <span><span className="text-gray-400">Entity:</span> {engagement.entityOrLocation}</span>}
+              {engagement.dataPeriodStart && engagement.dataPeriodEnd && (
+                <span><span className="text-gray-400">Data Period:</span> {engagement.dataPeriodStart} to {engagement.dataPeriodEnd}</span>
+              )}
               {engagement.plannedStartDate && engagement.plannedEndDate && (
-                <span><span className="text-gray-400">Period:</span> {engagement.plannedStartDate} to {engagement.plannedEndDate}</span>
+                <span><span className="text-gray-400">Planned:</span> {engagement.plannedStartDate} to {engagement.plannedEndDate}</span>
               )}
             </div>
           </div>
