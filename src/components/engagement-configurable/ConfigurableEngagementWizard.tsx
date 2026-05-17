@@ -17,6 +17,7 @@ import { validateConfigurableEngagementDraft } from './configurableEngagementSta
 import { PatternSelectionStep, CommonDetailsStep, PatternConfigStep, ReviewCreateStep } from './components';
 import type { CommonDetails } from './components';
 import AutomationPortfolioView from './AutomationPortfolioView';
+import ComplianceEngagementView from './ComplianceEngagementView';
 
 // ─── Step definitions ─────────────────────────────────────────────────────
 
@@ -91,6 +92,7 @@ export default function ConfigurableEngagementWizard() {
   const [isCreated, setIsCreated] = useState(false);
   const [createdEngagement, setCreatedEngagement] = useState<ConfigurableEngagement | null>(null);
   const [showPortfolio, setShowPortfolio] = useState(false);
+  const [showComplianceView, setShowComplianceView] = useState(false);
   const [openedFromPortfolio, setOpenedFromPortfolio] = useState(false);
 
   // When pattern changes, reset config to defaults
@@ -179,6 +181,13 @@ export default function ConfigurableEngagementWizard() {
       setShowPortfolio(true);
       return;
     }
+    if (createdEngagement?.patternType === EPT.COMPLIANCE_CONTROL_TESTING) {
+      // Back from compliance workspace → return to compliance engagement view
+      setCreatedEngagement(null);
+      setIsCreated(false);
+      setShowComplianceView(true);
+      return;
+    }
     setCreatedEngagement(null);
     setIsCreated(false);
     setCurrentStep(3); // go back to review step
@@ -197,6 +206,25 @@ export default function ConfigurableEngagementWizard() {
     setCurrentStep(1); // skip pattern selection, go to details
   };
 
+  // ── Compliance Engagement View (shown after selecting Compliance work type) ──
+  if (showComplianceView) {
+    return (
+      <ComplianceEngagementView
+        onOpenEngagement={(eng) => {
+          setCreatedEngagement(eng);
+          setShowComplianceView(false);
+        }}
+        onCreateNew={() => {
+          setShowComplianceView(false);
+          setSelectedPattern(EPT.COMPLIANCE_CONTROL_TESTING);
+          setConfig(getDefaultConfig(EPT.COMPLIANCE_CONTROL_TESTING));
+          setCurrentStep(1);
+        }}
+        onBack={() => { setShowComplianceView(false); setCurrentStep(0); }}
+      />
+    );
+  }
+
   // ── Portfolio view (shown after selecting Automation Project work type) ──
   if (showPortfolio) {
     return (
@@ -211,7 +239,8 @@ export default function ConfigurableEngagementWizard() {
   // ── Workspace view after creation ──
   if (createdEngagement) {
     const isAutomation = createdEngagement.patternType === EPT.WORKFLOW_AUTOMATION_PROJECT;
-    const backLabel = openedFromPortfolio || isAutomation ? 'Back to Automation Projects' : undefined;
+    const isCompliance = createdEngagement.patternType === EPT.COMPLIANCE_CONTROL_TESTING;
+    const backLabel = openedFromPortfolio || isAutomation ? 'Back to Automation Projects' : isCompliance ? 'Back to Engagement View' : undefined;
     return (
       <div>
         <div className="flex items-start gap-2 px-4 py-2.5 mb-4 rounded-lg bg-blue-50 border border-blue-200 text-[11px] text-blue-700">
@@ -294,18 +323,26 @@ export default function ConfigurableEngagementWizard() {
                 setShowPortfolio(true);
                 return;
               }
+              if (currentStep === 1 && selectedPattern === EPT.COMPLIANCE_CONTROL_TESTING) {
+                setShowComplianceView(true);
+                return;
+              }
               setCurrentStep(s => Math.max(0, s - 1));
             }}
             disabled={currentStep === 0}
             className="flex items-center gap-1 px-4 py-2 rounded-lg border border-border-light text-[12px] font-medium text-text-muted hover:bg-surface-2/30 cursor-pointer transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           >
-            <ChevronLeft size={13} />{currentStep === 1 && selectedPattern === EPT.WORKFLOW_AUTOMATION_PROJECT ? 'Back to Projects' : 'Back'}
+            <ChevronLeft size={13} />{currentStep === 1 && selectedPattern === EPT.WORKFLOW_AUTOMATION_PROJECT ? 'Back to Projects' : currentStep === 1 && selectedPattern === EPT.COMPLIANCE_CONTROL_TESTING ? 'Back to Engagements' : 'Back'}
           </button>
           {currentStep < 3 && (
             <button
               onClick={() => {
                 if (currentStep === 0 && selectedPattern === EPT.WORKFLOW_AUTOMATION_PROJECT) {
                   setShowPortfolio(true);
+                  return;
+                }
+                if (currentStep === 0 && selectedPattern === EPT.COMPLIANCE_CONTROL_TESTING) {
+                  setShowComplianceView(true);
                   return;
                 }
                 setCurrentStep(s => Math.min(3, s + 1));

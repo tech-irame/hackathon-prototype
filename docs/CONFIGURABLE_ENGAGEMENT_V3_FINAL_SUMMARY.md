@@ -28,6 +28,8 @@
 
 User-facing label: **Engagement**
 
+**Navigation**: Work Type Selection → Engagement View (Process Hub-style) → Compliance Workspace. Engagement View shows compliance engagement cards matching Process Hub visual pattern. "Plan Engagement" opens wizard. Back from workspace returns to Engagement View.
+
 | Tab | Status |
 |-----|--------|
 | Overview | Implemented |
