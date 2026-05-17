@@ -3,7 +3,7 @@
 // fed with V3 automation run exceptions.
 
 import React, { useState, useMemo, useCallback } from 'react';
-import { Lock, ChevronRight, Info } from 'lucide-react';
+import { Lock, ChevronRight, Info, Workflow } from 'lucide-react';
 import type { ConfigurableEngagement, AutomationProjectConfig } from '../../configurableEngagementTypes';
 import type { AutomationRunsState, AutomationRunException, ExceptionStatus } from './automationRunsData';
 import type { AutomationCasesState } from './automationCasesData';
@@ -27,6 +27,23 @@ export default function AutomationCasesTab({ engagement, runsState, casesState, 
   const completedRuns = runsState.runs.filter(r => r.status === 'COMPLETED');
   const allExceptions = completedRuns.flatMap(r => r.exceptions);
   const [role, setRole] = useState<ExceptionRole>('auditor');
+  const [selectedWorkflow, setSelectedWorkflow] = useState('');
+
+  const workflowNames = useMemo(() => {
+    const names = new Set<string>();
+    for (const ex of allExceptions) {
+      if (ex.sourceWorkflowName) names.add(ex.sourceWorkflowName);
+    }
+    return Array.from(names).sort();
+  }, [allExceptions]);
+
+  const filteredRuns = useMemo(() => {
+    if (!selectedWorkflow) return completedRuns.map(r => ({ id: r.id, exceptions: r.exceptions }));
+    return completedRuns.map(r => ({
+      id: r.id,
+      exceptions: r.exceptions.filter(e => e.sourceWorkflowName === selectedWorkflow),
+    })).filter(r => r.exceptions.length > 0);
+  }, [completedRuns, selectedWorkflow]);
 
   // Locked states
   if (!hasCaseMgmt) {
@@ -70,9 +87,9 @@ export default function AutomationCasesTab({ engagement, runsState, casesState, 
 
   // Map V3 exceptions to GRC format
   const grcExceptions = useMemo(() =>
-    mapV3ExceptionsToGrc(completedRuns.map(r => ({ id: r.id, exceptions: r.exceptions }))),
+    mapV3ExceptionsToGrc(filteredRuns),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [completedRuns.map(r => `${r.id}:${r.exceptions.map(e => `${e.id}:${e.status}:${e.deficiencyType}`).join(',')}`).join('|')]
+    [filteredRuns.map(r => `${r.id}:${r.exceptions.map(e => `${e.id}:${e.status}:${e.deficiencyType}`).join(',')}`).join('|')]
   );
 
   // Sync changes from ManageExceptionsView back to V3 runs state
@@ -95,14 +112,42 @@ export default function AutomationCasesTab({ engagement, runsState, casesState, 
 
   return (
     <div className="space-y-0">
-      {/* Thin context banner */}
-      <div className="flex items-start gap-2 px-4 py-2 rounded-t-lg bg-blue-50/50 border border-blue-200/50 text-[10px] text-blue-600 mb-0">
-        <Info size={11} className="shrink-0 mt-0.5" />
-        <span>Review workflow exceptions, classify deficiencies, assign owners, and manage remediation using the existing case management flow.</span>
+      {/* Context banner + workflow filter */}
+      <div className="rounded-t-lg border border-blue-200/50 overflow-hidden mb-0">
+        <div className="flex items-start gap-2 px-4 py-2 bg-blue-50/50 text-[10px] text-blue-600">
+          <Info size={11} className="shrink-0 mt-0.5" />
+          <span>Review workflow exceptions, classify deficiencies, assign owners, and manage remediation using the existing case management flow.</span>
+        </div>
+        {workflowNames.length > 1 && (
+          <div className="flex items-center gap-2 px-4 py-2 bg-white border-t border-border-light/50">
+            <Workflow size={13} className="text-primary shrink-0" />
+            <span className="text-[11px] font-semibold text-text-muted">Filter by Workflow:</span>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setSelectedWorkflow('')}
+                className={`px-2.5 py-1 rounded-full text-[10px] font-semibold cursor-pointer transition-colors ${!selectedWorkflow ? 'bg-primary text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+              >
+                All Workflows ({allExceptions.length})
+              </button>
+              {workflowNames.map(name => {
+                const count = allExceptions.filter(e => e.sourceWorkflowName === name).length;
+                return (
+                  <button
+                    key={name}
+                    onClick={() => setSelectedWorkflow(name)}
+                    className={`px-2.5 py-1 rounded-full text-[10px] font-semibold cursor-pointer transition-colors ${selectedWorkflow === name ? 'bg-primary text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                  >
+                    {name.length > 25 ? name.slice(0, 24) + '…' : name} ({count})
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Embedded ManageExceptionsView */}
-      <div className="rounded-b-lg border border-t-0 border-border-light overflow-hidden" style={{ height: 'calc(100vh - 280px)', minHeight: '500px' }}>
+      <div className="rounded-b-lg border border-t-0 border-border-light overflow-hidden" style={{ height: `calc(100vh - ${workflowNames.length > 1 ? '320' : '280'}px)`, minHeight: '500px' }}>
         <ManageExceptionsView
           role={role}
           setRole={setRole}

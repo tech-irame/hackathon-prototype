@@ -94,7 +94,9 @@ export function generateDraftReport(engagement: ConfigurableEngagement, state: A
   if (openEx > 0) recs.push(`${openEx} open exception(s) require attention.`);
   const recommendationsText = recs.join('\n');
 
-  const executiveSummary = `${completedRuns.length} automation run(s) completed processing ${totalRecords} records. ${allOutputs.length} output(s) generated, ${approvedIds.length} approved. ${allExceptions.length} exception(s) identified, ${cases.cases.length} case(s) created.`;
+  const rejectedIds = outputReview.rejectedOutputIds;
+  const pendingOutputs = allOutputs.length - approvedIds.length - rejectedIds.length;
+  const executiveSummary = `${completedRuns.length} automation run(s) completed processing ${totalRecords} records. ${allOutputs.length} output(s) generated — ${approvedIds.length} approved for report${rejectedIds.length > 0 ? `, ${rejectedIds.length} excluded` : ''}${pendingOutputs > 0 ? `, ${pendingOutputs} pending review` : ''}. ${allExceptions.length} exception(s) identified, ${cases.cases.length} case(s) created.`;
 
   return {
     title, status: 'DRAFT',

@@ -69,9 +69,9 @@ User-facing label: **Project**
 |-----|--------|-------------|
 | Overview | Implemented | — |
 | Workflows | Implemented — Workflow Library-style table with search/select-all/detail view, Create Workflow CTA, Run Selected CTA via BulkExecuteModal, in-tab workflow detail (Overview/Runs/Configuration), run history | **Reuses Workflow Library BulkExecuteModal** |
-| Output Review | Implemented — workflow-grouped outputs/exceptions, per-workflow accordion with expand/collapse, workflow detail drilldown panel, bulk exception triage, deficiency classification | — |
-| Cases / Exceptions | Implemented — embedded ManageExceptionsView | **Reuses ManageExceptionsView** |
-| Reports | Implemented — platform-style report with purple gradient header/FloatingLines, executive summary stat cards, workflow-wise sections with outputs/findings/exceptions/cases, key metrics, recommendations. Apply Template/Share/Download placeholders. Data from V3 state only. | **Reuses FloatingLines from platform** |
+| Output Review | Implemented — workflow-grouped outputs/exceptions, per-workflow accordion with expand/collapse, workflow detail drilldown panel, output approval controls report inclusion (Approve/Exclude), helper text clarifying approval meaning, clickable exception counts, bulk exception triage | — |
+| Cases / Exceptions | Implemented — embedded ManageExceptionsView with workflow filter (pill buttons filter by workflow, sync-back works for all) | **Reuses ManageExceptionsView** |
+| Reports | Implemented — platform-style report with purple gradient header/FloatingLines, executive summary stat cards, only approved outputs included in report, excluded/pending outputs shown with visual distinction, workflow-wise sections, key metrics with output approval breakdown. Apply Template/Share/Download placeholders. Data from V3 state only. | **Reuses FloatingLines from platform** |
 | Schedule | Implemented — recurring config, activate/pause/resume/disable | — |
 
 **E2E QA**: Passed. Full workflows-to-schedule flow verified with reused system components.

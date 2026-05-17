@@ -93,6 +93,8 @@ export default function AutomationReportsTab({ engagement, automationState, repo
   const caseCandidates = allExceptions.filter(e => e.status === 'CASE_CANDIDATE').length;
   const totalRecords = completedRuns.reduce((s, r) => s + r.processedRecords, 0);
   const approvedCount = automationState.outputReview.approvedOutputIds.length;
+  const excludedCount = automationState.outputReview.rejectedOutputIds.length;
+  const pendingCount = allOutputs.length - approvedCount - excludedCount;
   const caseCount = automationState.cases.cases.length;
   const closedCases = automationState.cases.cases.filter(c => c.status === 'CLOSED').length;
 
@@ -299,6 +301,19 @@ export default function AutomationReportsTab({ engagement, automationState, repo
               ))}
             </div>
             <p className="text-[12px] text-text-secondary leading-relaxed">{selectedReport.executiveSummary}</p>
+            {/* Output approval breakdown */}
+            <div className="mt-3 flex items-center gap-3 text-[11px]">
+              <span className="text-text-muted">Outputs:</span>
+              <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold">{approvedCount} approved for report</span>
+              {excludedCount > 0 && <span className="px-2 py-0.5 rounded-full bg-red-50 text-red-600 font-semibold">{excludedCount} excluded</span>}
+              {pendingCount > 0 && <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 font-semibold">{pendingCount} pending review</span>}
+            </div>
+            {approvedCount === 0 && (
+              <div className="mt-2 flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-[11px] text-amber-700">
+                <AlertCircle size={12} className="shrink-0 mt-0.5" />
+                <span>No outputs have been approved for this report yet. Approve outputs in Output Review to include them.</span>
+              </div>
+            )}
           </div>
 
           {/* ── Workflow sections ── */}
@@ -322,7 +337,7 @@ export default function AutomationReportsTab({ engagement, automationState, repo
                       <h4 className="text-[14px] font-semibold text-text">{section.workflowName}</h4>
                     </div>
                     <div className="flex items-center gap-2 text-[10px]">
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-bold">{section.outputs.length} outputs</span>
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-bold">{approvedOuts.length}/{section.outputs.length} approved</span>
                       <span className={`px-2 py-0.5 rounded-full font-bold ${section.exceptions.length > 0 ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>{section.exceptions.length} exceptions</span>
                       {section.caseCount > 0 && <span className="px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 font-bold">{section.caseCount} case{section.caseCount !== 1 ? 's' : ''}</span>}
                     </div>
@@ -339,15 +354,17 @@ export default function AutomationReportsTab({ engagement, automationState, repo
                       <div className="space-y-1.5">
                         {section.outputs.map(o => {
                           const isApproved = automationState.outputReview.approvedOutputIds.includes(o.id);
-                          const isRejected = automationState.outputReview.rejectedOutputIds.includes(o.id);
+                          const isExcluded = automationState.outputReview.rejectedOutputIds.includes(o.id);
+                          const isPending = !isApproved && !isExcluded;
                           return (
-                            <div key={o.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-surface-2/30 border border-border-light/50">
-                              <FileText size={13} className="text-primary shrink-0" />
-                              <span className="text-[12px] font-medium text-text flex-1">{o.name}</span>
+                            <div key={o.id} className={`flex items-center gap-3 px-3 py-2 rounded-lg border border-border-light/50 ${isExcluded ? 'bg-gray-50 opacity-60' : isPending ? 'bg-amber-50/20' : 'bg-surface-2/30'}`}>
+                              <FileText size={13} className={isApproved ? 'text-primary shrink-0' : 'text-gray-400 shrink-0'} />
+                              <span className={`text-[12px] font-medium flex-1 ${isExcluded ? 'text-gray-400 line-through' : 'text-text'}`}>{o.name}</span>
                               <span className="text-[10px] text-text-muted">{o.outputType.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}</span>
                               {o.recordCount && <span className="text-[10px] text-text-muted tabular-nums">{o.recordCount} records</span>}
-                              {isApproved && <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[9px] font-bold">Approved</span>}
-                              {isRejected && <span className="px-2 py-0.5 rounded-full bg-red-50 text-red-700 text-[9px] font-bold">Rejected</span>}
+                              {isApproved && <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[9px] font-bold">Included in Report</span>}
+                              {isExcluded && <span className="px-2 py-0.5 rounded-full bg-red-50 text-red-600 text-[9px] font-bold">Excluded</span>}
+                              {isPending && <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 text-[9px] font-bold">Pending Review</span>}
                             </div>
                           );
                         })}
@@ -457,7 +474,9 @@ export default function AutomationReportsTab({ engagement, automationState, repo
               {[
                 { label: 'Records Processed', value: totalRecords.toLocaleString() },
                 { label: 'Outputs Generated', value: allOutputs.length },
-                { label: 'Outputs Approved', value: approvedCount },
+                { label: 'Outputs Approved for Report', value: approvedCount },
+                { label: 'Outputs Excluded', value: excludedCount },
+                { label: 'Outputs Pending Review', value: pendingCount },
                 { label: 'Exceptions Identified', value: allExceptions.length },
                 { label: 'High/Critical Exceptions', value: highCritical },
                 { label: 'Case Candidates', value: caseCandidates },

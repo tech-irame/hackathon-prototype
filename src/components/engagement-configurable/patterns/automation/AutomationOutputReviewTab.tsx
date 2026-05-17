@@ -13,10 +13,9 @@ import {
   deriveOutputReviewStatus, deriveOutputReviewSummary, REVIEW_STATUS_CLS,
   type AutomationOutputReviewState,
 } from './automationOutputReviewData';
-import { DEFICIENCY_LABELS, DEFICIENCY_CLS, DEFICIENCY_TYPES, type DeficiencyType } from './automationCasesData';
+import { DEFICIENCY_LABELS, DEFICIENCY_CLS, type DeficiencyType } from './automationCasesData';
 
 const inputCls = 'w-full px-3 py-2 border border-border rounded-lg text-[12px] text-text bg-white outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/10 transition-all';
-const selectCls = inputCls + ' cursor-pointer appearance-none';
 const labelCls = 'text-[11px] font-semibold text-text-muted block mb-1';
 
 function now(): string { return new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
@@ -95,11 +94,11 @@ export default function AutomationOutputReviewTab({ engagement, runsState, outpu
 
   const getOutputReviewState = (outputId: string) => {
     if (outputReview.approvedOutputIds.includes(outputId)) return 'Approved';
-    if (outputReview.rejectedOutputIds.includes(outputId)) return 'Rejected';
+    if (outputReview.rejectedOutputIds.includes(outputId)) return 'Excluded';
     if (outputReview.reviewedOutputIds.includes(outputId)) return 'Reviewed';
     return 'Not Reviewed';
   };
-  const outputReviewCls = (s: string) => s === 'Approved' ? 'bg-emerald-50 text-emerald-700' : s === 'Rejected' ? 'bg-red-50 text-red-700' : s === 'Reviewed' ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-500';
+  const outputReviewCls = (s: string) => s === 'Approved' ? 'bg-emerald-50 text-emerald-700' : s === 'Excluded' ? 'bg-red-50 text-red-700' : s === 'Reviewed' ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-500';
 
   const markOutput = (outputId: string, action: 'reviewed' | 'approved' | 'rejected') => {
     const clean = {
@@ -132,13 +131,13 @@ export default function AutomationOutputReviewTab({ engagement, runsState, outpu
     clearExSelection();
   };
 
-  const handleTriageSave = (triage: { deficiencyType: DeficiencyType; owner: string; reviewer: string; dueDate: string; notes: string }) => {
+  const handleTriageSave = (triage: { owner: string; reviewer: string; dueDate: string; notes: string }) => {
     const ts = now();
     selectedExIds.forEach(exId => {
       const parentRun = completedRuns.find(r => r.exceptions.some(e => e.id === exId));
       if (parentRun) {
         onUpdateRunException(parentRun.id, exId, 'CASE_CANDIDATE', {
-          deficiencyType: triage.deficiencyType, assignedOwner: triage.owner, reviewer: triage.reviewer,
+          assignedOwner: triage.owner, reviewer: triage.reviewer,
           dueDate: triage.dueDate, triageNotes: triage.notes, caseCandidateMarkedAt: ts, caseCandidateMarkedBy: engagement.owner,
         });
       }
@@ -261,7 +260,7 @@ export default function AutomationOutputReviewTab({ engagement, runsState, outpu
                   <div className="flex items-center gap-3 mt-0.5 text-[11px] text-text-muted">
                     <span>{group.outputs.length} output{group.outputs.length !== 1 ? 's' : ''}</span>
                     <span className="text-gray-300">|</span>
-                    <span className={group.exceptions.length > 0 ? 'text-amber-600' : ''}>{group.exceptions.length} exception{group.exceptions.length !== 1 ? 's' : ''}</span>
+                    <button onClick={e => { e.stopPropagation(); if (!isExpanded) toggleExpand(group.workflowName); }} className={`${group.exceptions.length > 0 ? 'text-amber-600' : ''} hover:underline cursor-pointer bg-transparent border-none p-0 text-[11px]`}>{group.exceptions.length} exception{group.exceptions.length !== 1 ? 's' : ''}</button>
                     {openEx > 0 && <><span className="text-gray-300">|</span><span className="text-amber-600 font-medium">{openEx} open</span></>}
                     {caseCands > 0 && <><span className="text-gray-300">|</span><span className="text-purple-600 font-medium">{caseCands} case candidate{caseCands !== 1 ? 's' : ''}</span></>}
                     {group.lastRunDate && <><span className="text-gray-300">|</span><span>Last run: {group.lastRunDate}</span></>}
@@ -286,9 +285,10 @@ export default function AutomationOutputReviewTab({ engagement, runsState, outpu
                 <div className="border-t border-border-light">
                   {/* Outputs */}
                   <div className="px-5 py-3">
-                    <h5 className="text-[11px] font-bold text-text-muted uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <h5 className="text-[11px] font-bold text-text-muted uppercase tracking-wider mb-1 flex items-center gap-1.5">
                       <FileText size={12} className="text-primary" />Outputs ({group.outputs.length})
                     </h5>
+                    <p className="text-[10px] text-gray-400 mb-2">Approve outputs to include in the report. Excluded or unreviewed outputs will not appear in the final report.</p>
                     {group.outputs.length === 0 ? (
                       <div className="text-[11px] text-gray-400 italic py-2">No outputs generated.</div>
                     ) : (
@@ -309,7 +309,7 @@ export default function AutomationOutputReviewTab({ engagement, runsState, outpu
                                 <div className="flex items-center justify-center gap-1">
                                   {rs === 'Not Reviewed' && <button onClick={() => markOutput(o.id, 'reviewed')} className="px-2 py-1 rounded text-[8px] font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 cursor-pointer transition-colors">Review</button>}
                                   {rs !== 'Approved' && <button onClick={() => markOutput(o.id, 'approved')} className="px-2 py-1 rounded text-[8px] font-semibold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 cursor-pointer transition-colors">Approve</button>}
-                                  {rs !== 'Rejected' && <button onClick={() => markOutput(o.id, 'rejected')} className="px-2 py-1 rounded text-[8px] font-semibold text-red-500 bg-red-50 hover:bg-red-100 cursor-pointer transition-colors">Reject</button>}
+                                  {rs !== 'Excluded' && <button onClick={() => markOutput(o.id, 'rejected')} className="px-2 py-1 rounded text-[8px] font-semibold text-red-500 bg-red-50 hover:bg-red-100 cursor-pointer transition-colors">Exclude</button>}
                                   <button onClick={() => { setCommentTarget(o.id); setCommentText(outputReview.outputComments[o.id] || ''); }} className="px-2 py-1 rounded text-[8px] font-semibold text-gray-500 bg-gray-100 hover:bg-gray-200 cursor-pointer transition-colors"><Eye size={8} /></button>
                                 </div>
                               </td>
@@ -322,7 +322,7 @@ export default function AutomationOutputReviewTab({ engagement, runsState, outpu
 
                   {/* Exceptions */}
                   <div className="px-5 py-3 border-t border-border-light/50">
-                    <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center justify-between mb-1">
                       <h5 className="text-[11px] font-bold text-text-muted uppercase tracking-wider flex items-center gap-1.5">
                         <AlertTriangle size={12} className="text-amber-500" />Exceptions ({group.exceptions.length})
                       </h5>
@@ -330,6 +330,7 @@ export default function AutomationOutputReviewTab({ engagement, runsState, outpu
                         <button onClick={() => { const ids = group.exceptions.filter(e => e.status === 'OPEN').map(e => e.id); setSelectedExIds(prev => { const n = new Set(prev); ids.forEach(id => n.add(id)); return n; }); }} className="text-[9px] font-semibold text-primary hover:underline cursor-pointer">Select Open</button>
                       )}
                     </div>
+                    <p className="text-[10px] text-gray-400 mb-2">Exceptions are workflow findings. Mark valid exceptions as case candidates for follow-up.</p>
                     {group.exceptions.length === 0 ? (
                       <div className="text-[11px] text-gray-400 italic py-2 flex items-center gap-1.5"><CheckCircle2 size={11} className="text-emerald-500" />No exceptions — clean run.</div>
                     ) : (
@@ -500,6 +501,7 @@ function WorkflowDetailPanel({ group, engagement, outputReview, completedRuns, g
       <div className="rounded-xl border border-border-light bg-white overflow-hidden">
         <div className="px-5 py-3 border-b border-border-light bg-surface-2/20">
           <h4 className="text-[12px] font-bold text-text flex items-center gap-1.5"><FileText size={13} className="text-primary" />Outputs ({group.outputs.length})</h4>
+          <p className="text-[10px] text-gray-400 mt-0.5">Approve outputs to include in the report. Excluded or unreviewed outputs will not appear in the final report.</p>
         </div>
         {group.outputs.length === 0 ? (
           <div className="px-5 py-4 text-[11px] text-gray-400 italic">No outputs generated by this workflow.</div>
@@ -521,7 +523,7 @@ function WorkflowDetailPanel({ group, engagement, outputReview, completedRuns, g
                     <div className="flex items-center justify-center gap-1">
                       {rs === 'Not Reviewed' && <button onClick={() => markOutput(o.id, 'reviewed')} className="px-2 py-1 rounded text-[9px] font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 cursor-pointer transition-colors">Review</button>}
                       {rs !== 'Approved' && <button onClick={() => markOutput(o.id, 'approved')} className="px-2 py-1 rounded text-[9px] font-semibold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 cursor-pointer transition-colors">Approve</button>}
-                      {rs !== 'Rejected' && <button onClick={() => markOutput(o.id, 'rejected')} className="px-2 py-1 rounded text-[9px] font-semibold text-red-500 bg-red-50 hover:bg-red-100 cursor-pointer transition-colors">Reject</button>}
+                      {rs !== 'Excluded' && <button onClick={() => markOutput(o.id, 'rejected')} className="px-2 py-1 rounded text-[9px] font-semibold text-red-500 bg-red-50 hover:bg-red-100 cursor-pointer transition-colors">Exclude</button>}
                     </div>
                   </td>
                 </tr>
@@ -591,10 +593,9 @@ function WorkflowDetailPanel({ group, engagement, outputReview, completedRuns, g
 
 function TriageForm({ selectedExceptions, defaultOwner, onSave, onCancel }: {
   selectedExceptions: AutomationRunException[]; defaultOwner: string;
-  onSave: (triage: { deficiencyType: DeficiencyType; owner: string; reviewer: string; dueDate: string; notes: string }) => void;
+  onSave: (triage: { owner: string; reviewer: string; dueDate: string; notes: string }) => void;
   onCancel: () => void;
 }) {
-  const [deficiencyType, setDeficiencyType] = useState<DeficiencyType>('OTHER');
   const [owner, setOwner] = useState(defaultOwner);
   const [reviewer, setReviewer] = useState('');
   const [dueDate, setDueDate] = useState(futureDate(14));
@@ -604,7 +605,7 @@ function TriageForm({ selectedExceptions, defaultOwner, onSave, onCancel }: {
   const handleSave = () => {
     if (!owner.trim()) { setValidationMsg('Owner is required.'); return; }
     if (!dueDate) { setValidationMsg('Due date is required.'); return; }
-    onSave({ deficiencyType, owner: owner.trim(), reviewer: reviewer.trim(), dueDate, notes: notes.trim() });
+    onSave({ owner: owner.trim(), reviewer: reviewer.trim(), dueDate, notes: notes.trim() });
   };
 
   return (
@@ -627,12 +628,6 @@ function TriageForm({ selectedExceptions, defaultOwner, onSave, onCancel }: {
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className={labelCls}>Deficiency Type <span className="text-red-400">*</span></label>
-          <select value={deficiencyType} onChange={e => setDeficiencyType(e.target.value as DeficiencyType)} className={selectCls}>
-            {DEFICIENCY_TYPES.map(d => <option key={d} value={d}>{DEFICIENCY_LABELS[d]}</option>)}
-          </select>
-        </div>
-        <div>
           <label className={labelCls}>Assign Owner <span className="text-red-400">*</span></label>
           <input value={owner} onChange={e => setOwner(e.target.value)} placeholder="Owner name" className={inputCls} />
         </div>
@@ -645,8 +640,8 @@ function TriageForm({ selectedExceptions, defaultOwner, onSave, onCancel }: {
           <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className={inputCls} />
         </div>
         <div className="col-span-2">
-          <label className={labelCls}>Triage Notes</label>
-          <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="Classification rationale, context..." className={inputCls + ' resize-none'} />
+          <label className={labelCls}>Notes for Owner</label>
+          <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="Instructions, context, or details for the risk/process owner..." className={inputCls + ' resize-none'} />
         </div>
       </div>
 
