@@ -605,11 +605,7 @@ export default function App() {
       // V3 Configurable Engagement — dev-only preview route
       case 'dev-configurable-engagement-v3':
         return (
-          <div className="p-6 h-full overflow-y-auto">
-            <div className="mb-6">
-              <h2 className="text-[16px] font-bold text-text">Configurable Engagement V3 Preview</h2>
-              <p className="text-[12px] text-text-muted mt-0.5">Internal preview route. Not connected to production flow yet.</p>
-            </div>
+          <div className="px-8 py-6 h-full overflow-y-auto">
             <ConfigurableEngagementWizard />
           </div>
         );

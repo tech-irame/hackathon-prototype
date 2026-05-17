@@ -179,21 +179,21 @@ export default function AutomationPortfolioView({ onOpenProject, onCreateNew }: 
   const statuses = ['Active', 'Scheduled', 'Draft', 'Needs Setup', 'Paused'];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-7">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-center justify-between gap-4">
         <div>
-          <h2 className="text-[20px] font-bold text-ink-900 tracking-tight">Automation Projects</h2>
-          <p className="text-[13px] text-ink-400 mt-0.5">Monitor recurring workflow automations, exceptions, cases, and reporting across project areas.</p>
+          <h2 className="text-[22px] font-bold text-ink-900 tracking-tight">Automation Projects</h2>
+          <p className="text-[13px] text-ink-400 mt-1">Monitor recurring workflow automations, exceptions, cases, and reporting across project areas.</p>
         </div>
         <button onClick={onCreateNew}
-          className="flex items-center gap-2 px-4 h-10 rounded-xl bg-gradient-to-r from-primary to-primary-medium text-white text-[13px] font-semibold hover:from-primary-hover hover:to-primary transition-all cursor-pointer shadow-sm">
-          <Plus size={14} />Create Automation Project
+          className="flex items-center gap-2 px-5 h-11 rounded-xl bg-gradient-to-r from-primary to-primary-medium text-white text-[13px] font-semibold hover:from-primary-hover hover:to-primary transition-all cursor-pointer shadow-sm shrink-0">
+          <Plus size={15} />Create Automation Project
         </button>
       </div>
 
-      {/* KPI cards */}
-      <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="grid grid-cols-2 lg:grid-cols-6 gap-3">
+      {/* KPI cards — matches platform DashboardView KPI pattern */}
+      <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="grid grid-cols-2 lg:grid-cols-6 gap-4">
         {[
           { title: 'Active Projects', value: activeCount, icon: Activity, color: 'text-compliant bg-compliant-50' },
           { title: 'Workflows Running', value: totalWorkflows, icon: Workflow, color: 'text-evidence-700 bg-evidence-50' },
@@ -203,26 +203,23 @@ export default function AutomationPortfolioView({ onOpenProject, onCreateNew }: 
           { title: 'Records Processed', value: totalRecords.toLocaleString(), icon: BarChart3, color: 'text-ink-500 bg-canvas-elevated' },
         ].map((kpi, i) => (
           <motion.div key={kpi.title} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.06 + i * 0.04 }}
-            className="glass-card rounded-xl px-4 py-3.5">
-            <div className="flex items-center gap-2 mb-2">
-              <div className={`p-1.5 rounded-lg ${kpi.color}`}><kpi.icon size={13} /></div>
-              <span className="text-[10px] font-semibold text-ink-400 uppercase tracking-wide">{kpi.title}</span>
-            </div>
-            <p className="text-[22px] font-bold text-ink-900 leading-none tabular-nums">{kpi.value}</p>
+            className="glass-card rounded-xl px-5 py-4 hover:border-brand-200 transition-all">
+            <p className="text-[11px] font-semibold text-ink-500 uppercase tracking-wide mb-3">{kpi.title}</p>
+            <p className="text-[26px] font-bold text-ink-900 leading-none tabular-nums">{kpi.value}</p>
           </motion.div>
         ))}
       </motion.div>
 
       {/* Search + Filters */}
       <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-[360px]">
-          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-400" />
+        <div className="relative flex-1 max-w-[380px]">
+          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-400" />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search projects..."
             className="w-full pl-10 pr-4 h-10 rounded-xl border border-canvas-border bg-white text-[13px] text-ink-900 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 transition-all" />
         </div>
         <div className="flex items-center gap-1.5">
           <button onClick={() => setStatusFilter('')}
-            className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold cursor-pointer transition-colors ${!statusFilter ? 'bg-brand-600 text-white' : 'bg-canvas-elevated text-ink-500 hover:bg-brand-50'}`}>
+            className={`px-3.5 py-1.5 rounded-full text-[12px] font-semibold cursor-pointer transition-all ${!statusFilter ? 'bg-brand-600 text-white shadow-sm' : 'bg-canvas-elevated text-ink-500 hover:bg-brand-50 hover:text-brand-700'}`}>
             All ({projects.length})
           </button>
           {statuses.map(s => {
@@ -230,7 +227,7 @@ export default function AutomationPortfolioView({ onOpenProject, onCreateNew }: 
             if (count === 0) return null;
             return (
               <button key={s} onClick={() => setStatusFilter(statusFilter === s ? '' : s)}
-                className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold cursor-pointer transition-colors ${statusFilter === s ? 'bg-brand-600 text-white' : 'bg-canvas-elevated text-ink-500 hover:bg-brand-50'}`}>
+                className={`px-3.5 py-1.5 rounded-full text-[12px] font-semibold cursor-pointer transition-all ${statusFilter === s ? 'bg-brand-600 text-white shadow-sm' : 'bg-canvas-elevated text-ink-500 hover:bg-brand-50 hover:text-brand-700'}`}>
                 {s} ({count})
               </button>
             );
@@ -238,8 +235,8 @@ export default function AutomationPortfolioView({ onOpenProject, onCreateNew }: 
         </div>
       </div>
 
-      {/* Project cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+      {/* Project cards — matches platform DashboardListPage card pattern */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5">
         <AnimatePresence>
           {filtered.map((project, i) => (
             <motion.div
@@ -249,75 +246,75 @@ export default function AutomationPortfolioView({ onOpenProject, onCreateNew }: 
               exit={{ opacity: 0 }}
               transition={{ delay: i * 0.04 }}
               onClick={() => onOpenProject(buildEngagementFromCard(project))}
-              className="glass-card rounded-xl p-5 cursor-pointer group relative flex flex-col hover:border-brand-200 hover:shadow-md transition-all"
+              className="glass-card rounded-xl p-6 cursor-pointer group relative flex flex-col hover:border-brand-200 hover:shadow-lg hover:shadow-brand-100/40 transition-all"
             >
               {/* Top: icon + status */}
-              <div className="flex items-start justify-between mb-3">
-                <div className="inline-flex p-2.5 rounded-lg bg-brand-50 text-brand-700">
+              <div className="flex items-start justify-between mb-4">
+                <div className="inline-flex p-2.5 rounded-xl bg-brand-50 text-brand-700">
                   <Activity size={18} />
                 </div>
-                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${STATUS_CLS[project.status] || 'bg-canvas-elevated text-ink-400'}`}>
+                <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${STATUS_CLS[project.status] || 'bg-canvas-elevated text-ink-400'}`}>
                   {project.status}
                 </span>
               </div>
 
               {/* Title + description */}
-              <div className="mb-3 flex-1">
-                <h3 className="text-[14px] font-semibold text-ink-900 group-hover:text-brand-700 transition-colors mb-1">
+              <div className="mb-4 flex-1">
+                <h3 className="text-[15px] font-semibold text-ink-900 group-hover:text-brand-700 transition-colors mb-1.5">
                   {project.name}
                 </h3>
-                <p className="text-[11px] text-ink-500 leading-relaxed line-clamp-2">{project.description}</p>
+                <p className="text-[12px] text-ink-500 leading-relaxed line-clamp-2">{project.description}</p>
               </div>
 
               {/* Metrics row */}
-              <div className="grid grid-cols-4 gap-2 mb-3">
-                <div className="text-center">
-                  <div className="text-[14px] font-bold text-ink-900 tabular-nums">{project.activeWorkflows}</div>
-                  <div className="text-[9px] text-ink-400">Workflows</div>
-                </div>
-                <div className="text-center">
-                  <div className={`text-[14px] font-bold tabular-nums ${project.openExceptions > 0 ? 'text-high-700' : 'text-ink-900'}`}>{project.openExceptions}</div>
-                  <div className="text-[9px] text-ink-400">Open Exc.</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-[14px] font-bold text-ink-900 tabular-nums">{project.casesCount}</div>
-                  <div className="text-[9px] text-ink-400">Cases</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-[14px] font-bold text-ink-900 tabular-nums">{project.recordsProcessed > 999 ? `${(project.recordsProcessed / 1000).toFixed(1)}K` : project.recordsProcessed}</div>
-                  <div className="text-[9px] text-ink-400">Records</div>
-                </div>
+              <div className="grid grid-cols-4 gap-3 mb-4 py-3 rounded-xl bg-canvas-elevated/50">
+                {[
+                  { value: project.activeWorkflows, label: 'Workflows', cls: '' },
+                  { value: project.openExceptions, label: 'Open Exc.', cls: project.openExceptions > 0 ? 'text-high-700' : '' },
+                  { value: project.casesCount, label: 'Cases', cls: '' },
+                  { value: project.recordsProcessed > 999 ? `${(project.recordsProcessed / 1000).toFixed(1)}K` : project.recordsProcessed, label: 'Records', cls: '' },
+                ].map(m => (
+                  <div key={m.label} className="text-center">
+                    <div className={`text-[16px] font-bold tabular-nums ${m.cls || 'text-ink-900'}`}>{m.value}</div>
+                    <div className="text-[10px] text-ink-400 font-medium">{m.label}</div>
+                  </div>
+                ))}
               </div>
 
               {/* Progress bar */}
-              <div className="mb-3">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[10px] text-ink-400">Coverage</span>
-                  <span className="text-[10px] font-semibold text-ink-500">{project.completionPct}%</span>
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[11px] text-ink-400 font-medium">Coverage</span>
+                  <span className="text-[11px] font-bold text-ink-600">{project.completionPct}%</span>
                 </div>
-                <div className="h-1.5 rounded-full bg-canvas-border overflow-hidden">
-                  <div className="h-full rounded-full bg-gradient-to-r from-brand-500 to-brand-400 transition-all" style={{ width: `${project.completionPct}%` }} />
+                <div className="h-2 rounded-full bg-canvas-border overflow-hidden">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${project.completionPct}%` }}
+                    transition={{ duration: 0.6, delay: i * 0.04 + 0.2 }}
+                    className="h-full rounded-full bg-gradient-to-r from-brand-600 to-brand-400"
+                  />
                 </div>
               </div>
 
               {/* Footer */}
-              <div className="flex items-center justify-between pt-3 border-t border-canvas-border">
+              <div className="flex items-center justify-between pt-3 border-t border-canvas-border mt-auto">
                 <div className="flex items-center gap-3 text-[11px]">
-                  <span className="text-ink-400">{project.businessProcess}</span>
+                  <span className="text-ink-500 font-medium">{project.businessProcess}</span>
                   {project.frequency && (
                     <span className="flex items-center gap-1 text-ink-400">
-                      <Calendar size={10} />{project.frequency}
+                      <Calendar size={11} />{project.frequency}
                     </span>
                   )}
                 </div>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-2">
                   {project.lastRunStatus !== 'Never' && (
-                    <span className={`text-[10px] font-semibold ${RUN_STATUS_CLS[project.lastRunStatus]}`}>
-                      {project.lastRunStatus === 'Completed' ? <CheckCircle2 size={10} className="inline mr-0.5" /> : null}
+                    <span className={`text-[11px] font-semibold flex items-center gap-1 ${RUN_STATUS_CLS[project.lastRunStatus]}`}>
+                      {project.lastRunStatus === 'Completed' && <CheckCircle2 size={11} />}
                       {project.lastRunStatus}
                     </span>
                   )}
-                  <ChevronRight size={14} className="text-ink-300 group-hover:text-brand-500 transition-colors" />
+                  <ChevronRight size={15} className="text-ink-300 group-hover:text-brand-500 transition-colors" />
                 </div>
               </div>
             </motion.div>
@@ -326,9 +323,10 @@ export default function AutomationPortfolioView({ onOpenProject, onCreateNew }: 
       </div>
 
       {filtered.length === 0 && (
-        <div className="glass-card rounded-2xl p-12 text-center">
-          <Search size={28} className="text-ink-300 mx-auto mb-3" />
-          <p className="text-[13px] text-ink-500">No projects match your search.</p>
+        <div className="glass-card rounded-2xl p-16 text-center">
+          <Search size={32} className="text-ink-300 mx-auto mb-3" />
+          <p className="text-[14px] text-ink-500 font-medium">No projects match your search.</p>
+          <p className="text-[12px] text-ink-400 mt-1">Try adjusting your filters or search term.</p>
         </div>
       )}
     </div>
