@@ -33,9 +33,10 @@ interface Props {
   engagement: ConfigurableEngagement;
   onBack?: () => void;
   onEditSetup?: () => void;
+  backLabel?: string;
 }
 
-export default function ConfigurableEngagementWorkspace({ engagement, onBack, onEditSetup }: Props) {
+export default function ConfigurableEngagementWorkspace({ engagement, onBack, onEditSetup, backLabel }: Props) {
   const allTabs = getWorkspaceTabsForPattern(engagement.patternType);
 
   // Hide Review tab for automation projects when review is not required
@@ -192,7 +193,7 @@ export default function ConfigurableEngagementWorkspace({ engagement, onBack, on
 
   return (
     <div>
-      <WorkspaceHeader engagement={engagement} onBack={onBack} onEditSetup={onEditSetup} />
+      <WorkspaceHeader engagement={engagement} onBack={onBack} onEditSetup={onEditSetup} backLabel={backLabel} />
       <WorkspaceTabs tabs={allTabs} activeTabId={activeTabId} onTabChange={setActiveTabId} hiddenTabIds={hiddenTabIds} />
       <PatternWorkspaceRenderer
         engagement={engagement}

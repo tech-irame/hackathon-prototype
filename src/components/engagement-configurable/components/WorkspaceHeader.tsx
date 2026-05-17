@@ -30,9 +30,10 @@ interface Props {
   engagement: ConfigurableEngagement;
   onBack?: () => void;
   onEditSetup?: () => void;
+  backLabel?: string;
 }
 
-export default function WorkspaceHeader({ engagement, onBack, onEditSetup }: Props) {
+export default function WorkspaceHeader({ engagement, onBack, onEditSetup, backLabel }: Props) {
   const Icon = PATTERN_ICONS[engagement.patternType];
   const patternLabel = PATTERN_LABELS[engagement.patternType];
 
@@ -77,7 +78,7 @@ export default function WorkspaceHeader({ engagement, onBack, onEditSetup }: Pro
           )}
           {onBack && (
             <button onClick={onBack} className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-border-light text-[11px] font-medium text-text-muted hover:bg-surface-2/30 cursor-pointer transition-colors">
-              <ArrowLeft size={12} />Back to Wizard
+              <ArrowLeft size={12} />{backLabel || 'Back to Wizard'}
             </button>
           )}
         </div>

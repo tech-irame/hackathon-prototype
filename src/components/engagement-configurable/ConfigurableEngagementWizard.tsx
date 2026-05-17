@@ -16,6 +16,7 @@ import { getEngagementPatternDefinition } from './engagementPatterns';
 import { validateConfigurableEngagementDraft } from './configurableEngagementState';
 import { PatternSelectionStep, CommonDetailsStep, PatternConfigStep, ReviewCreateStep } from './components';
 import type { CommonDetails } from './components';
+import AutomationPortfolioView from './AutomationPortfolioView';
 
 // ─── Step definitions ─────────────────────────────────────────────────────
 
@@ -89,6 +90,8 @@ export default function ConfigurableEngagementWizard() {
   const [config, setConfig] = useState<EngagementConfig>(getDefaultConfig(EPT.COMPLIANCE_CONTROL_TESTING));
   const [isCreated, setIsCreated] = useState(false);
   const [createdEngagement, setCreatedEngagement] = useState<ConfigurableEngagement | null>(null);
+  const [showPortfolio, setShowPortfolio] = useState(true);
+  const [openedFromPortfolio, setOpenedFromPortfolio] = useState(false);
 
   // When pattern changes, reset config to defaults
   const handlePatternSelect = (pt: EngagementPatternType) => {
@@ -161,22 +164,54 @@ export default function ConfigurableEngagementWizard() {
   };
 
   const handleBackToWizard = () => {
+    if (openedFromPortfolio) {
+      setCreatedEngagement(null);
+      setIsCreated(false);
+      setOpenedFromPortfolio(false);
+      setShowPortfolio(true);
+      return;
+    }
     setCreatedEngagement(null);
     setIsCreated(false);
     setCurrentStep(3); // go back to review step
   };
 
+  const handleOpenFromPortfolio = (eng: ConfigurableEngagement) => {
+    setCreatedEngagement(eng);
+    setOpenedFromPortfolio(true);
+    setShowPortfolio(false);
+  };
+
+  const handleCreateFromPortfolio = () => {
+    setShowPortfolio(false);
+    setSelectedPattern(EPT.WORKFLOW_AUTOMATION_PROJECT);
+    setConfig(getDefaultConfig(EPT.WORKFLOW_AUTOMATION_PROJECT));
+    setCurrentStep(1); // skip pattern selection, go to details
+  };
+
+  // ── Portfolio view ──
+  if (showPortfolio) {
+    return (
+      <AutomationPortfolioView
+        onOpenProject={handleOpenFromPortfolio}
+        onCreateNew={handleCreateFromPortfolio}
+      />
+    );
+  }
+
   // ── Workspace view after creation ──
   if (createdEngagement) {
+    const backLabel = openedFromPortfolio ? 'Back to Automation Projects' : undefined;
     return (
       <div>
         <div className="flex items-start gap-2 px-4 py-2.5 mb-4 rounded-lg bg-blue-50 border border-blue-200 text-[11px] text-blue-700">
           <Info size={13} className="shrink-0 mt-0.5" />
-          <span>Draft created locally. This workspace is dev-only and not persisted. Changes will be lost on page refresh.</span>
+          <span>{openedFromPortfolio ? 'Viewing automation project from portfolio. State is local and not persisted.' : 'Draft created locally. This workspace is dev-only and not persisted. Changes will be lost on page refresh.'}</span>
         </div>
         <ConfigurableEngagementWorkspace
           engagement={createdEngagement}
           onBack={handleBackToWizard}
+          backLabel={backLabel}
         />
       </div>
     );
@@ -244,11 +279,19 @@ export default function ConfigurableEngagementWizard() {
       {!isCreated && (
         <div className="flex items-center justify-between">
           <button
-            onClick={() => setCurrentStep(s => Math.max(0, s - 1))}
-            disabled={currentStep === 0}
+            onClick={() => {
+              if (currentStep <= 1 && selectedPattern === EPT.WORKFLOW_AUTOMATION_PROJECT) {
+                setShowPortfolio(true);
+                setCurrentStep(0);
+                setSelectedPattern(null);
+                return;
+              }
+              setCurrentStep(s => Math.max(0, s - 1));
+            }}
+            disabled={currentStep === 0 && selectedPattern !== EPT.WORKFLOW_AUTOMATION_PROJECT}
             className="flex items-center gap-1 px-4 py-2 rounded-lg border border-border-light text-[12px] font-medium text-text-muted hover:bg-surface-2/30 cursor-pointer transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           >
-            <ChevronLeft size={13} />Back
+            <ChevronLeft size={13} />{currentStep <= 1 && selectedPattern === EPT.WORKFLOW_AUTOMATION_PROJECT ? 'Back to Projects' : 'Back'}
           </button>
           {currentStep < 3 && (
             <button

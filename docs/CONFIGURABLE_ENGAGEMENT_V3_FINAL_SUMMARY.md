@@ -65,6 +65,8 @@ User-facing label: **Audit Assignment**
 
 User-facing label: **Project**
 
+**Portfolio Landing**: Automation Projects portfolio/monitoring view shows multiple automation project cards (monitoring areas). Each card opens the existing V3 workspace. "Create Automation Project" opens wizard with pattern pre-selected. Back from workspace returns to portfolio.
+
 | Tab | Status | System Reuse |
 |-----|--------|-------------|
 | Overview | Implemented — standard overview for all patterns; Continuous Monitoring Dashboard when Dashboard output + Recurring run type uses platform Dashboard visual language (glass-card KPI cards, Alerts & Daily Digest bar, recharts charts, platform table style, semantic color tokens) | **Reuses platform Dashboard visual pattern + recharts** |
