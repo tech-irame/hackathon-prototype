@@ -90,7 +90,7 @@ export default function ConfigurableEngagementWizard() {
   const [config, setConfig] = useState<EngagementConfig>(getDefaultConfig(EPT.COMPLIANCE_CONTROL_TESTING));
   const [isCreated, setIsCreated] = useState(false);
   const [createdEngagement, setCreatedEngagement] = useState<ConfigurableEngagement | null>(null);
-  const [showPortfolio, setShowPortfolio] = useState(true);
+  const [showPortfolio, setShowPortfolio] = useState(false);
   const [openedFromPortfolio, setOpenedFromPortfolio] = useState(false);
 
   // When pattern changes, reset config to defaults
@@ -165,9 +165,17 @@ export default function ConfigurableEngagementWizard() {
 
   const handleBackToWizard = () => {
     if (openedFromPortfolio) {
+      // Back from workspace opened via portfolio card → return to portfolio
       setCreatedEngagement(null);
       setIsCreated(false);
       setOpenedFromPortfolio(false);
+      setShowPortfolio(true);
+      return;
+    }
+    if (createdEngagement?.patternType === EPT.WORKFLOW_AUTOMATION_PROJECT) {
+      // Back from workspace created via portfolio Create CTA → return to portfolio
+      setCreatedEngagement(null);
+      setIsCreated(false);
       setShowPortfolio(true);
       return;
     }
@@ -189,19 +197,21 @@ export default function ConfigurableEngagementWizard() {
     setCurrentStep(1); // skip pattern selection, go to details
   };
 
-  // ── Portfolio view ──
+  // ── Portfolio view (shown after selecting Automation Project work type) ──
   if (showPortfolio) {
     return (
       <AutomationPortfolioView
         onOpenProject={handleOpenFromPortfolio}
         onCreateNew={handleCreateFromPortfolio}
+        onBack={() => { setShowPortfolio(false); setCurrentStep(0); }}
       />
     );
   }
 
   // ── Workspace view after creation ──
   if (createdEngagement) {
-    const backLabel = openedFromPortfolio ? 'Back to Automation Projects' : undefined;
+    const isAutomation = createdEngagement.patternType === EPT.WORKFLOW_AUTOMATION_PROJECT;
+    const backLabel = openedFromPortfolio || isAutomation ? 'Back to Automation Projects' : undefined;
     return (
       <div>
         <div className="flex items-start gap-2 px-4 py-2.5 mb-4 rounded-lg bg-blue-50 border border-blue-200 text-[11px] text-blue-700">
@@ -280,22 +290,26 @@ export default function ConfigurableEngagementWizard() {
         <div className="flex items-center justify-between">
           <button
             onClick={() => {
-              if (currentStep <= 1 && selectedPattern === EPT.WORKFLOW_AUTOMATION_PROJECT) {
+              if (currentStep === 1 && selectedPattern === EPT.WORKFLOW_AUTOMATION_PROJECT) {
                 setShowPortfolio(true);
-                setCurrentStep(0);
-                setSelectedPattern(null);
                 return;
               }
               setCurrentStep(s => Math.max(0, s - 1));
             }}
-            disabled={currentStep === 0 && selectedPattern !== EPT.WORKFLOW_AUTOMATION_PROJECT}
+            disabled={currentStep === 0}
             className="flex items-center gap-1 px-4 py-2 rounded-lg border border-border-light text-[12px] font-medium text-text-muted hover:bg-surface-2/30 cursor-pointer transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           >
-            <ChevronLeft size={13} />{currentStep <= 1 && selectedPattern === EPT.WORKFLOW_AUTOMATION_PROJECT ? 'Back to Projects' : 'Back'}
+            <ChevronLeft size={13} />{currentStep === 1 && selectedPattern === EPT.WORKFLOW_AUTOMATION_PROJECT ? 'Back to Projects' : 'Back'}
           </button>
           {currentStep < 3 && (
             <button
-              onClick={() => setCurrentStep(s => Math.min(3, s + 1))}
+              onClick={() => {
+                if (currentStep === 0 && selectedPattern === EPT.WORKFLOW_AUTOMATION_PROJECT) {
+                  setShowPortfolio(true);
+                  return;
+                }
+                setCurrentStep(s => Math.min(3, s + 1));
+              }}
               disabled={!canGoNext()}
               className="flex items-center gap-1 px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white text-[12px] font-semibold cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >

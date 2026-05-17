@@ -65,7 +65,7 @@ User-facing label: **Audit Assignment**
 
 User-facing label: **Project**
 
-**Portfolio Landing**: Automation Projects portfolio/monitoring view shows multiple automation project cards (monitoring areas). Each card opens the existing V3 workspace. "Create Automation Project" opens wizard with pattern pre-selected. Back from workspace returns to portfolio.
+**Navigation**: Work Type Selection → Automation Projects Portfolio → Project Workspace. Portfolio appears only after selecting Workflow Automation Project. "Back to Work Type" returns to pattern selection. Cards open workspace. "Create Automation Project" opens wizard with pattern pre-selected. Compliance/IA bypass portfolio and go directly to wizard.
 
 | Tab | Status | System Reuse |
 |-----|--------|-------------|

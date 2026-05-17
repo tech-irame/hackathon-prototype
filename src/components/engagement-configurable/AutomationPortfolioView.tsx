@@ -4,7 +4,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  Search, Plus, Activity, Workflow, AlertTriangle, Shield,
+  Search, Plus, Activity, Workflow, AlertTriangle, Shield, ArrowLeft,
   Clock, ChevronRight, BarChart3, CheckCircle2, Calendar,
   Play, TrendingUp, FileText, Filter,
 } from 'lucide-react';
@@ -155,9 +155,10 @@ function buildEngagementFromCard(card: AutomationProjectCard): ConfigurableEngag
 interface Props {
   onOpenProject: (engagement: ConfigurableEngagement) => void;
   onCreateNew: () => void;
+  onBack?: () => void;
 }
 
-export default function AutomationPortfolioView({ onOpenProject, onCreateNew }: Props) {
+export default function AutomationPortfolioView({ onOpenProject, onCreateNew, onBack }: Props) {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const projects = MOCK_AUTOMATION_PROJECTS;
@@ -180,6 +181,13 @@ export default function AutomationPortfolioView({ onOpenProject, onCreateNew }: 
 
   return (
     <div className="space-y-7">
+      {/* Back to Work Type */}
+      {onBack && (
+        <button onClick={onBack} className="flex items-center gap-1.5 text-[13px] text-ink-400 hover:text-brand-700 transition-colors cursor-pointer -mb-4">
+          <ArrowLeft size={14} />Back to Work Type
+        </button>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between gap-4">
         <div>
