@@ -222,6 +222,9 @@ export default function ConfigurableEngagementWizard({ onNavigateToView }: Wizar
           setShowComplianceView(false);
           setSelectedPattern(EPT.COMPLIANCE_CONTROL_TESTING);
           setConfig(getDefaultConfig(EPT.COMPLIANCE_CONTROL_TESTING));
+          setDetails(DEFAULT_DETAILS);
+          setIsCreated(false);
+          setCreatedEngagement(null);
           setCurrentStep(1);
         }}
         onBack={() => { setShowComplianceView(false); setCurrentStep(0); }}
@@ -346,10 +349,6 @@ export default function ConfigurableEngagementWizard({ onNavigateToView }: Wizar
                   return;
                 }
                 if (currentStep === 0 && selectedPattern === EPT.COMPLIANCE_CONTROL_TESTING) {
-                  if (onNavigateToView) {
-                    onNavigateToView('business-processes');
-                    return;
-                  }
                   setShowComplianceView(true);
                   return;
                 }
