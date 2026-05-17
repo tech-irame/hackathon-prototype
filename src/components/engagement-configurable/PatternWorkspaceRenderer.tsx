@@ -81,7 +81,7 @@ interface Props {
 
 export default function PatternWorkspaceRenderer({ engagement, activeTabId, activeTabLabel, complianceState, onCreateRequest, onUpdateRequestStatus, onAddBatch, onAddEvidence, onUpdateAttributeTesting, onUpdateReview, onUpdateConclusion, iaState, onUpdateIAScope, onUpdateIAAnnouncement, onUpdateIARequests, onUpdateIAAnalysis, onUpdateIAObservations, onUpdateIADiscussion, onUpdateIAFinalReport, onUpdateIAActionPlan, automationState, onUpdateAutomationInputData, onUpdateAutomationSetup, onUpdateAutomationRuns, onUpdateAutomationOutputReview, onUpdateAutoRunException, onUpdateAutomationCases, onUpdateAutomationReports, onUpdateAutomationSchedule, onNavigateTab }: Props) {
   if (activeTabId === 'overview') {
-    return <WorkspaceOverview engagement={engagement} />;
+    return <WorkspaceOverview engagement={engagement} automationState={automationState} onNavigateTab={onNavigateTab} />;
   }
 
   if (engagement.patternType === EngagementPatternType.COMPLIANCE_CONTROL_TESTING) {

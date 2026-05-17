@@ -251,8 +251,9 @@ function AutomationProjectSetup({ config, onChange }: { config: AutomationProjec
             const isReport = ot === AutomationOutputType.REPORT;
             const checked = config.outputTypes.includes(ot);
             const label = ot === 'CASE_MANAGEMENT' ? 'Case Management' : ot === 'DOWNLOADABLE_FILE' ? 'Downloadable File' : ot.charAt(0) + ot.slice(1).toLowerCase();
+            const isDashboard = ot === 'DASHBOARD';
             return (
-              <label key={ot} className={`flex items-center gap-2 text-[11px] ${isReport ? 'text-gray-400 cursor-not-allowed' : 'text-text cursor-pointer'}`}>
+              <label key={ot} className={`flex items-center gap-2 text-[11px] ${isReport ? 'text-gray-400 cursor-not-allowed' : 'text-text cursor-pointer'}`} title={isDashboard ? 'Creates a monitoring dashboard when this project is scheduled for recurring runs.' : undefined}>
                 <input type="checkbox" checked={checked || isReport} disabled={isReport} onChange={() => toggleOutput(ot)} className={checkCls + (isReport ? ' opacity-50' : '')} />
                 {label}
               </label>

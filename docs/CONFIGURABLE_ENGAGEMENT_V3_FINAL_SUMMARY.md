@@ -67,7 +67,7 @@ User-facing label: **Project**
 
 | Tab | Status | System Reuse |
 |-----|--------|-------------|
-| Overview | Implemented | — |
+| Overview | Implemented — standard overview for all patterns; Continuous Monitoring Dashboard when Dashboard output + Recurring run type (run/exception/case health cards, workflow health table, schedule status, quick actions) | — |
 | Workflows | Implemented — Workflow Library-style table with search/select-all/detail view, Create Workflow CTA, Run Selected CTA via BulkExecuteModal, in-tab workflow detail (Overview/Runs/Configuration), run history | **Reuses Workflow Library BulkExecuteModal** |
 | Output Review | Implemented — workflow-grouped outputs/exceptions, per-workflow accordion with expand/collapse, workflow detail drilldown panel, output approval controls report inclusion (Approve/Exclude), helper text clarifying approval meaning, clickable exception counts, bulk exception triage | — |
 | Cases / Exceptions | Implemented — embedded ManageExceptionsView with workflow filter (pill buttons filter by workflow, sync-back works for all) | **Reuses ManageExceptionsView** |
