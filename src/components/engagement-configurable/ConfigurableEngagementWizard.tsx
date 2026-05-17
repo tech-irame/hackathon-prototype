@@ -84,7 +84,11 @@ const DEFAULT_DETAILS: CommonDetails = {
 
 // ─── Component ────────────────────────────────────────────────────────────
 
-export default function ConfigurableEngagementWizard() {
+interface WizardProps {
+  onNavigateToView?: (view: any) => void;
+}
+
+export default function ConfigurableEngagementWizard({ onNavigateToView }: WizardProps = {}) {
   const [currentStep, setCurrentStep] = useState(0);
   const [selectedPattern, setSelectedPattern] = useState<EngagementPatternType | null>(null);
   const [details, setDetails] = useState<CommonDetails>(DEFAULT_DETAILS);
@@ -342,6 +346,10 @@ export default function ConfigurableEngagementWizard() {
                   return;
                 }
                 if (currentStep === 0 && selectedPattern === EPT.COMPLIANCE_CONTROL_TESTING) {
+                  if (onNavigateToView) {
+                    onNavigateToView('business-processes');
+                    return;
+                  }
                   setShowComplianceView(true);
                   return;
                 }

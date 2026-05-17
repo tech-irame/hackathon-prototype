@@ -606,7 +606,7 @@ export default function App() {
       case 'dev-configurable-engagement-v3':
         return (
           <div className="px-8 py-6 h-full overflow-y-auto">
-            <ConfigurableEngagementWizard />
+            <ConfigurableEngagementWizard onNavigateToView={setView} />
           </div>
         );
 
