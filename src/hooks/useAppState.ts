@@ -155,7 +155,15 @@ const getInitialView = (): View => {
   if (v === 'manage-exceptions') return 'manage-exceptions';
   if (v === 'racm-full-editor') return 'racm-full-editor';
   if (v === 'engagement-detail') return 'engagement-detail';
+  if (v === 'workflow-executor') return 'workflow-executor';
   return 'home';
+};
+
+const getInitialWorkflowId = (): string | null => {
+  if (typeof window === 'undefined') return null;
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('view') !== 'workflow-executor') return null;
+  return params.get('workflowId');
 };
 
 const INITIAL_STATE: AppState = {
@@ -166,7 +174,7 @@ const INITIAL_STATE: AppState = {
   artifactMode: 'query',
   showArtifacts: false,
   showChatHistory: false,
-  selectedWorkflowId: null,
+  selectedWorkflowId: getInitialWorkflowId(),
   selectedBPId: null,
   selectedEngagementId: null,
   selectedRiskId: null,

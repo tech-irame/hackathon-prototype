@@ -26,6 +26,7 @@ import {
   Minus,
   ExternalLink,
   Clock,
+  Info,
 } from 'lucide-react';
 import { DATA_SOURCES } from '../../data/mockData';
 import { useToast } from '../shared/Toast';
@@ -50,18 +51,95 @@ const REQUIRED_FILES = [
     format: 'CSV',
     required: true,
     description: 'Period export of posted invoices — invoice number, vendor, amount, date, GL account, entered-by user.',
+    usedBy: ['Invoice Duplicate Detection'],
   },
   {
     name: 'Vendor Master',
     format: 'CSV',
     required: true,
     description: 'Active vendor master snapshot used to validate every invoice vendor against the approved list.',
+    usedBy: ['Vendor Risk Score'],
   },
   {
     name: 'GL Trial Balance',
     format: 'CSV',
     required: true,
     description: 'Period-end trial balance export — ties AP postings back to the general ledger for reconciliation.',
+    usedBy: ['GL Anomaly Detection', 'Period-End Accrual Check'],
+  },
+];
+
+type MappedColumn = { source: string; target: string; type: string; confidence: number };
+
+type RequiredFileMapping = {
+  fileName: string;
+  totalColumns: number;
+  mappedColumns: number;
+  matchPercent: number;
+  mappedSources: { name: string }[];
+  unmappedColumns: { name: string; type: string }[];
+  mappedColumnList: MappedColumn[];
+  usedBy: string[];
+};
+
+const AP_INVOICE_COLUMNS = [
+  'invoice_no', 'vendor_id', 'vendor_name', 'invoice_date', 'due_date',
+  'gl_account', 'amount_before_tax', 'amount_after_tax', 'currency', 'pmt_block',
+  'acct_no', 'ifsc', 'gstin_no', 'pan', 'hsn_code',
+  'payment_terms', 'po_reference', 'grn_reference', 'approved_by', 'posted_by',
+  'posting_date', 'document_type', 'company_code', 'cost_center', 'profit_center',
+  'tds_section', 'withholding_tax', 'exchange_rate', 'base_amount', 'tax_amount',
+  'net_amount', 'payment_method',
+];
+
+const VENDOR_MASTER_COLUMNS = [
+  'vendor_id', 'vendor_name', 'address', 'city', 'state',
+  'country', 'pin_code', 'gstin', 'pan', 'bank_account',
+  'ifsc', 'swift', 'vendor_type', 'payment_terms', 'currency',
+  'status', 'registration_date', 'last_modified',
+];
+
+const GL_TRIAL_BALANCE_COLUMNS = [
+  'account_code', 'account_name', 'opening_balance', 'debits', 'credits',
+  'closing_balance', 'period', 'company_code', 'profit_center', 'currency',
+  'exchange_rate', 'base_amount', 'document_count', 'last_posting_date', 'account_type',
+  'account_class', 'parent_account', 'segment', 'business_unit', 'tax_code',
+  'posting_user', 'status', 'validated', 'fiscal_year',
+];
+
+const buildMappedColumns = (names: string[]): MappedColumn[] =>
+  names.map(n => ({ source: n, target: n, type: 'STRING', confidence: 95 }));
+
+const REQUIRED_FILE_MAPPINGS: RequiredFileMapping[] = [
+  {
+    fileName: 'AP_Invoice_Register.csv',
+    totalColumns: 33,
+    mappedColumns: 32,
+    matchPercent: 92,
+    mappedSources: [{ name: 'invoice_batch_sep2026.pdf' }],
+    unmappedColumns: [{ name: 'tds_amount', type: 'NUMBER' }],
+    mappedColumnList: buildMappedColumns(AP_INVOICE_COLUMNS),
+    usedBy: ['Invoice Duplicate Detection'],
+  },
+  {
+    fileName: 'Vendor_Master.csv',
+    totalColumns: 18,
+    mappedColumns: 18,
+    matchPercent: 98,
+    mappedSources: [{ name: 'vendor_master_v3.xlsx' }],
+    unmappedColumns: [],
+    mappedColumnList: buildMappedColumns(VENDOR_MASTER_COLUMNS),
+    usedBy: ['Vendor Risk Score'],
+  },
+  {
+    fileName: 'GL_Trial_Balance.csv',
+    totalColumns: 25,
+    mappedColumns: 24,
+    matchPercent: 88,
+    mappedSources: [{ name: 'gl_q3_2026.csv' }],
+    unmappedColumns: [{ name: 'cost_center', type: 'STRING' }],
+    mappedColumnList: buildMappedColumns(GL_TRIAL_BALANCE_COLUMNS),
+    usedBy: ['GL Anomaly Detection', 'Period-End Accrual Check'],
   },
 ];
 
@@ -363,6 +441,12 @@ export default function WorkflowLibraryView({ onCreateWorkflow, onSelectWorkflow
   const [tagFilter, setTagFilter] = useState<Set<string>>(new Set());
   const [activeFilter, setActiveFilter] = useState<'bp' | 'tags' | null>(null);
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
+  const [auditRun, setAuditRun] = useState<{
+    name: string;
+    workflows: BulkRunWorkflowResult[];
+    skippedCount: number;
+    date: string;
+  } | null>(null);
 
   const selectedWorkflows = useMemo(
     () => LIBRARY_WORKFLOWS.filter(w => selectedIds.has(w.id)),
@@ -436,17 +520,15 @@ export default function WorkflowLibraryView({ onCreateWorkflow, onSelectWorkflow
     setBulkModalOpen(false);
   };
 
-  const handleModalContinue = (data: {
-    auditName: string;
-    auditDescription: string;
-    frequency: Frequency;
-    triggerOn: Trigger;
-    runTime: string;
-    retry: Retry;
-  }) => {
-    void data;
+  const handleModalContinue = (data: BulkRunCompletion) => {
     setBulkModalOpen(false);
     exitBulkMode();
+    setAuditRun({
+      name: data.auditName || 'BulkRun',
+      workflows: data.workflows,
+      skippedCount: data.skippedCount,
+      date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+    });
   };
 
   const handleRowClick = (id: string) => {
@@ -456,6 +538,10 @@ export default function WorkflowLibraryView({ onCreateWorkflow, onSelectWorkflow
       onSelectWorkflow?.(id);
     }
   };
+
+  if (auditRun) {
+    return <AuditLogsView run={auditRun} onBack={() => setAuditRun(null)} />;
+  }
 
   return (
     <motion.div
@@ -1013,6 +1099,28 @@ function Pill({
 }
 
 // ─── Bulk Execute Modal (Step 1 — Select Workflows) ───
+type BulkRunWorkflowResult = { id: string; code: string; name: string; casesFlagged: number };
+
+type BulkRunCompletion = {
+  auditName: string;
+  auditDescription: string;
+  frequency: Frequency;
+  triggerOn: Trigger;
+  runTime: string;
+  retry: Retry;
+  workflows: BulkRunWorkflowResult[];
+  skippedCount: number;
+};
+
+function deterministicCaseCount(seed: string): number {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = (hash * 31 + seed.charCodeAt(i)) | 0;
+  }
+  const buckets = [0, 0, 1, 4, 12, 47, 128, 312, 891, 1248, 3271];
+  return buckets[Math.abs(hash) % buckets.length];
+}
+
 function BulkExecuteModal({
   selectedWorkflows,
   onClose,
@@ -1020,17 +1128,9 @@ function BulkExecuteModal({
 }: {
   selectedWorkflows: LibraryWorkflow[];
   onClose: () => void;
-  onContinue: (data: {
-    auditName: string;
-    auditDescription: string;
-    frequency: Frequency;
-    triggerOn: Trigger;
-    runTime: string;
-    retry: Retry;
-  }) => void;
+  onContinue: (data: BulkRunCompletion) => void;
 }) {
   const { addToast } = useToast();
-  const { startBulkRun } = useBulkRunProgress();
   const [modalDeselected, setModalDeselected] = useState<Set<string>>(new Set());
   const [auditName, setAuditName] = useState('Q3-P2P');
   const [auditDescription, setAuditDescription] = useState('');
@@ -1040,13 +1140,13 @@ function BulkExecuteModal({
   const [retry, setRetry] = useState<Retry>('3x');
   const [weekday, setWeekday] = useState<Weekday>('Mon');
   const [monthlyDate, setMonthlyDate] = useState('');
-  const [isFetching, setIsFetching] = useState(false);
   const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [isMappingFiles, setIsMappingFiles] = useState(false);
   // Step 2 state
   const [requiredFilesOpen, setRequiredFilesOpen] = useState(false);
   const [selectedListOpen, setSelectedListOpen] = useState(true);
   const [uploadOpen, setUploadOpen] = useState(true);
-  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>(SEED_UPLOADED_FILES);
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [selectedUploadIds, setSelectedUploadIds] = useState<Set<string>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -1062,14 +1162,39 @@ function BulkExecuteModal({
   // SQL config modal
   const [configModalWorkflowId, setConfigModalWorkflowId] = useState<string | null>(null);
   const [configDraft, setConfigDraft] = useState<Record<string, string>>({});
+  // Required-file slab expand state (Step 2 mapping view)
+  const [expandedRequiredFiles, setExpandedRequiredFiles] = useState<Set<string>>(
+    () => new Set([REQUIRED_FILE_MAPPINGS[0]?.fileName].filter(Boolean) as string[])
+  );
+  const toggleRequiredFileExpanded = (name: string) =>
+    setExpandedRequiredFiles(prev => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  // Per-workflow expand + config (Match Threshold, Date Range) for Step 1
+  const [expandedWorkflowIds, setExpandedWorkflowIds] = useState<Set<string>>(new Set());
+  const [workflowConfigs, setWorkflowConfigs] = useState<Record<string, { matchThreshold: number; dateFrom: string; dateTo: string }>>({});
+  const getWorkflowConfig = (id: string) =>
+    workflowConfigs[id] ?? { matchThreshold: 75, dateFrom: '2026-01-01', dateTo: '2026-03-31' };
+  const updateWorkflowConfig = (id: string, patch: Partial<{ matchThreshold: number; dateFrom: string; dateTo: string }>) =>
+    setWorkflowConfigs(prev => ({ ...prev, [id]: { ...getWorkflowConfig(id), ...patch } }));
+  const toggleWorkflowExpanded = (id: string) =>
+    setExpandedWorkflowIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !isFetching) onClose();
+      if (e.key === 'Escape' && !isMappingFiles) onClose();
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onClose, isFetching]);
+  }, [onClose, isMappingFiles]);
 
   const activeWorkflows = selectedWorkflows.filter(w => !modalDeselected.has(w.id));
   const uniqueBps = Array.from(new Set(activeWorkflows.map(w => w.businessProcess)));
@@ -1099,12 +1224,8 @@ function BulkExecuteModal({
       return;
     }
     if (!hasWorkflows || !hasAuditName) return;
-    setIsFetching(true);
-    window.setTimeout(() => {
-      setIsFetching(false);
-      setStep2View('upload');
-      setStep(2);
-    }, 2200);
+    setStep2View('upload');
+    setStep(2);
   };
 
   const handleStep2Continue = () => {
@@ -1135,17 +1256,23 @@ function BulkExecuteModal({
   };
 
   const handleStep3Execute = () => {
-    const activeRunWorkflows = reviewWorkflows
-      .filter(rw =>
-        rw.status === 'mapped' ||
-        rw.status === 'column' ||
-        (rw.status === 'sql' && (rw.sqlUseDefaults || rw.sqlCustomValues))
-      )
-      .map(rw => ({ id: rw.id, name: rw.name }));
-    startBulkRun({
-      name: auditName.trim() || 'Bulk Run',
-      workflows: activeRunWorkflows,
-    });
+    const active = reviewWorkflows.filter(rw =>
+      rw.status === 'mapped' ||
+      rw.status === 'column' ||
+      (rw.status === 'sql' && (rw.sqlUseDefaults || rw.sqlCustomValues))
+    );
+    const skipped = reviewWorkflows.filter(rw =>
+      rw.status === 'dropped' ||
+      rw.status === 'file' ||
+      rw.status === 'notmapped' ||
+      (rw.status === 'sql' && !rw.sqlUseDefaults && !rw.sqlCustomValues)
+    );
+    const workflows = active.map(rw => ({
+      id: rw.id,
+      code: rw.code,
+      name: rw.name,
+      casesFlagged: deterministicCaseCount(rw.code + rw.id),
+    }));
     onContinue({
       auditName: auditName.trim(),
       auditDescription: auditDescription.trim(),
@@ -1153,6 +1280,8 @@ function BulkExecuteModal({
       triggerOn,
       runTime,
       retry,
+      workflows,
+      skippedCount: skipped.length,
     });
   };
 
@@ -1162,7 +1291,6 @@ function BulkExecuteModal({
     const files = Array.from(e.dataTransfer.files);
     if (files.length > 0) {
       setUploadedFiles(prev => [...prev, ...makeUploaded(files)]);
-      setLinkedSourceIds(new Set());
     }
   };
 
@@ -1170,7 +1298,6 @@ function BulkExecuteModal({
     const files = e.target.files ? Array.from(e.target.files) : [];
     if (files.length > 0) {
       setUploadedFiles(prev => [...prev, ...makeUploaded(files)]);
-      setLinkedSourceIds(new Set());
     }
     e.target.value = '';
   };
@@ -1219,10 +1346,6 @@ function BulkExecuteModal({
       else next.add(id);
       return next;
     });
-    if (uploadedFiles.length > 0) {
-      setUploadedFiles([]);
-      setSelectedUploadIds(new Set());
-    }
   };
 
   const filteredDataSources = DATA_SOURCES.filter(ds =>
@@ -1379,7 +1502,7 @@ function BulkExecuteModal({
         role="dialog"
         aria-modal="true"
         aria-label="Bulk Execute"
-        className="relative bg-white rounded-2xl shadow-2xl w-[800px] h-[700px] max-h-[90vh] overflow-hidden flex flex-col"
+        className="relative bg-white rounded-2xl shadow-2xl w-[min(1280px,92vw)] h-[min(840px,92vh)] overflow-hidden flex flex-col"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
@@ -1390,8 +1513,8 @@ function BulkExecuteModal({
           </button>
         </div>
 
-        {/* Stepper — hidden while the loader is shown */}
-        {!isFetching && (
+        {/* Stepper — hidden while mapping loader is shown */}
+        {!isMappingFiles && (
         <div className="px-6 py-4 border-b border-border-light shrink-0 flex items-center w-full">
           {STEPS.map((s, idx) => (
             <Fragment key={s.n}>
@@ -1417,9 +1540,7 @@ function BulkExecuteModal({
         </div>
         )}
 
-        {isFetching ? (
-          <FetchingFilesLoader workflowCount={activeWorkflows.length} />
-        ) : step === 1 ? (
+        {step === 1 ? (
         <>
         {/* Body — Step 1 */}
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
@@ -1465,30 +1586,81 @@ function BulkExecuteModal({
               </span>
             </button>
             {selectedListOpen && (
-            <div className="border border-border-light rounded-md divide-y divide-border-light overflow-hidden max-h-[240px] overflow-y-auto">
+            <div className="border border-border-light rounded-md divide-y divide-border-light overflow-hidden max-h-[320px] overflow-y-auto">
               {selectedWorkflows.map(w => {
                 const checked = !modalDeselected.has(w.id);
+                const expanded = expandedWorkflowIds.has(w.id);
+                const cfg = getWorkflowConfig(w.id);
                 return (
-                  <label
-                    key={w.id}
-                    className="flex items-start gap-3 px-3 py-2.5 cursor-pointer hover:bg-surface-2/60 transition-colors"
-                  >
-                    <span className="pt-0.5">
-                      <Checkbox
-                        checked={checked}
-                        onChange={() => toggleWorkflow(w.id)}
-                        ariaLabel={`Toggle ${w.name}`}
-                      />
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <div className={`text-[13px] font-medium ${checked ? 'text-text' : 'text-text-muted line-through'}`}>
-                        {w.name}
-                      </div>
-                      <div className="text-[11px] text-text-muted mt-0.5">
-                        {w.businessProcess} · {w.controlId}
-                      </div>
+                  <div key={w.id}>
+                    <div className="flex items-start gap-3 px-3 py-2.5 hover:bg-surface-2/60 transition-colors">
+                      <label className="flex items-start gap-3 flex-1 min-w-0 cursor-pointer">
+                        <span className="pt-0.5">
+                          <Checkbox
+                            checked={checked}
+                            onChange={() => toggleWorkflow(w.id)}
+                            ariaLabel={`Toggle ${w.name}`}
+                          />
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <div className={`text-[13px] font-medium ${checked ? 'text-text' : 'text-text-muted line-through'}`}>
+                            {w.name}
+                          </div>
+                          <div className="text-[11px] text-text-muted mt-0.5">
+                            {w.businessProcess} · {w.controlId}
+                          </div>
+                        </div>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => toggleWorkflowExpanded(w.id)}
+                        aria-expanded={expanded}
+                        aria-label={`${expanded ? 'Collapse' : 'Expand'} configuration for ${w.name}`}
+                        className="shrink-0 p-1 rounded text-text-muted hover:text-text hover:bg-surface-2 transition-colors cursor-pointer"
+                      >
+                        {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                      </button>
                     </div>
-                  </label>
+                    {expanded && (
+                      <div className="px-3 pb-3 pt-1 bg-surface-2/30 grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="flex items-center gap-1.5 text-[12px] font-semibold text-text mb-1.5">
+                            <span className="text-primary">%</span> Match Threshold
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="number"
+                              min={0}
+                              max={100}
+                              value={cfg.matchThreshold}
+                              onChange={e => updateWorkflowConfig(w.id, { matchThreshold: Number(e.target.value) })}
+                              className="w-full pl-3 pr-7 py-2 rounded-md border border-border-light text-[13px] text-text bg-white outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/10 transition-all"
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[12px] text-text-muted pointer-events-none">%</span>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="flex items-center gap-1.5 text-[12px] font-semibold text-text mb-1.5">
+                            <Calendar size={12} className="text-primary" /> Date Range
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="date"
+                              value={cfg.dateFrom}
+                              onChange={e => updateWorkflowConfig(w.id, { dateFrom: e.target.value })}
+                              className="flex-1 min-w-0 px-2.5 py-2 rounded-md border border-border-light text-[13px] text-text bg-white outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/10 transition-all"
+                            />
+                            <input
+                              type="date"
+                              value={cfg.dateTo}
+                              onChange={e => updateWorkflowConfig(w.id, { dateTo: e.target.value })}
+                              className="flex-1 min-w-0 px-2.5 py-2 rounded-md border border-border-light text-[13px] text-text bg-white outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/10 transition-all"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </div>
@@ -1523,100 +1695,6 @@ function BulkExecuteModal({
             </div>
           </div>
 
-          {/* Audit run frequency */}
-          <div className="rounded-lg border border-border-light bg-surface-2/40 p-4">
-            <div className="flex items-center gap-2 mb-4">
-              <Calendar size={14} className="text-primary" />
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
-                Audit run frequency
-              </span>
-            </div>
-            <div className="grid grid-cols-2 gap-x-6 gap-y-4">
-              {/* Frequency — only meaningful for Schedule trigger */}
-              <div>
-                <label className="block text-[12px] font-semibold text-text mb-2">Frequency</label>
-                <div className="flex flex-wrap gap-2">
-                  {FREQUENCIES.map(f => (
-                    <Pill
-                      key={f}
-                      active={frequency === f}
-                      disabled={triggerOn !== 'Schedule'}
-                      onClick={() => setFrequency(f)}
-                    >
-                      {f}
-                    </Pill>
-                  ))}
-                </div>
-              </div>
-              {/* Run Time — only meaningful for Schedule trigger */}
-              <div>
-                <label className="block text-[12px] font-semibold text-text mb-2">Run Time</label>
-                <input
-                  type="time"
-                  value={runTime}
-                  onChange={e => setRunTime(e.target.value)}
-                  disabled={triggerOn !== 'Schedule'}
-                  className="w-full px-3 py-2 rounded-md border border-border-light text-[13px] text-text bg-white outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-surface-2"
-                />
-              </div>
-              {/* Day of week — only for Weekly + Schedule */}
-              {frequency === 'Weekly' && triggerOn === 'Schedule' && (
-                <div className="col-span-2">
-                  <label className="block text-[12px] font-semibold text-text mb-2">Select day of the week</label>
-                  <div className="flex flex-wrap gap-2">
-                    {WEEKDAYS.map(d => (
-                      <Pill
-                        key={d}
-                        active={weekday === d}
-                        onClick={() => setWeekday(d)}
-                      >
-                        {d}
-                      </Pill>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {/* Date picker — only for Monthly + Schedule */}
-              {frequency === 'Monthly' && triggerOn === 'Schedule' && (
-                <div className="col-span-2 grid grid-cols-2 gap-x-6">
-                  <div>
-                    <label className="block text-[12px] font-semibold text-text mb-2">Select date</label>
-                    <CustomDatePicker value={monthlyDate} onChange={setMonthlyDate} />
-                  </div>
-                </div>
-              )}
-              {/* Trigger On */}
-              <div>
-                <label className="block text-[12px] font-semibold text-text mb-2">Trigger On</label>
-                <div className="flex flex-wrap gap-2">
-                  {TRIGGERS.map(t => (
-                    <Pill
-                      key={t}
-                      active={triggerOn === t}
-                      onClick={() => setTriggerOn(t)}
-                    >
-                      {t}
-                    </Pill>
-                  ))}
-                </div>
-              </div>
-              {/* Retry on Failure */}
-              <div>
-                <label className="block text-[12px] font-semibold text-text mb-2">Retry on Failure</label>
-                <div className="flex flex-wrap gap-2">
-                  {RETRIES.map(r => (
-                    <Pill
-                      key={r}
-                      active={retry === r}
-                      onClick={() => setRetry(r)}
-                    >
-                      {r}
-                    </Pill>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Footer */}
@@ -1644,6 +1722,9 @@ function BulkExecuteModal({
         ) : step === 2 ? (
         <>
         {/* Body — Step 2 */}
+        {isMappingFiles ? (
+          <MappingFilesLoader />
+        ) : (
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
           {step2View === 'upload' && (
           <>
@@ -1685,6 +1766,20 @@ function BulkExecuteModal({
                       )}
                     </div>
                     <div className="text-[12px] text-text-secondary leading-relaxed">{file.description}</div>
+                    {file.usedBy && file.usedBy.length > 0 && (
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Used in</span>
+                        {file.usedBy.map(wf => (
+                          <span
+                            key={wf}
+                            title={wf}
+                            className="inline-flex items-center max-w-[200px] px-2 h-5 rounded-full border border-primary/20 bg-primary/8 text-[10.5px] font-medium text-primary"
+                          >
+                            <span className="truncate">{wf}</span>
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1720,127 +1815,97 @@ function BulkExecuteModal({
                   accept=".csv,.pdf,.png,.jpg,.jpeg,.xlsx"
                 />
 
-                {uploadedFiles.length === 0 ? (
-                  <div>
-                    {/* Mode tabs + (existing-only) search */}
-                    <div className="flex items-center gap-2 mb-3">
-                      <button
-                        type="button"
-                        onClick={() => setUploadModeTab('upload')}
-                        className={`inline-flex items-center gap-1.5 h-9 px-4 rounded-md border text-[12.5px] font-semibold transition-colors cursor-pointer ${
-                          uploadModeTab === 'upload'
-                            ? 'bg-primary border-primary text-white'
-                            : 'bg-white border-primary/30 text-primary hover:bg-primary/5'
-                        }`}
-                      >
-                        <Upload size={13} />
-                        Upload
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setUploadModeTab('existing')}
-                        className={`inline-flex items-center gap-1.5 h-9 px-4 rounded-md border text-[12.5px] font-semibold transition-colors cursor-pointer ${
-                          uploadModeTab === 'existing'
-                            ? 'bg-primary border-primary text-white'
-                            : 'bg-white border-primary/30 text-primary hover:bg-primary/5'
-                        }`}
-                      >
-                        <Database size={13} />
-                        Choose Existing
-                      </button>
-                      {uploadModeTab === 'existing' && (
-                        <div className="relative ml-auto w-[260px]">
-                          <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
-                          <input
-                            value={dsSearch}
-                            onChange={e => setDsSearch(e.target.value)}
-                            placeholder="Search data sources..."
-                            className="w-full pl-8 pr-3 h-9 rounded-md border border-border-light text-[12px] text-text bg-white outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/10 transition-all"
-                          />
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* LEFT: drop zone */}
+                    <div
+                      onClick={triggerUpload}
+                      onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
+                      onDragLeave={() => setIsDragging(false)}
+                      onDrop={handleFileDrop}
+                      className={`flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed cursor-pointer transition-colors min-h-[340px] px-6 py-8 ${
+                        isDragging
+                          ? 'border-primary bg-primary/5'
+                          : 'border-primary/30 bg-primary-xlight/40 hover:border-primary/50 hover:bg-primary/5'
+                      }`}
+                    >
+                      <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center">
+                        <UploadCloud size={26} className="text-primary" />
+                      </div>
+                      <div className="text-center">
+                        <div className="text-[14px] font-semibold text-text">Drop files here or click to upload</div>
+                        <div className="text-[12.5px] text-text-muted mt-1.5">
+                          CSV, PDF, images — any data files for this workflow
                         </div>
-                      )}
+                        <div className="text-[11.5px] text-text-muted/80 mt-3">Auto-mapped to required inputs</div>
+                      </div>
                     </div>
 
-                    {uploadModeTab === 'upload' ? (
-                      <div
-                        onClick={triggerUpload}
-                        onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
-                        onDragLeave={() => setIsDragging(false)}
-                        onDrop={handleFileDrop}
-                        className={`flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed cursor-pointer transition-colors min-h-[220px] px-4 py-8 ${
-                          isDragging
-                            ? 'border-primary bg-primary/5'
-                            : 'border-primary/30 bg-primary-xlight/40 hover:border-primary/50 hover:bg-primary/5'
-                        }`}
-                      >
-                        <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                          <UploadCloud size={22} className="text-primary" />
-                        </div>
-                        <div className="text-center">
-                          <div className="text-[13px] font-semibold text-text">Drop files here or click to upload</div>
-                          <div className="text-[12px] text-text-muted mt-1">
-                            CSV, PDF, images — any data files for this workflow
-                          </div>
-                          <div className="text-[11px] text-text-muted/80 mt-2">Auto-mapped to required inputs</div>
-                        </div>
+                    {/* RIGHT: link existing data source */}
+                    <div className="flex flex-col rounded-lg border border-border-light bg-surface-2/30 p-4 min-h-[340px]">
+                      <div className="text-[11px] font-semibold uppercase tracking-wider text-text-muted text-center mb-3">
+                        Or link from existing data source
                       </div>
-                    ) : (
-                      <div className="flex flex-col min-h-[220px]">
-                        <div className="flex-1 overflow-y-auto pr-1">
-                          {filteredDataSources.length === 0 ? (
-                            <div className="text-[12px] text-text-muted text-center py-4">No data sources match.</div>
-                          ) : (
-                            <div className="grid grid-cols-2 gap-2">
-                              {filteredDataSources.map(ds => {
-                                const isLinked = linkedSourceIds.has(ds.id);
-                                return (
-                                  <button
-                                    key={ds.id}
-                                    type="button"
-                                    role="checkbox"
-                                    aria-checked={isLinked}
-                                    onClick={() => toggleDataSource(ds.id)}
-                                    className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md border transition-colors cursor-pointer text-left ${
-                                      isLinked
-                                        ? 'border-primary bg-primary/5'
-                                        : 'border-border-light hover:border-primary/30 hover:bg-surface-2'
-                                    }`}
-                                  >
-                                    <div className="w-7 h-7 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
-                                      <Database size={13} className="text-primary" />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                      <div className="text-[12.5px] font-semibold text-text truncate">{ds.name}</div>
-                                      <div className="text-[11px] text-text-muted truncate">
-                                        {ds.records} records · last sync {ds.lastSync}
-                                      </div>
-                                    </div>
-                                    <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
-                                      isLinked ? 'border-primary bg-primary text-white' : 'border-border bg-white text-transparent'
-                                    }`}>
-                                      <Check size={11} strokeWidth={3} />
-                                    </span>
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
+                      <div className="relative mb-3">
+                        <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+                        <input
+                          value={dsSearch}
+                          onChange={e => setDsSearch(e.target.value)}
+                          placeholder="Search data sources..."
+                          className="w-full pl-8 pr-3 h-9 rounded-md border border-border-light text-[12px] text-text bg-white outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/10 transition-all"
+                        />
                       </div>
-                    )}
+                      <div className="flex-1 overflow-y-auto pr-1 space-y-2">
+                        {filteredDataSources.length === 0 ? (
+                          <div className="text-[12px] text-text-muted text-center py-4">No data sources match.</div>
+                        ) : (
+                          filteredDataSources.map(ds => {
+                            const isLinked = linkedSourceIds.has(ds.id);
+                            return (
+                              <button
+                                key={ds.id}
+                                type="button"
+                                role="checkbox"
+                                aria-checked={isLinked}
+                                onClick={() => toggleDataSource(ds.id)}
+                                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md border transition-colors cursor-pointer text-left bg-white ${
+                                  isLinked
+                                    ? 'border-primary bg-primary/5'
+                                    : 'border-border-light hover:border-primary/30'
+                                }`}
+                              >
+                                <div className="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                                  <Database size={14} className="text-primary" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-[12.5px] font-semibold text-text truncate">{ds.name}</div>
+                                  <div className="text-[11px] text-text-muted truncate">
+                                    {ds.records} records · last sync {ds.lastSync}
+                                  </div>
+                                </div>
+                                <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
+                                  isLinked ? 'border-primary' : 'border-border'
+                                }`}>
+                                  {isLinked && <span className="w-2 h-2 rounded-full bg-primary" />}
+                                </span>
+                              </button>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
                   </div>
-                ) : (
-                  <UploadedFilesPanel
-                    files={uploadedFiles}
-                    selectedIds={selectedUploadIds}
-                    allSelected={allUploadsSelected}
-                    onToggleAll={toggleSelectAllUploads}
-                    onToggleOne={toggleUploadSelection}
-                    onRemove={removeUpload}
-                    onUploadMore={triggerUpload}
-                    onChooseExisting={switchToChooseExisting}
-                  />
-                )}
+
+                  {(uploadedFiles.length > 0 || linkedSourceIds.size > 0) && (
+                    <YourFilesGrid
+                      uploadedFiles={uploadedFiles}
+                      linkedSources={DATA_SOURCES.filter(ds => linkedSourceIds.has(ds.id))}
+                      onRemoveUpload={removeUpload}
+                      onUnlinkSource={(id) => toggleDataSource(id)}
+                      onUploadMore={triggerUpload}
+                    />
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -1850,13 +1915,13 @@ function BulkExecuteModal({
 
           {/* Workflow Mapping — Step 2b, appears after user hits Continue on upload view */}
           {step2View === 'review' && (
-            <div /* commented out outer box: className="rounded-lg border border-border-light bg-white" */>
+            <div>
               <div className="px-4 pt-4 pb-3">
-                <div className="flex items-start justify-between gap-3 mb-3">
+                <div className="flex items-start justify-between gap-3 mb-1">
                   <div className="min-w-0">
                     <div className="text-[13px] font-semibold text-text">Workflow Mapping</div>
                     <div className="text-[11.5px] text-text-muted mt-0.5">
-                      Auto-mapped {reviewCounts.mapped} of {reviewCounts.all} workflows. Review issues below, fix column mappings, or drop workflows from this run.
+                      Review auto-mapped columns and resolve any that need attention before execution continues.
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5 text-[11px] shrink-0 pt-0.5">
@@ -1864,147 +1929,17 @@ function BulkExecuteModal({
                     <span className="text-primary font-medium">Auto-mapping complete</span>
                   </div>
                 </div>
-
-                <div className="flex flex-wrap gap-1.5 pb-3 border-b border-border-light">
-                  {([
-                    { key: 'all',       label: 'All',           dot: null,             count: reviewCounts.all },
-                    { key: 'mapped',    label: 'Mapped',        dot: 'bg-[#047A48]',   count: reviewCounts.mapped },
-                    { key: 'column',    label: 'Column Issues', dot: 'bg-mitigated',   count: reviewCounts.column },
-                    { key: 'file',      label: 'File Issues',   dot: 'bg-risk',        count: reviewCounts.file },
-                    { key: 'notmapped', label: 'Not Mapped',    dot: 'bg-text-muted',  count: reviewCounts.notmapped },
-                    ...(reviewCounts.sql > 0
-                      ? [{ key: 'sql' as const, label: 'SQL', dot: 'bg-[#047A48]', count: reviewCounts.sql }]
-                      : []),
-                    ...(reviewCounts.dropped > 0
-                      ? [{ key: 'dropped' as const, label: 'Dropped', dot: 'bg-text', count: reviewCounts.dropped }]
-                      : []),
-                  ] as const).map(chip => {
-                    const active = reviewFilter === chip.key;
-                    return (
-                      <button
-                        key={chip.key}
-                        type="button"
-                        onClick={() => setReviewFilter(chip.key)}
-                        className={`inline-flex items-center gap-1.5 h-7 px-3 rounded-full border text-[11.5px] font-medium transition-colors cursor-pointer ${
-                          active
-                            ? 'border-text bg-text text-white'
-                            : 'border-border-light bg-white text-text-muted hover:border-border hover:text-text'
-                        }`}
-                      >
-                        {chip.dot && <span className={`w-1.5 h-1.5 rounded-full ${chip.dot}`} />}
-                        {chip.label}
-                        <span className={`font-mono text-[10.5px] ${active ? 'opacity-70' : 'opacity-60'}`}>
-                          {chip.count}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
               </div>
 
-              <div className="px-4 pb-4 space-y-2">
-                {filteredReviewWorkflows.length === 0 ? (
-                  <div className="text-[12px] text-text-muted text-center py-12">
-                    No workflows match this filter.
-                  </div>
-                ) : (
-                  filteredReviewWorkflows.map(rw => {
-                    const isExpanded = expandedReviewId === rw.id;
-                    const isDropped = rw.status === 'dropped';
-                    const hasMissing = rw.columns?.some(c => c.confidence === 'missing') ?? false;
-                    return (
-                      <div
-                        key={rw.id}
-                        className={`rounded-xl border overflow-hidden transition-colors ${
-                          isDropped
-                            ? 'border-border-light bg-surface-2/60 opacity-60'
-                            : 'border-border-light bg-white hover:border-border'
-                        }`}
-                      >
-                        <div className="flex items-center gap-3 px-4 py-3">
-                          <div className="font-mono text-[11px] text-text-muted/70 w-16 shrink-0">{rw.code}</div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-0.5">
-                              <span className={`text-[12.5px] font-medium truncate ${isDropped ? 'text-text-muted line-through' : 'text-text'}`}>
-                                {rw.name}
-                              </span>
-                              <ReviewStatusChip status={rw.status} />
-                            </div>
-                            <div className="text-[11px] text-text-muted truncate">
-                              {(rw.status === 'mapped' || rw.status === 'column') && rw.mappedFiles && rw.mappedFiles.length > 0 ? (
-                                <span className="font-mono">{rw.mappedFiles.join(' · ')}</span>
-                              ) : rw.status === 'file' ? (
-                                <span className="text-risk">{rw.fileError}</span>
-                              ) : rw.status === 'notmapped' ? (
-                                <span>Missing: {(rw.missingFiles ?? []).join(', ')}</span>
-                              ) : isDropped ? (
-                                <span className="italic">Excluded from this run</span>
-                              ) : null}
-                            </div>
-                            {rw.status === 'sql' && (
-                              <label className="inline-flex items-center gap-1.5 text-[11.5px] text-text-muted cursor-pointer select-none mt-1.5">
-                                <input
-                                  type="checkbox"
-                                  checked={!!rw.sqlUseDefaults}
-                                  onChange={() => toggleSqlUseDefaults(rw.id)}
-                                  style={{ accentColor: '#6a12cd' }}
-                                  className="w-3.5 h-3.5 rounded cursor-pointer"
-                                />
-                                Use default configuration
-                              </label>
-                            )}
-                          </div>
-
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            {isDropped ? (
-                              <ReviewActionButton variant="primary" onClick={() => restoreReviewWorkflow(rw.id)}>
-                                Restore
-                              </ReviewActionButton>
-                            ) : rw.status === 'mapped' ? (
-                              <ReviewIconButton onClick={() => dropReviewWorkflow(rw.id)} label="Drop" />
-                            ) : rw.status === 'column' ? (
-                              <>
-                                <ReviewActionButton variant="primary" onClick={() => toggleReviewExpand(rw.id)}>
-                                  {isExpanded ? 'Collapse' : hasMissing ? 'Fix Columns' : 'Review Columns'}
-                                </ReviewActionButton>
-                                <ReviewIconButton onClick={() => dropReviewWorkflow(rw.id)} label="Drop" />
-                              </>
-                            ) : rw.status === 'file' ? (
-                              <>
-                                <ReviewActionButton variant="primary" onClick={() => setStep2View('upload')}>
-                                  Re-upload
-                                </ReviewActionButton>
-                                <ReviewIconButton onClick={() => dropReviewWorkflow(rw.id)} label="Drop" />
-                              </>
-                            ) : rw.status === 'notmapped' ? (
-                              <>
-                                <ReviewActionButton variant="primary" onClick={() => setStep2View('upload')}>
-                                  Upload
-                                </ReviewActionButton>
-                                <ReviewIconButton onClick={() => dropReviewWorkflow(rw.id)} label="Drop" />
-                              </>
-                            ) : rw.status === 'sql' ? (
-                              <>
-                                <ReviewActionButton variant="primary" onClick={() => openConfigModal(rw.id)}>
-                                  Edit Configuration
-                                </ReviewActionButton>
-                                <ReviewIconButton onClick={() => dropReviewWorkflow(rw.id)} label="Drop" />
-                              </>
-                            ) : null}
-                          </div>
-                        </div>
-
-                        {isExpanded && rw.status === 'column' && rw.columns && (
-                          <ReviewColumnMapper
-                            columns={rw.columns}
-                            onUpdate={(idx, value) => updateReviewColumn(rw.id, idx, value)}
-                            onConfirm={() => confirmReviewColumns(rw.id)}
-                          />
-                        )}
-                      </div>
-                    );
-                  })
-                )}
+              <div className="px-4 pb-4 space-y-3">
+                {REQUIRED_FILE_MAPPINGS.map(mapping => (
+                  <RequiredFileSlab
+                    key={mapping.fileName}
+                    mapping={mapping}
+                    expanded={expandedRequiredFiles.has(mapping.fileName)}
+                    onToggle={() => toggleRequiredFileExpanded(mapping.fileName)}
+                  />
+                ))}
               </div>
             </div>
           )}
@@ -2170,8 +2105,10 @@ function BulkExecuteModal({
           )}
           end of NEW Workflow Mapping commented-out block */}
         </div>
+        )}
 
-        {/* Footer — Step 2 */}
+        {/* Footer — Step 2 (hidden while mapping loader is shown) */}
+        {!isMappingFiles && (
         <div className="px-6 py-4 border-t border-border-light flex items-center justify-between shrink-0">
           <button
             onClick={() => {
@@ -2192,9 +2129,13 @@ function BulkExecuteModal({
                   });
                   return;
                 }
-                setStep2View('review');
+                setIsMappingFiles(true);
+                window.setTimeout(() => {
+                  setIsMappingFiles(false);
+                  setStep2View('review');
+                }, 2200);
               }}
-              aria-disabled={!hasUpload}
+              aria-disabled={!hasUpload || isMappingFiles}
               className={`flex items-center gap-2 px-4 h-9 rounded-md text-white text-[13px] font-semibold transition-colors ${
                 hasUpload
                   ? 'bg-primary hover:bg-primary-hover cursor-pointer'
@@ -2219,6 +2160,7 @@ function BulkExecuteModal({
             </button>
           )}
         </div>
+        )}
         </>
         ) : (
         <Step3ReviewExecute
@@ -2249,12 +2191,275 @@ function BulkExecuteModal({
   );
 }
 
-// ─── Loader while "backend" fetches common required files ───
-function FetchingFilesLoader({ workflowCount }: { workflowCount: number }) {
+type DataSource = (typeof DATA_SOURCES)[number];
+
+const SOURCE_SLOT_LABELS: Record<string, string> = {
+  'ds-001': 'AP Invoice Register',
+  'ds-002': 'Vendor Master',
+  'ds-003': 'GL Trial Balance',
+  'ds-004': 'GL Transactions',
+  'ds-005': 'Contracts',
+};
+
+function pillForUpload(name: string): string {
+  const ext = name.split('.').pop();
+  return ext ? ext.toUpperCase() : 'FILE';
+}
+
+function pillForSource(ds: DataSource): string {
+  return SOURCE_SLOT_LABELS[ds.id] ?? ds.name;
+}
+
+function YourFilesGrid({
+  uploadedFiles,
+  linkedSources,
+  onRemoveUpload,
+  onUnlinkSource,
+  onUploadMore,
+}: {
+  uploadedFiles: UploadedFile[];
+  linkedSources: DataSource[];
+  onRemoveUpload: (id: string) => void;
+  onUnlinkSource: (id: string) => void;
+  onUploadMore: () => void;
+}) {
+  const count = uploadedFiles.length + linkedSources.length;
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <span className="text-[14px] font-semibold text-text">Your Files</span>
+          <span className="inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 rounded-full border border-border-light text-text-muted text-[11px] font-semibold">
+            {count}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={onUploadMore}
+          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-primary/30 text-primary bg-white text-[12px] font-semibold hover:bg-primary/5 transition-colors cursor-pointer"
+        >
+          <Upload size={13} />
+          Upload more
+        </button>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        {linkedSources.map(ds => (
+          <YourFilesCard
+            key={`ds-${ds.id}`}
+            title={ds.name}
+            subtitle="Linked from data source"
+            pill={pillForSource(ds)}
+            onRemove={() => onUnlinkSource(ds.id)}
+          />
+        ))}
+        {uploadedFiles.map(u => (
+          <YourFilesCard
+            key={`u-${u.id}`}
+            title={u.name}
+            subtitle={u.error ? u.error : 'Uploaded file'}
+            pill={pillForUpload(u.name)}
+            onRemove={() => onRemoveUpload(u.id)}
+            danger={!!u.error}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function YourFilesCard({
+  title,
+  subtitle,
+  pill,
+  onRemove,
+  danger,
+}: {
+  title: string;
+  subtitle: string;
+  pill: string;
+  onRemove: () => void;
+  danger?: boolean;
+}) {
+  return (
+    <div
+      className={`flex items-center gap-3 px-3 py-3 rounded-lg border transition-colors ${
+        danger ? 'border-risk/30 bg-risk/5' : 'border-border-light bg-white hover:border-primary/30'
+      }`}
+    >
+      <div className="w-9 h-9 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+        <FileText size={16} className="text-primary" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-[13px] font-semibold text-text truncate">{title}</div>
+        <div className={`text-[11.5px] truncate ${danger ? 'text-risk' : 'text-text-muted'}`}>{subtitle}</div>
+      </div>
+      <span
+        title={pill}
+        className="inline-flex items-center max-w-[150px] px-2 h-6 rounded-md border border-border-light text-text-muted text-[10.5px] font-semibold uppercase tracking-wide shrink-0"
+      >
+        <span className="truncate">{pill}</span>
+      </span>
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label={`Remove ${title}`}
+        className="p-1 text-text-muted hover:text-risk transition-colors cursor-pointer shrink-0"
+      >
+        <X size={14} />
+      </button>
+    </div>
+  );
+}
+
+function AuditLogsView({
+  run,
+  onBack,
+}: {
+  run: { name: string; workflows: BulkRunWorkflowResult[]; skippedCount: number; date: string };
+  onBack: () => void;
+}) {
+  const [search, setSearch] = useState('');
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return run.workflows;
+    return run.workflows.filter(w => w.name.toLowerCase().includes(q));
+  }, [run.workflows, search]);
+  const successCount = run.workflows.length;
+  const totalCount = run.workflows.length + run.skippedCount;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.18, ease: [0.22, 0.68, 0, 1] }}
+      className="h-full w-full bg-white flex flex-col overflow-hidden px-[120px]"
+    >
+      {/* Breadcrumb */}
+      <div className="pt-8 pb-5">
+        <div className="flex items-center gap-2 text-[12.5px] text-ink-500">
+          <button
+            type="button"
+            onClick={onBack}
+            className="inline-flex items-center gap-1.5 hover:text-text transition-colors cursor-pointer"
+          >
+            <Database size={13} />
+            Business Process
+          </button>
+          <ChevronRight size={13} />
+          <span>Audit Logs</span>
+          <ChevronRight size={13} />
+          <span className="text-primary font-mono">{run.name}</span>
+        </div>
+      </div>
+
+      {/* Metric cards */}
+      <div className="grid grid-cols-2 gap-4 mb-6">
+        <div className="rounded-xl border border-border-light bg-white p-5 flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="text-[13px] font-semibold text-text mb-1">Overall Status</div>
+            <div className="text-[12px] text-text-muted">Total workflows audited successfully</div>
+            <div className="text-[28px] font-semibold text-primary mt-3 leading-none">
+              {successCount}/{totalCount}
+            </div>
+          </div>
+          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+            <Database size={18} className="text-primary" />
+          </div>
+        </div>
+        <div className="rounded-xl border border-border-light bg-white p-5 flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="text-[13px] font-semibold text-text mb-1">Skipped Workflows</div>
+            <div className="text-[12px] text-text-muted">Workflows skipped due to exception</div>
+            <div className="text-[28px] font-semibold text-text mt-3 leading-none">{run.skippedCount}</div>
+          </div>
+          <div className="w-10 h-10 rounded-lg bg-surface-2 flex items-center justify-center shrink-0">
+            <AlertTriangle size={18} className="text-text-muted" />
+          </div>
+        </div>
+      </div>
+
+      {/* Search + View Report */}
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <div className="relative flex-1 max-w-[480px]">
+          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search Workflows"
+            className="w-full pl-9 pr-3 h-10 rounded-md border border-border-light text-[13px] text-text bg-white outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/10 transition-all"
+          />
+        </div>
+        <button
+          type="button"
+          className="inline-flex items-center gap-2 h-10 px-4 rounded-md border border-primary/30 text-primary bg-white text-[13px] font-semibold hover:bg-primary/5 transition-colors cursor-pointer"
+        >
+          <FileText size={14} />
+          View Report
+        </button>
+      </div>
+
+      {/* Table */}
+      <div className="flex-1 overflow-y-auto rounded-xl border border-border-light bg-white">
+        <div className="grid grid-cols-[1fr_180px_140px_140px] gap-x-4 px-4 py-3 border-b border-border-light bg-surface-2/40 text-[11.5px] font-semibold text-text-muted">
+          <div>Workflow Name</div>
+          <div>Cases Flagged</div>
+          <div>Status</div>
+          <div>Audit Date</div>
+        </div>
+        {filtered.length === 0 ? (
+          <div className="text-[12.5px] text-text-muted text-center py-12">
+            No workflows match this search.
+          </div>
+        ) : (
+          <div className="divide-y divide-border-light">
+            {filtered.map(w => {
+              const openExecutor = () => {
+                const url = new URL(window.location.href);
+                url.searchParams.set('view', 'workflow-executor');
+                url.searchParams.set('workflowId', w.id);
+                url.searchParams.set('state', 'completed');
+                window.open(url.toString(), '_blank', 'noopener,noreferrer');
+              };
+              return (
+                <button
+                  key={w.id}
+                  type="button"
+                  onClick={openExecutor}
+                  className="w-full text-left grid grid-cols-[1fr_180px_140px_140px] gap-x-4 px-4 py-3.5 items-center hover:bg-surface-2/40 transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="text-[13px] text-text truncate hover:text-primary">{w.name}</span>
+                    <span className="inline-flex items-center gap-1 px-2 h-5 rounded-full bg-compliant-50 text-compliant-700 text-[10.5px] font-medium border border-compliant/25 shrink-0">
+                      <span className="w-1.5 h-1.5 rounded-full bg-compliant" />
+                      Live
+                    </span>
+                  </div>
+                  <div className="text-[13px] text-text tabular-nums">
+                    {w.casesFlagged.toLocaleString()} {w.casesFlagged === 1 ? 'case flagged' : 'cases flagged'}
+                  </div>
+                  <div>
+                    <span className="inline-flex items-center px-2.5 h-5 rounded-md bg-compliant-50 text-compliant-700 text-[10.5px] font-medium border border-compliant/25">
+                      Completed
+                    </span>
+                  </div>
+                  <div className="text-[13px] text-text">{run.date}</div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="py-6" />
+    </motion.div>
+  );
+}
+
+function MappingFilesLoader() {
   const steps = [
-    'Scanning selected workflows',
-    'Identifying common required files',
-    'Preparing configuration',
+    'Reading uploaded files',
+    'Auto-mapping columns to required schema',
+    'Preparing review',
   ];
   const [stepIdx, setStepIdx] = useState(0);
 
@@ -2274,9 +2479,9 @@ function FetchingFilesLoader({ workflowCount }: { workflowCount: number }) {
           <Loader2 size={28} className="text-primary animate-spin" />
         </span>
       </div>
-      <div className="text-[15px] font-semibold text-text mb-1.5">Fetching required files</div>
-      <div className="text-[13px] text-text-secondary mb-6 text-center max-w-[380px]">
-        Identifying the data sources and files common to your {workflowCount} selected workflow{workflowCount === 1 ? '' : 's'}.
+      <div className="text-[15px] font-semibold text-text mb-1.5">Mapping files to required columns</div>
+      <div className="text-[13px] text-text-secondary mb-6 text-center max-w-[420px]">
+        Reading your uploaded files and aligning columns with the required schema for each workflow.
       </div>
       <div className="w-full max-w-[360px] space-y-2">
         {steps.map((s, i) => {
@@ -2300,118 +2505,220 @@ function FetchingFilesLoader({ workflowCount }: { workflowCount: number }) {
   );
 }
 
-function UploadedFilesPanel({
-  files,
-  selectedIds,
-  allSelected,
-  onToggleAll,
-  onToggleOne,
-  onRemove,
-  onUploadMore,
-  onChooseExisting,
+function RequiredFileSlab({
+  mapping,
+  expanded,
+  onToggle,
 }: {
-  files: UploadedFile[];
-  selectedIds: Set<string>;
-  allSelected: boolean;
-  onToggleAll: () => void;
-  onToggleOne: (id: string) => void;
-  onRemove: (id: string) => void;
-  onUploadMore: () => void;
-  onChooseExisting: () => void;
+  mapping: RequiredFileMapping;
+  expanded: boolean;
+  onToggle: () => void;
 }) {
-  const failed = files.filter(u => u.error).length;
-  const someSelected = selectedIds.size > 0 && !allSelected;
+  const [autoMappedExpanded, setAutoMappedExpanded] = useState(false);
+  const hasUnmapped = mapping.unmappedColumns.length > 0;
+  const matchTone =
+    mapping.matchPercent >= 90
+      ? { bg: 'bg-[#ECFEF3]', text: 'text-[#047A48]' }
+      : mapping.matchPercent >= 70
+        ? { bg: 'bg-mitigated-50', text: 'text-mitigated-700' }
+        : { bg: 'bg-risk/10', text: 'text-risk' };
+
   return (
-    <div className="rounded-lg border border-border-light bg-white">
-      <div className="flex items-center gap-3 px-3 py-2.5 border-b border-border-light">
-        <button
-          type="button"
-          onClick={onToggleAll}
-          aria-label={allSelected ? 'Deselect all files' : 'Select all files'}
-          className="flex items-center gap-0.5 rounded-md border border-border-light px-1.5 py-1 hover:border-primary/40 hover:bg-surface-2 transition-colors cursor-pointer"
-        >
-          <span className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${
-            allSelected
-              ? 'border-primary bg-primary text-white'
-              : someSelected
-                ? 'border-primary bg-primary/20 text-primary'
-                : 'border-border bg-white text-transparent'
-          }`}>
-            {allSelected
-              ? <Check size={11} strokeWidth={3} />
-              : someSelected
-                ? <span className="w-1.5 h-0.5 rounded-sm bg-primary" />
-                : <Check size={11} strokeWidth={3} />}
-          </span>
-          <ChevronDown size={12} className="text-text-muted" />
-        </button>
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <span className="text-[13px] font-semibold text-text">Files Uploaded</span>
-          {failed > 0 && (
-            <div className="flex items-center gap-1 text-[11.5px] text-risk min-w-0">
-              <AlertTriangle size={12} className="shrink-0" />
-              <span className="truncate">
-                {failed} of {files.length} file{files.length === 1 ? '' : 's'} failed - delete or resolve to continue
-              </span>
+    <div
+      className={`rounded-xl border overflow-hidden transition-colors ${
+        expanded ? 'border-primary/40 bg-white' : 'border-border-light bg-white hover:border-border'
+      }`}
+    >
+      {/* Header */}
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center gap-3 px-4 py-3.5 cursor-pointer text-left"
+        aria-expanded={expanded}
+      >
+        <div className="w-9 h-9 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+          <FileText size={16} className="text-primary" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-[14px] font-semibold text-text truncate">{mapping.fileName}</div>
+          {mapping.usedBy.length > 0 && (
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+              {mapping.usedBy.map(wf => (
+                <span
+                  key={wf}
+                  title={wf}
+                  className="inline-flex items-center max-w-[220px] px-2 h-5 rounded-full border border-primary/20 bg-primary/8 text-[10.5px] font-medium text-primary"
+                >
+                  <span className="truncate">{wf}</span>
+                </span>
+              ))}
             </div>
           )}
         </div>
-        <button
-          type="button"
-          onClick={onUploadMore}
-          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-primary text-white text-[12px] font-semibold hover:bg-primary/90 transition-colors cursor-pointer"
-        >
-          <Upload size={13} />
-          Upload
-        </button>
-        <button
-          type="button"
-          onClick={onChooseExisting}
-          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-primary/40 text-primary bg-white text-[12px] font-semibold hover:bg-primary/5 transition-colors cursor-pointer"
-        >
-          <Database size={13} />
-          Choose Existing
-        </button>
-      </div>
-      <div className="divide-y divide-border-light">
-        {files.map(u => {
-          const isSelected = selectedIds.has(u.id);
-          return (
-            <div key={u.id} className="flex items-center gap-3 px-3 py-2.5">
-              <button
-                type="button"
-                role="checkbox"
-                aria-checked={isSelected}
-                onClick={() => onToggleOne(u.id)}
-                aria-label={isSelected ? `Deselect ${u.name}` : `Select ${u.name}`}
-                className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors cursor-pointer ${
-                  isSelected ? 'border-primary bg-primary text-white' : 'border-border bg-white text-transparent hover:border-primary/40'
-                }`}
-              >
-                <Check size={11} strokeWidth={3} />
-              </button>
-              <div className="flex-1 min-w-0">
-                <div className="text-[12.5px] font-semibold text-text truncate">{u.name}</div>
-                <div className="text-[11px] text-text-muted">{humanSize(u.size)}</div>
+        <div className="flex items-baseline gap-1.5 shrink-0">
+          <span className="text-[20px] font-semibold text-text leading-none">
+            {mapping.mappedColumns}/{mapping.totalColumns}
+          </span>
+          <span className="text-[11px] text-text-muted">column mapped</span>
+        </div>
+        <span className="ml-2 text-text-muted shrink-0">
+          {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        </span>
+      </button>
+
+      {/* Body */}
+      {expanded && (
+        <div className="border-t border-border-light px-4 py-4 space-y-4">
+          {/* Mapped Sources */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2.5">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">Mapped Sources</span>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 h-7 px-2.5 rounded-md border border-border-light text-text bg-white text-[11.5px] font-medium hover:bg-surface-2 transition-colors cursor-pointer"
+                >
+                  <span className="w-3 h-3 inline-flex items-center justify-center">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  </span>
+                  Preview
+                </button>
               </div>
-              {u.error && (
-                <div className="flex items-center gap-1.5 text-[11.5px] text-risk shrink-0">
-                  <AlertTriangle size={12} />
-                  <span>{u.error}</span>
-                </div>
-              )}
+              <span className={`inline-flex items-center gap-1.5 px-2 h-6 rounded-md text-[11px] font-semibold ${matchTone.bg} ${matchTone.text}`}>
+                {mapping.matchPercent}% MATCH
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex flex-wrap gap-1.5 min-w-0">
+                {mapping.mappedSources.map(s => (
+                  <span
+                    key={s.name}
+                    className="inline-flex items-center gap-1.5 px-2.5 h-7 rounded-md bg-primary/8 border border-primary/15 text-[12px] text-text"
+                  >
+                    <FileText size={12} className="text-primary" />
+                    <span className="truncate max-w-[200px]">{s.name}</span>
+                    <X size={11} className="text-text-muted hover:text-risk cursor-pointer" />
+                  </span>
+                ))}
+              </div>
               <button
                 type="button"
-                onClick={() => onRemove(u.id)}
-                aria-label={`Remove ${u.name}`}
-                className="p-1 text-text-muted hover:text-risk transition-colors cursor-pointer shrink-0"
+                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-primary/30 text-primary bg-white text-[12px] font-semibold hover:bg-primary/5 transition-colors cursor-pointer shrink-0"
               >
-                <Trash2 size={14} />
+                Select File(s)
               </button>
             </div>
-          );
-        })}
-      </div>
+          </div>
+
+          {/* Column Alignment */}
+          <div className="border-t border-border-light pt-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">Column Alignment</span>
+              <button
+                type="button"
+                className="text-[11.5px] text-primary font-medium hover:underline cursor-pointer"
+              >
+                Map by description
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-x-4 text-[10.5px] font-semibold uppercase tracking-wider text-text-muted pb-2 border-b border-border-light">
+              <div>Source Column</div>
+              <div>Target Schema</div>
+            </div>
+
+            {/* Auto-mapped summary row */}
+            <button
+              type="button"
+              onClick={() => setAutoMappedExpanded(p => !p)}
+              className="w-full flex items-center justify-between gap-3 px-2 py-2.5 bg-primary/5 -mx-2 cursor-pointer"
+            >
+              <div className="flex items-center gap-2 text-[12.5px]">
+                <Check size={14} className="text-primary" strokeWidth={3} />
+                <span className="font-semibold text-primary">{mapping.mappedColumns} fields auto-mapped</span>
+              </div>
+              <span className="inline-flex items-center gap-1 text-[12px] font-medium text-primary">
+                {autoMappedExpanded ? 'Collapse' : 'Expand'}
+                {autoMappedExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+              </span>
+            </button>
+
+            {/* Auto-mapped rows */}
+            {autoMappedExpanded && (
+              <div className="divide-y divide-border-light bg-primary/5 -mx-2">
+                {mapping.mappedColumnList.slice(0, mapping.mappedColumns).map(col => (
+                  <div
+                    key={col.source}
+                    className="grid grid-cols-2 gap-x-4 items-center px-2 py-2.5 border-l-2 border-primary/40"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-[12.5px] text-primary font-medium truncate">{col.source}</span>
+                      <span className="inline-flex items-center px-1.5 h-5 rounded border border-border-light bg-white text-[10px] font-semibold uppercase tracking-wider text-text-muted shrink-0">
+                        {col.type}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <ArrowRight size={13} className="text-text-muted shrink-0" />
+                      <button
+                        type="button"
+                        className="flex-1 min-w-0 flex items-center gap-2 h-8 px-2.5 rounded-md border border-border-light bg-white text-[12px] hover:border-primary/30 transition-colors cursor-pointer"
+                      >
+                        <span className="text-primary font-medium truncate flex-1 text-left">{col.target}</span>
+                        <span className="inline-flex items-center px-1.5 h-5 rounded border border-border-light bg-surface-2 text-[10px] font-semibold uppercase tracking-wider text-text-muted shrink-0">
+                          {col.type}
+                        </span>
+                        <ChevronDown size={12} className="text-text-muted shrink-0" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Needs Attention */}
+            {hasUnmapped && (
+              <>
+                <div className="flex items-center gap-2 mt-3 mb-1 px-2 py-2 -mx-2 bg-mitigated-50">
+                  <AlertTriangle size={13} className="text-mitigated-700" />
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-mitigated-700">
+                    Needs Attention ({mapping.unmappedColumns.length})
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {mapping.unmappedColumns.map(col => (
+                    <div
+                      key={col.name}
+                      className="grid grid-cols-2 gap-x-4 items-center py-2.5 border-l-2 border-mitigated pl-3"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-[12.5px] text-text truncate">{col.name}</span>
+                        <span className="inline-flex items-center px-1.5 h-5 rounded border border-border-light bg-surface-2 text-[10px] font-semibold uppercase tracking-wider text-text-muted shrink-0">
+                          {col.type}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <ArrowRight size={13} className="text-text-muted shrink-0" />
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1 h-8 px-3 rounded-md border border-dashed border-primary/40 text-primary bg-white text-[12px] font-semibold hover:bg-primary/5 transition-colors cursor-pointer"
+                        >
+                          + Map column
+                          <ChevronDown size={12} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Bottom warning */}
+                <div className="mt-3 rounded-md border border-mitigated/40 bg-mitigated-50 px-3 py-2 text-[11.5px] text-mitigated-700">
+                  <span className="font-semibold">{mapping.unmappedColumns.length} required column</span>{' '}
+                  across {mapping.mappedSources.length} source still needs a target. Pick one for each highlighted row above.
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -2637,8 +2944,60 @@ function Step3ReviewExecute({
   const maxRuntime = active.reduce((m, w) => Math.max(m, w.runtime), 0);
   const estRuntime = active.length > 0 ? maxRuntime + totalRuntime / 3 : 0;
   const overrides = reviewWorkflows.filter(rw => rw.hasOverrides && rw.status !== 'dropped');
-  const today = new Date().toISOString().slice(0, 10);
-  const reportName = `${auditName.trim() || 'BulkRun'}_${today}_BulkReport`;
+
+  // Sequential execution state. currentIndex range: [0, active.length] when running workflows;
+  // active.length means "generating report"; -1 means not started yet.
+  type ExecState = 'idle' | 'running' | 'report' | 'done';
+  const [execState, setExecState] = useState<ExecState>('idle');
+  const [currentIndex, setCurrentIndex] = useState(-1);
+
+  useEffect(() => {
+    if (execState !== 'running' && execState !== 'report') return;
+    const stepDuration = 1500;
+    const id = window.setTimeout(() => {
+      setCurrentIndex(prev => {
+        const next = prev + 1;
+        if (next >= active.length && execState === 'running') {
+          setExecState('report');
+          return next;
+        }
+        if (execState === 'report') {
+          setExecState('done');
+          return next;
+        }
+        return next;
+      });
+    }, stepDuration);
+    return () => window.clearTimeout(id);
+  }, [execState, currentIndex, active.length]);
+
+  const startExecution = () => {
+    if (execState !== 'idle' || active.length === 0) return;
+    setExecState('running');
+    setCurrentIndex(0);
+  };
+
+  const totalSteps = active.length + 1; // workflows + report
+  const completedSteps =
+    execState === 'idle' ? 0
+    : execState === 'done' ? totalSteps
+    : execState === 'report' ? active.length
+    : Math.max(0, currentIndex);
+  const progressPct = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
+
+  const workflowState = (idx: number): 'queued' | 'running' | 'done' => {
+    if (execState === 'idle') return 'queued';
+    if (execState === 'done') return 'done';
+    if (idx < currentIndex) return 'done';
+    if (idx === currentIndex && execState === 'running') return 'running';
+    if (execState === 'report' && idx < active.length) return 'done';
+    return 'queued';
+  };
+
+  const reportState: 'queued' | 'running' | 'done' =
+    execState === 'done' ? 'done'
+    : execState === 'report' ? 'running'
+    : 'queued';
 
   const skipReason = (rw: ReviewWorkflow) => {
     if (rw.status === 'dropped') return 'Dropped by user';
@@ -2648,50 +3007,48 @@ function Step3ReviewExecute({
     return '';
   };
 
+  const isRunningOrDone = execState !== 'idle';
+
   return (
     <>
       <div className="flex-1 overflow-y-auto px-6 py-5">
         <div className="mb-5">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <div className="text-[10.5px] font-semibold uppercase tracking-wider text-primary mb-1">Final Review</div>
+              <div className="text-[10.5px] font-semibold uppercase tracking-wider text-primary mb-1">
+                {execState === 'done' ? 'Complete' : execState !== 'idle' ? 'Executing' : 'Final Review'}
+              </div>
               <h3 className="text-[16px] font-semibold text-text">
-                Ready to execute <span className="text-primary font-mono">{auditName.trim() || 'BulkRun'}</span>
+                {execState === 'done'
+                  ? <>Finished <span className="text-primary font-mono">{auditName.trim() || 'BulkRun'}</span></>
+                  : execState !== 'idle'
+                    ? <>Running <span className="text-primary font-mono">{auditName.trim() || 'BulkRun'}</span></>
+                    : <>Ready to execute <span className="text-primary font-mono">{auditName.trim() || 'BulkRun'}</span></>
+                }
               </h3>
             </div>
             <div className="text-[11.5px] text-text-muted shrink-0 pt-1 whitespace-nowrap">
-              Ready · {active.length} workflow{active.length === 1 ? '' : 's'} · ~{estRuntime.toFixed(1)} min
+              {execState === 'idle'
+                ? <>Ready · {active.length} workflow{active.length === 1 ? '' : 's'} · ~{estRuntime.toFixed(1)} min</>
+                : <>{completedSteps}/{totalSteps} steps · {progressPct}%</>
+              }
             </div>
           </div>
           <p className="text-[12px] text-text-muted mt-1">
-            Review the run summary below. Once executed, audit trail will be locked and results will be available in your engagement dashboard.
+            {execState === 'idle'
+              ? 'Review the run summary below. Once executed, audit trail will be locked and results will be available in your engagement dashboard.'
+              : execState === 'done'
+                ? 'All workflows finished. Results are available in your engagement dashboard.'
+                : 'Workflows are executing one at a time. The consolidated report will generate once all workflows complete.'
+            }
           </p>
         </div>
 
         <div className="grid grid-cols-4 gap-3 mb-4">
-          <Step3StatCard label="Workflows Running" value={String(active.length)} />
+          <Step3StatCard label="Workflows" value={String(active.length)} />
           <Step3StatCard label="Source Files" value={String(uploadedCount)} />
           <Step3StatCard label="Est. Runtime" value={`~${estRuntime.toFixed(1)}`} suffix="min" />
           <Step3StatCard label="Skipped / Dropped" value={String(skipped.length)} muted={skipped.length > 0} />
-        </div>
-
-        <div className="rounded-xl bg-primary/5 border border-primary/20 p-4 mb-4 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-primary text-white flex items-center justify-center shrink-0">
-            <FileText size={15} />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-[11px] font-medium text-text-muted">Final Report</div>
-            <div className="font-mono text-[13px] text-primary font-semibold truncate">{reportName}.xlsx</div>
-            <div className="text-[11px] text-text-muted mt-0.5 truncate">
-              Consolidated report with per-workflow sheets · exceptions flagged · linked back to RACM controls
-            </div>
-          </div>
-          <button
-            type="button"
-            className="inline-flex items-center px-2.5 h-7 rounded-md border border-border-light bg-white text-[11.5px] font-medium text-text hover:bg-surface-2 transition-colors cursor-pointer shrink-0"
-          >
-            Rename
-          </button>
         </div>
 
         {overrides.length > 0 && (
@@ -2734,22 +3091,34 @@ function Step3ReviewExecute({
 
         <div className="mb-4">
           <div className="text-[10.5px] font-semibold uppercase tracking-wider text-text-muted mb-2">
-            Running ({active.length})
+            Workflows ({active.length})
           </div>
           <div className="rounded-xl border border-border-light bg-white divide-y divide-border-light overflow-hidden">
-            {active.map(w => (
-              <div key={w.id} className="flex items-center gap-3 px-4 py-2.5">
-                <div className="w-1.5 h-1.5 rounded-full bg-compliant shrink-0" />
-                <div className="font-mono text-[11px] text-text-muted/70 w-16 shrink-0">{w.code}</div>
-                <div className="flex-1 text-[12.5px] text-text truncate">{w.name}</div>
-                {w.hasOverrides && (
-                  <span className="inline-flex items-center px-1.5 h-5 rounded text-[9.5px] font-medium bg-mitigated-50 text-mitigated-700 border border-mitigated/30 shrink-0">
-                    overrides
-                  </span>
-                )}
-                <div className="text-[11px] text-text-muted font-mono w-16 text-right shrink-0">~{w.runtime.toFixed(1)} min</div>
+            {active.map((w, idx) => {
+              const state = workflowState(idx);
+              return (
+                <div key={w.id} className="flex items-center gap-3 px-4 py-2.5">
+                  <ExecStateIcon state={state} />
+                  <div className="font-mono text-[11px] text-text-muted/70 w-16 shrink-0">{w.code}</div>
+                  <div className={`flex-1 text-[12.5px] truncate ${state === 'done' ? 'text-text-muted' : 'text-text'}`}>
+                    {w.name}
+                  </div>
+                  {w.hasOverrides && (
+                    <span className="inline-flex items-center px-1.5 h-5 rounded text-[9.5px] font-medium bg-mitigated-50 text-mitigated-700 border border-mitigated/30 shrink-0">
+                      overrides
+                    </span>
+                  )}
+                  <div className="text-[11px] text-text-muted font-mono w-16 text-right shrink-0">~{w.runtime.toFixed(1)} min</div>
+                </div>
+              );
+            })}
+            {isRunningOrDone && (
+              <div className="flex items-center gap-3 px-4 py-2.5 bg-primary/5">
+                <ExecStateIcon state={reportState} />
+                <div className="font-mono text-[11px] text-text-muted/70 w-16 shrink-0">REPORT</div>
+                <div className="flex-1 text-[12.5px] font-medium text-text truncate">Generating Report</div>
               </div>
-            ))}
+            )}
           </div>
         </div>
 
@@ -2772,30 +3141,85 @@ function Step3ReviewExecute({
         )}
       </div>
 
+      {/* Progress bar appears while running */}
+      {isRunningOrDone && (
+        <div className="px-6 pt-3 pb-1 border-t border-border-light shrink-0">
+          <div className="flex items-center gap-3">
+            <span className="text-[11px] font-medium text-text-muted shrink-0">
+              {execState === 'done' ? 'Complete' : 'Processing'}
+            </span>
+            <div className="flex-1 h-1.5 rounded-full bg-surface-2 overflow-hidden">
+              <div
+                className="h-full bg-primary transition-all duration-500 ease-out"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+            <span className="text-[12px] font-semibold text-text shrink-0 tabular-nums">{progressPct}%</span>
+          </div>
+        </div>
+      )}
+
       <div className="px-6 py-4 border-t border-border-light flex items-center justify-between shrink-0">
         <button
           type="button"
           onClick={onBack}
-          className="px-4 h-9 rounded-md bg-white text-text border border-border text-[13px] font-semibold hover:bg-surface-2 transition-colors cursor-pointer"
+          disabled={isRunningOrDone && execState !== 'done'}
+          className="px-4 h-9 rounded-md bg-white text-text border border-border text-[13px] font-semibold hover:bg-surface-2 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Back
         </button>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onExecute}
-            disabled={active.length === 0}
-            className={`flex items-center gap-2 px-4 h-9 rounded-md text-white text-[13px] font-semibold transition-colors ${
-              active.length > 0 ? 'bg-primary hover:bg-primary-hover cursor-pointer' : 'bg-primary/40 cursor-not-allowed'
-            }`}
-          >
-            Execute Bulk Run
-            <ArrowRight size={14} />
-          </button>
+          {execState === 'idle' && (
+            <button
+              type="button"
+              onClick={startExecution}
+              disabled={active.length === 0}
+              className={`flex items-center gap-2 px-4 h-9 rounded-md text-white text-[13px] font-semibold transition-colors ${
+                active.length > 0 ? 'bg-primary hover:bg-primary-hover cursor-pointer' : 'bg-primary/40 cursor-not-allowed'
+              }`}
+            >
+              Execute Bulk Run
+              <ArrowRight size={14} />
+            </button>
+          )}
+          {(execState === 'running' || execState === 'report') && (
+            <button
+              type="button"
+              disabled
+              className="flex items-center gap-2 px-4 h-9 rounded-md text-white text-[13px] font-semibold bg-primary/60 cursor-not-allowed"
+            >
+              <Loader2 size={14} className="animate-spin" />
+              Running...
+            </button>
+          )}
+          {execState === 'done' && (
+            <button
+              type="button"
+              onClick={onExecute}
+              className="flex items-center gap-2 px-4 h-9 rounded-md bg-primary text-white text-[13px] font-semibold hover:bg-primary-hover transition-colors cursor-pointer"
+            >
+              Done
+              <Check size={14} />
+            </button>
+          )}
         </div>
       </div>
     </>
   );
+}
+
+function ExecStateIcon({ state }: { state: 'queued' | 'running' | 'done' }) {
+  if (state === 'done') {
+    return (
+      <span className="w-4 h-4 rounded-full bg-primary text-white flex items-center justify-center shrink-0">
+        <Check size={10} strokeWidth={3} />
+      </span>
+    );
+  }
+  if (state === 'running') {
+    return <Loader2 size={14} className="text-primary animate-spin shrink-0" />;
+  }
+  return <span className="w-2 h-2 rounded-full bg-text-muted/40 shrink-0 mx-1" />;
 }
 
 function Step3StatCard({

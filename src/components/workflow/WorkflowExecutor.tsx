@@ -171,9 +171,16 @@ function ConfidenceChip({ value }: { value: number }) {
 export default function WorkflowExecutor({ workflowId, onBack, onRunComplete }: WorkflowExecutorProps) {
   const workflow = EXECUTOR_WORKFLOW;
 
-  const [phase, setPhase] = useState<ExecutionPhase>('idle');
-  const [currentStep, setCurrentStep] = useState(0);
-  const [progress, setProgress] = useState(0);
+  // When the executor is opened from the Audit Logs new-tab flow, the URL
+  // carries ?state=completed — boot directly into the "complete" output view
+  // with synthetic file entries so the upload section reads as 3/3 satisfied.
+  const isPreCompleted = useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    return new URLSearchParams(window.location.search).get('state') === 'completed';
+  }, []);
+  const [phase, setPhase] = useState<ExecutionPhase>(isPreCompleted ? 'complete' : 'idle');
+  const [currentStep, setCurrentStep] = useState(isPreCompleted ? EXECUTOR_WORKFLOW.steps.length - 1 : 0);
+  const [progress, setProgress] = useState(isPreCompleted ? 100 : 0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Clarification question (pauses execution until answered)
@@ -189,7 +196,16 @@ export default function WorkflowExecutor({ workflowId, onBack, onRunComplete }: 
   const [columnMapPending, setColumnMapPending] = useState(false);
   const [alignments] = useState<JourneyAlignments>(() => seedAlignments(workflow));
 
-  const [files, setFiles] = useState<JourneyFiles>({});
+  const [files, setFiles] = useState<JourneyFiles>(() => {
+    if (!isPreCompleted) return {};
+    const seeded: JourneyFiles = {};
+    for (const input of EXECUTOR_WORKFLOW.inputs) {
+      seeded[input.id] = [
+        { name: `${input.id}.csv`, size: 1_024_000 + Math.floor(Math.random() * 4_096_000), linkedSource: false },
+      ];
+    }
+    return seeded;
+  });
   const [requiredOpen, setRequiredOpen] = useState(false);
   const [search, setSearch] = useState('');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
