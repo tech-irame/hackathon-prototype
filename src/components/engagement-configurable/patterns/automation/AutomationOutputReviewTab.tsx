@@ -70,6 +70,7 @@ export default function AutomationOutputReviewTab({ engagement, runsState, outpu
   const [showTriageForm, setShowTriageForm] = useState(false);
   const [expandedWorkflows, setExpandedWorkflows] = useState<Set<string>>(new Set());
   const [detailWorkflow, setDetailWorkflow] = useState<string | null>(null);
+  const [previewItem, setPreviewItem] = useState<{ type: 'output'; item: AutomationRunOutput } | { type: 'exception'; item: AutomationRunException } | null>(null);
 
   // Locked
   if (completedRuns.length === 0) {
@@ -280,98 +281,90 @@ export default function AutomationOutputReviewTab({ engagement, runsState, outpu
                 </div>
               </div>
 
-              {/* Expanded content */}
+              {/* Expanded content — merged outputs + exceptions */}
               {isExpanded && (
                 <div className="border-t border-border-light">
-                  {/* Outputs */}
                   <div className="px-5 py-3">
-                    <h5 className="text-[11px] font-bold text-text-muted uppercase tracking-wider mb-1 flex items-center gap-1.5">
-                      <FileText size={12} className="text-primary" />Outputs ({group.outputs.length})
-                    </h5>
-                    <p className="text-[10px] text-gray-400 mb-2">Approve outputs to include in the report. Excluded or unreviewed outputs will not appear in the final report.</p>
-                    {group.outputs.length === 0 ? (
-                      <div className="text-[11px] text-gray-400 italic py-2">No outputs generated.</div>
+                    <p className="text-[10px] text-gray-400 mb-2">Approve outputs to include in the report. Click the exceptions row to view workflow findings.</p>
+                    {group.outputs.length === 0 && group.exceptions.length === 0 ? (
+                      <div className="text-[11px] text-gray-400 italic py-2 flex items-center gap-1.5"><CheckCircle2 size={11} className="text-emerald-500" />No outputs or exceptions — clean run.</div>
                     ) : (
                       <table className="w-full text-[10px]">
                         <thead><tr className="border-b border-border-light bg-surface-2/30 text-[8px] font-semibold text-gray-400 uppercase">
-                          <th className="px-3 py-1.5 text-left">Output</th><th className="px-3 py-1.5 text-center">Type</th><th className="px-3 py-1.5 text-center">Records</th><th className="px-3 py-1.5 text-center">Status</th><th className="px-3 py-1.5 text-center">Review</th><th className="px-3 py-1.5 text-center">Action</th>
+                          <th className="px-3 py-1.5 text-left">Output / Exception</th><th className="px-3 py-1.5 text-center">Type</th><th className="px-3 py-1.5 text-center">Records</th><th className="px-3 py-1.5 text-center">Status</th><th className="px-3 py-1.5 text-center">Review</th><th className="px-3 py-1.5 text-center">Action</th>
                         </tr></thead>
-                        <tbody>{group.outputs.map(o => {
-                          const rs = getOutputReviewState(o.id);
-                          return (
-                            <tr key={o.id} className="border-b border-border-light/50">
-                              <td className="px-3 py-2"><div className="font-medium text-text">{o.name}</div><div className="text-[9px] text-gray-400">{o.description}</div></td>
-                              <td className="px-3 py-2 text-center text-gray-500">{o.outputType.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}</td>
-                              <td className="px-3 py-2 text-center tabular-nums text-gray-500">{o.recordCount || '—'}</td>
-                              <td className="px-3 py-2 text-center"><span className={`px-1.5 py-0.5 rounded text-[7px] font-bold ${o.status === 'GENERATED' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{o.status.replace(/_/g, ' ')}</span></td>
-                              <td className="px-3 py-2 text-center"><span className={`px-1.5 py-0.5 rounded text-[7px] font-bold ${outputReviewCls(rs)}`}>{rs}</span></td>
-                              <td className="px-3 py-2 text-center">
-                                <div className="flex items-center justify-center gap-1">
-                                  {rs === 'Not Reviewed' && <button onClick={() => markOutput(o.id, 'reviewed')} className="px-2 py-1 rounded text-[8px] font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 cursor-pointer transition-colors">Review</button>}
-                                  {rs !== 'Approved' && <button onClick={() => markOutput(o.id, 'approved')} className="px-2 py-1 rounded text-[8px] font-semibold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 cursor-pointer transition-colors">Approve</button>}
-                                  {rs !== 'Excluded' && <button onClick={() => markOutput(o.id, 'rejected')} className="px-2 py-1 rounded text-[8px] font-semibold text-red-500 bg-red-50 hover:bg-red-100 cursor-pointer transition-colors">Exclude</button>}
-                                  <button onClick={() => { setCommentTarget(o.id); setCommentText(outputReview.outputComments[o.id] || ''); }} className="px-2 py-1 rounded text-[8px] font-semibold text-gray-500 bg-gray-100 hover:bg-gray-200 cursor-pointer transition-colors"><Eye size={8} /></button>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}</tbody>
-                      </table>
-                    )}
-                  </div>
-
-                  {/* Exceptions */}
-                  <div className="px-5 py-3 border-t border-border-light/50">
-                    <div className="flex items-center justify-between mb-1">
-                      <h5 className="text-[11px] font-bold text-text-muted uppercase tracking-wider flex items-center gap-1.5">
-                        <AlertTriangle size={12} className="text-amber-500" />Exceptions ({group.exceptions.length})
-                      </h5>
-                      {group.exceptions.filter(e => e.status === 'OPEN').length > 0 && (
-                        <button onClick={() => { const ids = group.exceptions.filter(e => e.status === 'OPEN').map(e => e.id); setSelectedExIds(prev => { const n = new Set(prev); ids.forEach(id => n.add(id)); return n; }); }} className="text-[9px] font-semibold text-primary hover:underline cursor-pointer">Select Open</button>
-                      )}
-                    </div>
-                    <p className="text-[10px] text-gray-400 mb-2">Exceptions are workflow findings. Mark valid exceptions as case candidates for follow-up.</p>
-                    {group.exceptions.length === 0 ? (
-                      <div className="text-[11px] text-gray-400 italic py-2 flex items-center gap-1.5"><CheckCircle2 size={11} className="text-emerald-500" />No exceptions — clean run.</div>
-                    ) : (
-                      <table className="w-full text-[10px]">
-                        <thead><tr className="border-b border-border-light bg-surface-2/30 text-[8px] font-semibold text-gray-400 uppercase">
-                          <th className="px-2 py-1.5 w-6"></th>
-                          <th className="px-2 py-1.5 text-left">Exception</th>
-                          <th className="px-2 py-1.5 text-center">Severity</th>
-                          <th className="px-2 py-1.5 text-center">Category</th>
-                          <th className="px-2 py-1.5 text-left">Deficiency</th>
-                          <th className="px-2 py-1.5 text-left">Owner</th>
-                          <th className="px-2 py-1.5 text-center">Status</th>
-                          <th className="px-2 py-1.5 text-center">Action</th>
-                        </tr></thead>
-                        <tbody>{group.exceptions.map(ex => {
-                          const parentRun = completedRuns.find(r => r.exceptions.some(e => e.id === ex.id));
-                          const isChecked = selectedExIds.has(ex.id);
-                          return (
-                            <tr key={ex.id} className={`border-b border-border-light/50 ${isChecked ? 'bg-purple-50/30' : ''}`}>
-                              <td className="px-2 py-2 text-center">
-                                {ex.status === 'OPEN' && <input type="checkbox" checked={isChecked} onChange={() => toggleExSelect(ex.id)} className="w-3 h-3 rounded border-border accent-[#6a12cd] cursor-pointer" />}
-                              </td>
-                              <td className="px-2 py-2"><div className="font-medium text-text">{ex.title}</div><div className="text-[9px] text-gray-400">{ex.description.slice(0, 50)}...</div></td>
-                              <td className="px-2 py-2 text-center"><span className={`px-1.5 py-0.5 rounded text-[7px] font-bold ${EX_SEVERITY_CLS[ex.severity]}`}>{ex.severity}</span></td>
-                              <td className="px-2 py-2 text-center text-[9px] text-gray-500">{EX_CAT_LABELS[ex.category]}</td>
-                              <td className="px-2 py-2 text-[9px]">{ex.deficiencyType ? <span className={`px-1.5 py-0.5 rounded text-[7px] font-bold ${DEFICIENCY_CLS[ex.deficiencyType as DeficiencyType] || 'bg-gray-100 text-gray-600'}`}>{DEFICIENCY_LABELS[ex.deficiencyType as DeficiencyType] || ex.deficiencyType}</span> : <span className="text-gray-400">—</span>}</td>
-                              <td className="px-2 py-2 text-[9px] text-gray-500">{ex.assignedOwner || '—'}</td>
-                              <td className="px-2 py-2 text-center"><span className={`px-1.5 py-0.5 rounded text-[7px] font-bold ${EX_STATUS_CLS[ex.status]}`}>{ex.status.replace(/_/g, ' ')}</span></td>
-                              <td className="px-2 py-2 text-center">
-                                {ex.status === 'OPEN' && parentRun && (
+                        <tbody>
+                          {/* Output rows */}
+                          {group.outputs.map(o => {
+                            const rs = getOutputReviewState(o.id);
+                            return (
+                              <tr key={o.id} className="border-b border-border-light/50">
+                                <td className="px-3 py-2"><div className="font-medium text-text">{o.name}</div><div className="text-[9px] text-gray-400">{o.description}</div></td>
+                                <td className="px-3 py-2 text-center text-gray-500">{o.outputType.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}</td>
+                                <td className="px-3 py-2 text-center tabular-nums text-gray-500">{o.recordCount || '—'}</td>
+                                <td className="px-3 py-2 text-center"><span className={`px-1.5 py-0.5 rounded text-[7px] font-bold ${o.status === 'GENERATED' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{o.status.replace(/_/g, ' ')}</span></td>
+                                <td className="px-3 py-2 text-center"><span className={`px-1.5 py-0.5 rounded text-[7px] font-bold ${outputReviewCls(rs)}`}>{rs}</span></td>
+                                <td className="px-3 py-2 text-center">
                                   <div className="flex items-center justify-center gap-1">
-                                    <button onClick={() => onUpdateRunException(parentRun.id, ex.id, 'REVIEWED')} className="px-2 py-1 rounded text-[8px] font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 cursor-pointer transition-colors">Review</button>
-                                    <button onClick={() => onUpdateRunException(parentRun.id, ex.id, 'DISMISSED')} className="px-2 py-1 rounded text-[8px] font-semibold text-gray-500 bg-gray-100 hover:bg-gray-200 cursor-pointer transition-colors">Dismiss</button>
-                                    <button onClick={() => openTriageForSingle(ex.id)} className="px-2 py-1 rounded text-[8px] font-semibold text-purple-600 bg-purple-50 hover:bg-purple-100 cursor-pointer transition-colors">→ Case</button>
+                                    <button onClick={() => setPreviewItem({ type: 'output', item: o })} className="px-2 py-1 rounded text-[8px] font-semibold text-gray-500 bg-gray-100 hover:bg-gray-200 cursor-pointer transition-colors"><Eye size={8} /></button>
                                   </div>
-                                )}
-                                {ex.status !== 'OPEN' && <span className="text-[9px] text-gray-400">{ex.status.replace(/_/g, ' ')}</span>}
-                              </td>
-                            </tr>
-                          );
-                        })}</tbody>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                          {/* Exceptions expandable row */}
+                          {group.exceptions.length > 0 && (() => {
+                            const exOpen = group.exceptions.filter(e => e.status === 'OPEN').length;
+                            const isExExpanded = expandedWorkflows.has(`${group.workflowName}__ex`);
+                            const toggleExExpand = () => setExpandedWorkflows(prev => { const n = new Set(prev); const key = `${group.workflowName}__ex`; n.has(key) ? n.delete(key) : n.add(key); return n; });
+                            return (
+                              <>
+                                <tr className="border-b border-border-light/50 bg-amber-50/30 cursor-pointer hover:bg-amber-50/50 transition-colors" onClick={toggleExExpand}>
+                                  <td className="px-3 py-2.5" colSpan={6}>
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center gap-2">
+                                        {isExExpanded ? <ChevronDown size={13} className="text-amber-600" /> : <ChevronRight size={13} className="text-amber-600" />}
+                                        <AlertTriangle size={12} className="text-amber-500" />
+                                        <span className="text-[11px] font-semibold text-amber-700">{group.exceptions.length} Exception{group.exceptions.length !== 1 ? 's' : ''}</span>
+                                        {exOpen > 0 && <span className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[8px] font-bold">{exOpen} open</span>}
+                                      </div>
+                                      <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                                      </div>
+                                    </div>
+                                  </td>
+                                </tr>
+                                {isExExpanded && group.exceptions.map(ex => {
+                                  const parentRun = completedRuns.find(r => r.exceptions.some(e => e.id === ex.id));
+                                  const isChecked = selectedExIds.has(ex.id);
+                                  return (
+                                    <tr key={ex.id} className={`border-b border-border-light/50 ${isChecked ? 'bg-purple-50/30' : 'bg-surface-2/10'}`}>
+                                      <td className="px-3 py-2 pl-8">
+                                        <div className="flex items-center gap-2">
+                                          {ex.status === 'OPEN' && <input type="checkbox" checked={isChecked} onChange={() => toggleExSelect(ex.id)} className="w-3 h-3 rounded border-border accent-[#6a12cd] cursor-pointer" />}
+                                          <div><div className="font-medium text-text">{ex.title}</div><div className="text-[9px] text-gray-400">{ex.description.slice(0, 60)}...</div></div>
+                                        </div>
+                                      </td>
+                                      <td className="px-3 py-2 text-center"><span className={`px-1.5 py-0.5 rounded text-[7px] font-bold ${EX_SEVERITY_CLS[ex.severity]}`}>{ex.severity}</span></td>
+                                      <td className="px-3 py-2 text-center text-[9px] text-gray-500">{EX_CAT_LABELS[ex.category]}</td>
+                                      <td className="px-3 py-2 text-center">{ex.deficiencyType ? <span className={`px-1.5 py-0.5 rounded text-[7px] font-bold ${DEFICIENCY_CLS[ex.deficiencyType as DeficiencyType] || 'bg-gray-100 text-gray-600'}`}>{DEFICIENCY_LABELS[ex.deficiencyType as DeficiencyType] || ex.deficiencyType}</span> : <span className="text-gray-400">—</span>}</td>
+                                      <td className="px-3 py-2 text-center"><span className={`px-1.5 py-0.5 rounded text-[7px] font-bold ${EX_STATUS_CLS[ex.status]}`}>{ex.status.replace(/_/g, ' ')}</span></td>
+                                      <td className="px-3 py-2 text-center">
+                                        {ex.status === 'OPEN' && parentRun && (
+                                          <div className="flex items-center justify-center gap-1">
+                                            <button onClick={() => onUpdateRunException(parentRun.id, ex.id, 'REVIEWED')} className="px-2 py-1 rounded text-[8px] font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 cursor-pointer transition-colors">Review</button>
+                                            <button onClick={() => onUpdateRunException(parentRun.id, ex.id, 'DISMISSED')} className="px-2 py-1 rounded text-[8px] font-semibold text-gray-500 bg-gray-100 hover:bg-gray-200 cursor-pointer transition-colors">Dismiss</button>
+                                            <button onClick={() => openTriageForSingle(ex.id)} className="px-2 py-1 rounded text-[8px] font-semibold text-purple-600 bg-purple-50 hover:bg-purple-100 cursor-pointer transition-colors">→ Case</button>
+                                          </div>
+                                        )}
+                                        {ex.status !== 'OPEN' && <span className="text-[9px] text-gray-400">{ex.status.replace(/_/g, ' ')}</span>}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </>
+                            );
+                          })()}
+                        </tbody>
                       </table>
                     )}
                   </div>
@@ -382,16 +375,9 @@ export default function AutomationOutputReviewTab({ engagement, runsState, outpu
         })}
       </div>
 
-      {/* Comment panel */}
-      {commentTarget && (
-        <div className="rounded-lg border-2 border-primary/20 bg-primary/5 p-3 space-y-2">
-          <div className="flex items-center justify-between">
-            <h5 className="text-[11px] font-bold text-text">Output Comment</h5>
-            <button onClick={() => setCommentTarget(null)} className="p-1 rounded text-gray-400 hover:text-text cursor-pointer"><XCircle size={12} /></button>
-          </div>
-          <textarea value={commentText} onChange={e => setCommentText(e.target.value)} rows={2} placeholder="Add review comment..." className={inputCls + ' resize-none'} />
-          <button onClick={() => saveComment(commentTarget)} className="px-3 py-1 rounded-lg bg-primary hover:bg-primary/90 text-white text-[10px] font-semibold cursor-pointer transition-colors">Save Comment</button>
-        </div>
+      {/* Preview Modal */}
+      {previewItem && (
+        <PreviewModal item={previewItem} onClose={() => setPreviewItem(null)} />
       )}
 
       {/* Review notes */}
@@ -584,6 +570,131 @@ function WorkflowDetailPanel({ group, engagement, outputReview, completedRuns, g
           </button>
         )}
         <button onClick={onBack} className="px-3 py-1.5 rounded-lg border border-border-light text-[11px] font-medium text-text-muted hover:bg-surface-2/30 cursor-pointer transition-colors">Back to Overview</button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Preview Modal ──────────────────────────────────────────────────────
+
+function PreviewModal({ item, onClose }: {
+  item: { type: 'output'; item: AutomationRunOutput } | { type: 'exception'; item: AutomationRunException };
+  onClose: () => void;
+}) {
+  const isOutput = item.type === 'output';
+  const data = item.item;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+      <div className="relative bg-white rounded-xl shadow-2xl border border-border-light w-full max-w-lg mx-4 overflow-hidden" onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div className={`px-5 py-4 border-b border-border-light flex items-center justify-between ${isOutput ? 'bg-primary/5' : 'bg-amber-50/50'}`}>
+          <div className="flex items-center gap-2.5">
+            {isOutput ? <FileText size={16} className="text-primary" /> : <AlertTriangle size={16} className="text-amber-500" />}
+            <div>
+              <h3 className="text-[14px] font-semibold text-text">{isOutput ? (data as AutomationRunOutput).name : (data as AutomationRunException).title}</h3>
+              <span className="text-[10px] text-text-muted">{isOutput ? 'Output Preview' : 'Exception Preview'}</span>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-text cursor-pointer transition-colors"><X size={16} /></button>
+        </div>
+
+        {/* Body */}
+        <div className="px-5 py-4 space-y-4 max-h-[60vh] overflow-y-auto">
+          {isOutput ? (() => {
+            const o = data as AutomationRunOutput;
+            return (
+              <>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Description</label>
+                    <p className="text-[12px] text-text mt-0.5">{o.description || 'No description available.'}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Type</label>
+                      <p className="text-[12px] text-text mt-0.5">{o.outputType.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}</p>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Records</label>
+                      <p className="text-[12px] text-text mt-0.5 tabular-nums">{o.recordCount ?? '—'}</p>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Status</label>
+                      <p className="mt-0.5"><span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${o.status === 'GENERATED' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{o.status.replace(/_/g, ' ')}</span></p>
+                    </div>
+                    {o.sourceWorkflowName && (
+                      <div>
+                        <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Workflow</label>
+                        <p className="text-[12px] text-text mt-0.5">{o.sourceWorkflowName}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            );
+          })() : (() => {
+            const ex = data as AutomationRunException;
+            return (
+              <>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Description</label>
+                    <p className="text-[12px] text-text mt-0.5">{ex.description}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Severity</label>
+                      <p className="mt-0.5"><span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${EX_SEVERITY_CLS[ex.severity]}`}>{ex.severity}</span></p>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Category</label>
+                      <p className="text-[12px] text-text mt-0.5">{EX_CAT_LABELS[ex.category]}</p>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Status</label>
+                      <p className="mt-0.5"><span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${EX_STATUS_CLS[ex.status]}`}>{ex.status.replace(/_/g, ' ')}</span></p>
+                    </div>
+                    {ex.deficiencyType && (
+                      <div>
+                        <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Deficiency</label>
+                        <p className="mt-0.5"><span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${DEFICIENCY_CLS[ex.deficiencyType as DeficiencyType] || 'bg-gray-100 text-gray-600'}`}>{DEFICIENCY_LABELS[ex.deficiencyType as DeficiencyType] || ex.deficiencyType}</span></p>
+                      </div>
+                    )}
+                  </div>
+                  {(ex.sourceRecord || ex.sourceFile) && (
+                    <div className="rounded-lg border border-border-light bg-surface-2/20 p-3 space-y-2">
+                      <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Source Details</label>
+                      {ex.sourceRecord && <div className="text-[11px] text-text"><span className="text-gray-400 font-medium">Record:</span> {ex.sourceRecord}</div>}
+                      {ex.sourceFile && <div className="text-[11px] text-text"><span className="text-gray-400 font-medium">File:</span> {ex.sourceFile}</div>}
+                    </div>
+                  )}
+                  {ex.sourceWorkflowName && (
+                    <div>
+                      <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Workflow</label>
+                      <p className="text-[12px] text-text mt-0.5">{ex.sourceWorkflowName}</p>
+                    </div>
+                  )}
+                  {(ex.assignedOwner || ex.triageNotes) && (
+                    <div className="rounded-lg border border-purple-200 bg-purple-50/30 p-3 space-y-2">
+                      <label className="text-[10px] font-semibold text-purple-600 uppercase tracking-wide">Triage Info</label>
+                      {ex.assignedOwner && <div className="text-[11px] text-text"><span className="text-gray-400 font-medium">Owner:</span> {ex.assignedOwner}</div>}
+                      {ex.reviewer && <div className="text-[11px] text-text"><span className="text-gray-400 font-medium">Reviewer:</span> {ex.reviewer}</div>}
+                      {ex.dueDate && <div className="text-[11px] text-text"><span className="text-gray-400 font-medium">Due:</span> {ex.dueDate}</div>}
+                      {ex.triageNotes && <div className="text-[11px] text-text"><span className="text-gray-400 font-medium">Notes:</span> {ex.triageNotes}</div>}
+                    </div>
+                  )}
+                </div>
+              </>
+            );
+          })()}
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-3 border-t border-border-light bg-surface-2/20 flex justify-end">
+          <button onClick={onClose} className="px-4 py-1.5 rounded-lg border border-border-light text-[11px] font-medium text-text-muted hover:bg-white cursor-pointer transition-colors">Close</button>
+        </div>
       </div>
     </div>
   );
